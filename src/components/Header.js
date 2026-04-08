@@ -7,7 +7,7 @@ export default function Header() {
     <header className="header">
       <div className="header-inner">
         <Link href="/" className="header-logo">
-          Prior<span className="header-logo-accent">Salus</span>
+          Med<span className="header-logo-accent">Connect</span>
         </Link>
 
         <div className="header-right">

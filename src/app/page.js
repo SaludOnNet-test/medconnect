@@ -92,7 +92,7 @@ export default function HomePage() {
           </p>
           <div className="home-plus-banner animate-fade-in-up">
             <div className="home-plus-content" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center', backgroundColor: 'var(--gold-light)', padding: 'var(--space-lg)', borderRadius: 'var(--radius-lg)', border: '1px solid var(--gold)' }}>
-              <h2 style={{ fontSize: '2rem', marginBottom: 'var(--space-sm)', color: 'var(--navy)' }}>Prior<span style={{ color: 'var(--gold)' }}>Salus</span> Plus</h2>
+              <h2 style={{ fontSize: '2rem', marginBottom: 'var(--space-sm)', color: 'var(--navy)' }}>Med<span style={{ color: 'var(--gold)' }}>Connect</span> Plus</h2>
               <p style={{ marginBottom: 'var(--space-md)', color: 'var(--navy)', fontWeight: '500', maxWidth: '600px' }}>
                 Únete al club de salud más exclusivo. Videoconsulta ilimitada y prioridad máxima en citas presenciales para el titular.
               </p>

@@ -5,7 +5,7 @@ export default function Footer() {
     <footer className="footer">
       <div className="footer-inner">
         <div className="footer-brand">
-          Prior<span>Salus</span>
+          Med<span>Connect</span>
         </div>
         <div className="footer-links">
           <a href="#">Política de Privacidad</a>

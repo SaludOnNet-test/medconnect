@@ -10,7 +10,7 @@ export default function SuscripcionPage() {
       <main className="suscripcion-page">
         <section className="suscripcion-hero">
           <div className="container">
-            <h1 className="suscripcion-title">Prior<span>Salus</span> Plus</h1>
+            <h1 className="suscripcion-title">Med<span>Connect</span> Plus</h1>
             <p className="suscripcion-subtitle">
               La forma más inteligente y exclusiva de cuidar tu salud. Prioridad total inmediata y servicios digitales ilimitados.
             </p>
