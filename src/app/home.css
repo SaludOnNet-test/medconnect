@@ -1,0 +1,183 @@
+.home-hero {
+  padding: var(--space-3xl) 0 var(--space-2xl);
+  text-align: center;
+}
+
+.home-search-section {
+  max-width: 900px;
+  margin: 0 auto var(--space-2xl);
+}
+
+.home-tagline {
+  font-size: 0.8rem;
+  text-transform: uppercase;
+  letter-spacing: 0.15em;
+  color: var(--gold);
+  font-weight: 600;
+  margin-bottom: var(--space-sm);
+}
+
+.home-heading {
+  font-size: 2.8rem;
+  color: var(--navy);
+  margin-bottom: var(--space-md);
+  line-height: 1.15;
+}
+
+.home-subheading {
+  font-size: 1.05rem;
+  color: var(--muted);
+  max-width: 600px;
+  margin: 0 auto var(--space-xl);
+  line-height: 1.6;
+}
+
+/* Value pillars */
+.home-pillars {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: var(--space-xl);
+  max-width: 900px;
+  margin: 0 auto;
+  padding: var(--space-2xl) 0;
+}
+
+.home-pillar {
+  text-align: center;
+  padding: var(--space-xl) var(--space-lg);
+}
+
+.home-pillar-icon {
+  font-size: 2rem;
+  margin-bottom: var(--space-md);
+  display: block;
+}
+
+.home-pillar-title {
+  font-family: var(--font-heading);
+  font-size: 1.1rem;
+  color: var(--navy);
+  margin-bottom: var(--space-sm);
+}
+
+.home-pillar-desc {
+  font-size: 0.85rem;
+  color: var(--muted);
+  line-height: 1.6;
+}
+
+/* Pricing legend */
+.home-pricing {
+  background: var(--white);
+  border-radius: var(--radius-xl);
+  border: 1px solid var(--border);
+  padding: var(--space-xl) var(--space-2xl);
+  max-width: 700px;
+  margin: 0 auto var(--space-2xl);
+  box-shadow: var(--shadow-sm);
+}
+
+.home-pricing-title {
+  font-family: var(--font-heading);
+  font-size: 1.2rem;
+  text-align: center;
+  margin-bottom: var(--space-lg);
+  color: var(--navy);
+}
+
+.home-pricing-tiers {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: var(--space-md);
+}
+
+.home-pricing-tier {
+  text-align: center;
+  padding: var(--space-md);
+  border-radius: var(--radius-md);
+}
+
+.home-pricing-tier-price {
+  font-family: var(--font-heading);
+  font-size: 1.6rem;
+  font-weight: 700;
+  margin-bottom: 4px;
+}
+
+.home-pricing-tier-label {
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--muted);
+}
+
+.tier-urgent-card {
+  background: var(--tier-urgent-bg);
+}
+
+.tier-urgent-card .home-pricing-tier-price {
+  color: var(--tier-urgent);
+}
+
+.tier-soon-card {
+  background: var(--tier-soon-bg);
+}
+
+.tier-soon-card .home-pricing-tier-price {
+  color: var(--tier-soon);
+}
+
+.tier-standard-card {
+  background: var(--tier-standard-bg);
+}
+
+.tier-standard-card .home-pricing-tier-price {
+  color: var(--tier-standard);
+}
+
+.tier-free-card {
+  background: var(--tier-free-bg);
+}
+
+.tier-free-card .home-pricing-tier-price {
+  color: var(--tier-free);
+}
+
+/* Trust */
+.home-trust {
+  text-align: center;
+  padding: var(--space-2xl) 0;
+  border-top: 1px solid var(--border);
+}
+
+.home-trust-label {
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  color: var(--muted);
+  margin-bottom: var(--space-lg);
+  font-weight: 600;
+}
+
+.home-trust-logos {
+  display: flex;
+  justify-content: center;
+  gap: var(--space-2xl);
+  flex-wrap: wrap;
+  font-size: 0.85rem;
+  color: var(--muted);
+  font-weight: 600;
+}
+
+@media (max-width: 768px) {
+  .home-heading {
+    font-size: 1.8rem;
+  }
+
+  .home-pillars {
+    grid-template-columns: 1fr;
+  }
+
+  .home-pricing-tiers {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}

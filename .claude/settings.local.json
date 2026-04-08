@@ -1,0 +1,15 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(vercel --prod --yes)",
+      "Bash(npm run:*)",
+      "Bash(vercel deploy:*)",
+      "Bash(vercel --prod)",
+      "Bash(npm install:*)",
+      "Bash($css = @':*)",
+      "Bash(Add-Content -Path \"C:\\\\Users\\\\francisco.pizarro\\\\OneDrive - Saludonnet Spain SL\\\\Documents\\\\SON\\\\Tecnologia\\\\IA - Mejoras SON\\\\Venta de citas a asegurados\\\\prioritamed\\\\src\\\\app\\\\book\\\\book.css\" -Value $css)",
+      "Bash(mkdir -p \"C:\\\\Users\\\\francisco.pizarro\\\\OneDrive - Saludonnet Spain SL\\\\Documents\\\\SON\\\\Tecnologia\\\\IA - Mejoras SON\\\\Venta de citas a asegurados\\\\prioritamed\\\\src\\\\app\\\\sign-in\\\\[[...sign-in]]\")",
+      "Bash(mkdir -p \"C:\\\\Users\\\\francisco.pizarro\\\\OneDrive - Saludonnet Spain SL\\\\Documents\\\\SON\\\\Tecnologia\\\\IA - Mejoras SON\\\\Venta de citas a asegurados\\\\prioritamed\\\\src\\\\app\\\\sign-up\\\\[[...sign-up]]\")"
+    ]
+  }
+}

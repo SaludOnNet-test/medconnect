@@ -1,0 +1,147 @@
+.suscripcion-page {
+  padding-bottom: var(--space-xl);
+  background-color: var(--white);
+}
+
+.suscripcion-hero {
+  background: linear-gradient(135deg, var(--navy) 0%, #1a2a44 100%);
+  color: var(--white);
+  padding: 5rem 0 4rem 0;
+  text-align: center;
+  margin-bottom: var(--space-xl);
+}
+
+.suscripcion-title {
+  font-size: 3rem;
+  margin-bottom: var(--space-md);
+  font-weight: 800;
+}
+
+.suscripcion-title span {
+  color: var(--gold);
+}
+
+.suscripcion-subtitle {
+  font-size: 1.25rem;
+  max-width: 800px;
+  margin: 0 auto;
+  opacity: 0.9;
+  line-height: 1.6;
+}
+
+.suscripcion-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(350px, 1fr));
+  gap: var(--space-xl);
+  max-width: 1000px;
+  margin: 0 auto;
+}
+
+.suscripcion-card {
+  background: var(--white);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  padding: var(--space-xl);
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  transition: transform 0.3s ease, box-shadow 0.3s ease;
+}
+
+.suscripcion-card:hover {
+  transform: translateY(-5px);
+  box-shadow: var(--shadow-lg);
+}
+
+.suscripcion-card.featured {
+  border: 2px solid var(--gold);
+  background: #fffdf9;
+}
+
+.suscripcion-card-badge {
+  position: absolute;
+  top: -15px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: var(--gold);
+  color: var(--navy);
+  padding: 4px 16px;
+  border-radius: var(--radius-pill);
+  font-size: 0.75rem;
+  font-weight: 800;
+  letter-spacing: 0.05em;
+}
+
+.suscripcion-card-header {
+  text-align: center;
+  margin-bottom: var(--space-lg);
+  padding-bottom: var(--space-lg);
+  border-bottom: 1px solid var(--border);
+}
+
+.suscripcion-card-header h3 {
+  font-size: 1.5rem;
+  color: var(--navy);
+  margin-bottom: var(--space-sm);
+}
+
+.suscripcion-price {
+  font-size: 3.5rem;
+  font-weight: 800;
+  color: var(--navy);
+  line-height: 1;
+}
+
+.suscripcion-price span {
+  font-size: 1rem;
+  color: var(--muted);
+  font-weight: 400;
+}
+
+.suscripcion-note {
+  font-size: 0.85rem;
+  color: var(--muted);
+  margin-top: var(--space-xs);
+}
+
+.suscripcion-features {
+  list-style: none;
+  padding: 0;
+  margin-bottom: var(--space-xl);
+  flex-grow: 1;
+}
+
+.suscripcion-features li {
+  margin-bottom: var(--space-md);
+  font-size: 1rem;
+  color: var(--navy);
+}
+
+.suscripcion-faq {
+  margin-top: var(--space-xl);
+  padding-top: var(--space-xl);
+  border-top: 1px solid var(--border);
+}
+
+.suscripcion-faq h2 {
+  text-align: center;
+  margin-bottom: var(--space-xl);
+  color: var(--navy);
+}
+
+.faq-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(400px, 1fr));
+  gap: var(--space-xl);
+}
+
+.faq-item h4 {
+  font-size: 1.1rem;
+  color: var(--navy);
+  margin-bottom: var(--space-sm);
+}
+
+.faq-item p {
+  color: var(--muted);
+  line-height: 1.6;
+}

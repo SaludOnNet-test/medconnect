@@ -1,0 +1,369 @@
+.book-page {
+  padding: var(--space-2xl) 0;
+}
+
+.book-container {
+  max-width: 640px;
+  margin: 0 auto;
+  padding: 0 var(--space-lg);
+}
+
+.book-header {
+  text-align: center;
+  margin-bottom: var(--space-2xl);
+}
+
+.book-step-label {
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  color: var(--gold);
+  font-weight: 600;
+  margin-bottom: var(--space-sm);
+}
+
+.book-title {
+  font-family: var(--font-heading);
+  font-size: 1.8rem;
+  color: var(--navy);
+}
+
+/* Booking summary card */
+.book-summary-card {
+  background: var(--bg-subtle);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  padding: var(--space-lg);
+  margin-bottom: var(--space-xl);
+}
+
+.book-summary-provider {
+  font-family: var(--font-heading);
+  font-size: 1.1rem;
+  color: var(--navy);
+  margin-bottom: var(--space-sm);
+}
+
+.book-summary-details {
+  display: flex;
+  gap: var(--space-xl);
+  font-size: 0.85rem;
+  color: var(--muted);
+}
+
+.book-summary-details strong {
+  color: var(--navy);
+}
+
+/* Form */
+.book-form {
+  background: var(--white);
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--border);
+  padding: var(--space-xl);
+  box-shadow: var(--shadow-sm);
+  margin-bottom: var(--space-xl);
+}
+
+.book-form-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--space-md);
+  margin-bottom: var(--space-lg);
+}
+
+.book-form-full {
+  grid-column: 1 / -1;
+}
+
+/* Insurance toggle */
+.book-insurance-toggle {
+  display: flex;
+  gap: var(--space-md);
+  margin-top: var(--space-sm);
+}
+
+.book-insurance-option {
+  flex: 1;
+  padding: var(--space-md);
+  border: 2px solid var(--border);
+  border-radius: var(--radius-md);
+  text-align: center;
+  cursor: pointer;
+  transition: all var(--transition-fast);
+  font-size: 0.9rem;
+  font-weight: 600;
+}
+
+.book-insurance-option:hover {
+  border-color: var(--gold);
+}
+
+.book-insurance-option.active {
+  border-color: var(--gold);
+  background: var(--gold-light);
+  color: var(--navy);
+}
+
+/* Price breakdown */
+.book-price-breakdown {
+  background: var(--white);
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--border);
+  padding: var(--space-xl);
+  box-shadow: var(--shadow-sm);
+  margin-bottom: var(--space-xl);
+}
+
+.book-price-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: var(--space-sm) 0;
+  font-size: 0.9rem;
+}
+
+.book-price-row.total {
+  border-top: 2px solid var(--border);
+  margin-top: var(--space-md);
+  padding-top: var(--space-md);
+  font-size: 1.1rem;
+  font-weight: 700;
+  font-family: var(--font-heading);
+}
+
+.book-price-row.total .book-price-amount {
+  color: var(--gold-hover);
+  font-size: 1.4rem;
+}
+
+.book-price-label {
+  color: var(--muted);
+}
+
+.book-price-amount {
+  font-weight: 600;
+  color: var(--navy);
+}
+
+.book-price-free {
+  color: var(--success);
+}
+
+/* Action */
+.book-actions {
+  text-align: center;
+}
+
+.book-actions .btn {
+  width: 100%;
+  max-width: 400px;
+  padding: 1rem 2rem;
+  font-size: 1rem;
+}
+
+/* Confirmation */
+.book-confirmation {
+  text-align: center;
+  padding: var(--space-3xl) var(--space-lg);
+  animation: fadeInUp 0.5s ease;
+}
+
+.book-confirmation-icon {
+  font-size: 4rem;
+  margin-bottom: var(--space-lg);
+  animation: pulse 1s ease 0.3s;
+}
+
+.book-confirmation h2 {
+  font-family: var(--font-heading);
+  font-size: 1.8rem;
+  color: var(--navy);
+  margin-bottom: var(--space-md);
+}
+
+.book-confirmation p {
+  color: var(--muted);
+  max-width: 400px;
+  margin: 0 auto var(--space-xl);
+}
+
+.book-confirmation-ref {
+  display: inline-block;
+  background: var(--bg-subtle);
+  border: 1px solid var(--border);
+  padding: var(--space-sm) var(--space-lg);
+  border-radius: var(--radius-md);
+  font-family: monospace;
+  font-size: 0.9rem;
+  color: var(--navy);
+  margin-bottom: var(--space-xl);
+}
+
+@media (max-width: 768px) {
+  .book-form-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .book-summary-details {
+    flex-direction: column;
+    gap: var(--space-sm);
+  }
+}
+
+/* Med Connect Plus Upsell */
+.book-upsell-card {
+  background: white;
+  border: 2px solid var(--gold);
+  border-radius: var(--radius-lg);
+  padding: var(--space-lg);
+  margin-bottom: var(--space-xl);
+  box-shadow: var(--shadow-sm);
+}
+
+.book-upsell-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: var(--space-sm);
+}
+
+.book-upsell-header h3 {
+  font-size: 1.1rem;
+  color: var(--navy);
+  margin: 0;
+}
+
+.book-upsell-badge {
+  background: var(--gold);
+  color: var(--navy);
+  font-size: 0.65rem;
+  font-weight: 800;
+  padding: 2px 8px;
+  border-radius: var(--radius-pill);
+}
+
+.book-upsell-card p {
+  font-size: 0.85rem;
+  color: var(--muted);
+  margin-bottom: var(--space-md);
+}
+
+.book-upsell-options {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--space-md);
+  margin-bottom: var(--space-md);
+}
+
+.book-upsell-option {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: var(--space-md);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.book-upsell-option:hover {
+  background: var(--bg-subtle);
+  border-color: var(--gold);
+}
+
+.book-upsell-option.active {
+  background: var(--gold-light);
+  border-color: var(--gold);
+}
+
+.book-upsell-option input {
+  margin-top: 4px;
+}
+
+.upsell-option-info {
+  display: flex;
+  flex-direction: column;
+  text-align: left;
+}
+
+.upsell-option-info strong {
+  font-size: 0.9rem;
+  color: var(--navy);
+}
+
+.upsell-option-info span {
+  font-size: 0.75rem;
+  color: var(--muted);
+}
+
+/* ═══════════════════════════════════════
+   PAYMENT FORM
+═══════════════════════════════════════ */
+.payment-wrapper { display: flex; flex-direction: column; gap: var(--space-lg); }
+.payment-summary-bar { display: flex; justify-content: space-between; align-items: center; background: var(--navy); color: #fff; border-radius: var(--radius-lg); padding: var(--space-md) var(--space-xl); }
+.payment-summary-left { display: flex; flex-direction: column; gap: 2px; }
+.payment-summary-provider { font-weight: 700; font-size: 0.95rem; }
+.payment-summary-slot { font-size: 0.8rem; opacity: 0.75; }
+.payment-summary-amount { font-size: 1.5rem; font-weight: 800; color: var(--gold); }
+.payment-card { background: #fff; border: 1px solid var(--border); border-radius: var(--radius-xl); box-shadow: 0 4px 20px rgba(0,0,0,0.08); overflow: hidden; }
+.payment-card-inner { padding: var(--space-xl); }
+.payment-card-brand { display: flex; align-items: center; gap: var(--space-sm); margin-bottom: var(--space-xl); padding-bottom: var(--space-md); border-bottom: 1px solid var(--border); }
+.payment-lock-icon { font-size: 1.1rem; }
+.payment-secure-label { font-size: 0.85rem; font-weight: 700; color: var(--navy); }
+.payment-cards-label { font-size: 0.75rem; color: var(--muted); margin-left: auto; }
+.payment-field { margin-bottom: var(--space-md); }
+.payment-field-row { display: grid; grid-template-columns: 1fr 1fr; gap: var(--space-md); margin-bottom: var(--space-md); }
+.payment-label { display: block; font-size: 0.75rem; font-weight: 600; color: var(--navy); text-transform: uppercase; letter-spacing: 0.06em; margin-bottom: 6px; }
+.payment-input { width: 100%; padding: 12px 14px; border: 1.5px solid var(--border); border-radius: var(--radius-md); font-size: 1rem; font-family: 'Courier New', monospace; color: var(--text); background: #fafafa; transition: border-color 0.2s; box-sizing: border-box; }
+.payment-input:focus { outline: none; border-color: var(--navy); background: #fff; }
+.payment-input-card { letter-spacing: 0.1em; }
+.payment-submit-btn { width: 100%; padding: 16px; background: var(--navy); color: #fff; border: none; border-radius: var(--radius-md); font-size: 1.05rem; font-weight: 700; cursor: pointer; margin-top: var(--space-md); transition: opacity 0.2s; display: flex; align-items: center; justify-content: center; gap: 10px; }
+.payment-submit-btn:disabled { opacity: 0.7; cursor: not-allowed; }
+.payment-loading { display: flex; align-items: center; gap: 10px; }
+.payment-spinner { width: 18px; height: 18px; border: 2px solid rgba(255,255,255,0.3); border-top-color: #fff; border-radius: 50%; animation: payment-spin 0.8s linear infinite; }
+@keyframes payment-spin { to { transform: rotate(360deg); } }
+.payment-legal { font-size: 0.75rem; color: var(--muted); text-align: center; margin-top: var(--space-md); margin-bottom: var(--space-sm); }
+.payment-back-link { display: block; width: 100%; text-align: center; background: none; border: none; color: var(--muted); font-size: 0.85rem; cursor: pointer; padding: var(--space-sm); text-decoration: underline; }
+.payment-back-link:hover { color: var(--navy); }
+
+/* ═══════════════════════════════════════
+   SUCCESS STATE
+═══════════════════════════════════════ */
+.book-success { text-align: center; padding: var(--space-xl) 0; }
+.book-success-icon { width: 80px; height: 80px; background: #10b981; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 2.5rem; color: #fff; margin: 0 auto var(--space-lg); font-weight: 800; animation: success-pop 0.5s cubic-bezier(0.34,1.56,0.64,1); }
+@keyframes success-pop { from { transform: scale(0); opacity: 0; } to { transform: scale(1); opacity: 1; } }
+.book-success-title { font-family: var(--font-heading); font-size: 2rem; color: var(--navy); margin-bottom: var(--space-sm); }
+.book-success-subtitle { color: var(--muted); font-size: 0.95rem; margin-bottom: var(--space-lg); }
+.book-success-calendar-btn { text-decoration: none; }
+.book-info-box { padding: var(--space-md) var(--space-lg); background: #f0f4f8; border-radius: var(--radius-md); border: 1px solid var(--border); font-size: 0.85rem; color: var(--navy); text-align: left; }
+.book-info-box--green { background: #e6f4ea; border-color: #bbf7d0; color: #1e4620; }
+
+.book-upsell-remove {
+  background: none;
+  border: none;
+  color: var(--muted);
+  font-size: 0.8rem;
+  text-decoration: underline;
+  cursor: pointer;
+  padding: 0;
+}
+
+.book-upsell-remove:hover {
+  color: var(--navy);
+}
+
+/* Price strike-through */
+.book-price-struck {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+}
+
+.struck-price {
+  text-decoration: line-through;
+  color: var(--muted);
+  font-size: 0.75rem;
+  margin-bottom: -2px;
+}
+

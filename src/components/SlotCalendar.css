@@ -1,0 +1,306 @@
+.slot-calendar {
+  margin-top: var(--space-md);
+}
+
+.slot-calendar-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: var(--space-sm);
+}
+
+.slot-calendar-title {
+  font-size: 0.8rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--muted);
+}
+
+.slot-calendar-nav {
+  display: flex;
+  gap: var(--space-xs);
+}
+
+.slot-calendar-nav button {
+  background: var(--bg-subtle);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  width: 28px;
+  height: 28px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  font-size: 0.75rem;
+  color: var(--navy);
+  transition: all var(--transition-fast);
+}
+
+.slot-calendar-nav button:hover {
+  background: var(--gold-light);
+  border-color: var(--gold);
+}
+
+.slot-days-grid {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 8px;
+  overflow: hidden;
+}
+
+.slot-day {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  padding: 6px 10px;
+  border-radius: var(--radius-md);
+  border: 1.5px solid var(--border);
+  cursor: pointer;
+  transition: all var(--transition-fast);
+  min-width: 58px;
+  background: var(--white);
+}
+
+.slot-day:hover {
+  border-color: var(--gold);
+  transform: translateY(-1px);
+}
+
+.slot-day.selected {
+  border-color: var(--gold);
+  background: var(--gold-light);
+}
+
+.slot-day-name {
+  font-size: 0.65rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--muted);
+  font-weight: 600;
+}
+
+.slot-day-number {
+  font-size: 1rem;
+  font-weight: 700;
+  color: var(--navy);
+}
+
+.slot-day-price {
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: var(--navy);
+}
+
+.slot-day-pricing {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1px;
+  width: 100%;
+}
+
+.slot-price-split {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  font-weight: 800;
+}
+
+.price-service {
+  font-size: 0.75rem;
+  color: var(--navy);
+}
+
+.price-plus {
+  font-size: 0.6rem;
+  color: var(--muted);
+}
+
+.price-fee {
+  font-size: 0.75rem;
+}
+
+.slot-urgency-label {
+  font-size: 0.55rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
+  opacity: 0.8;
+}
+
+/* Tiers Colors */
+.slot-day.tier-urgent_green .price-fee,
+.slot-day.tier-urgent_green .slot-day-price {
+  color: var(--tier-urgent-green);
+}
+.slot-day.tier-urgent_green .slot-urgency-label {
+  color: var(--tier-urgent-green);
+}
+
+.slot-day.tier-soon_green .price-fee,
+.slot-day.tier-soon_green .slot-day-price {
+  color: var(--tier-soon-green);
+}
+.slot-day.tier-soon_green .slot-urgency-label {
+  color: var(--tier-soon-green);
+}
+
+.slot-day.tier-standard_black .price-fee,
+.slot-day.tier-standard_black .slot-day-price {
+  color: var(--tier-standard-black);
+}
+.slot-day.tier-standard_black .slot-urgency-label {
+  color: var(--tier-standard-black);
+}
+
+.slot-day.tier-free .slot-day-price,
+.slot-day.tier-free .slot-urgency-label {
+  color: var(--muted);
+}
+
+
+/* Time slots Accordion */
+.slot-times-accordion {
+  grid-column: 1 / -1; /* spans all 5 columns */
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding: var(--space-md);
+  margin-top: -4px;
+  margin-bottom: var(--space-sm);
+  background: var(--bg-subtle);
+  border-radius: var(--radius-md);
+  border: 1px solid var(--border);
+  animation: slideDown 0.25s ease;
+}
+
+.slot-time {
+  padding: 6px 14px;
+  border-radius: var(--radius-pill);
+  border: 1.5px solid var(--border);
+  background: var(--white);
+  font-size: 0.8rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all var(--transition-fast);
+  color: var(--navy);
+}
+
+.slot-time:hover {
+  border-color: var(--gold);
+  background: var(--gold-light);
+  transform: translateY(-1px);
+}
+
+.slot-time.selected {
+  background: var(--gold);
+  color: var(--white);
+  border-color: var(--gold);
+}
+
+.slot-no-times {
+  font-size: 0.8rem;
+  color: var(--muted);
+  padding: var(--space-sm) 0;
+}
+
+/* Mobile sticky booking bar */
+.slot-sticky-bar {
+  display: none; /* hidden on desktop */
+}
+
+@media (max-width: 768px) {
+  .slot-sticky-bar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    z-index: 100;
+    background: var(--navy);
+    color: var(--white);
+    padding: 14px 16px;
+    box-shadow: 0 -4px 20px rgba(0,0,0,0.2);
+    animation: slideUp 0.25s ease;
+  }
+
+  @keyframes slideUp {
+    from { transform: translateY(100%); opacity: 0; }
+    to { transform: translateY(0); opacity: 1; }
+  }
+
+  .slot-sticky-info {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    flex: 1;
+    min-width: 0;
+  }
+
+  .slot-sticky-date {
+    font-size: 0.8rem;
+    font-weight: 700;
+    text-transform: capitalize;
+    opacity: 0.85;
+  }
+
+  .slot-sticky-times {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+  }
+
+  .slot-sticky-time-pill {
+    padding: 4px 10px;
+    border-radius: 20px;
+    border: 1.5px solid rgba(255,255,255,0.4);
+    background: transparent;
+    color: var(--white);
+    font-size: 0.75rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.15s ease;
+  }
+
+  .slot-sticky-time-pill.selected {
+    background: var(--gold);
+    border-color: var(--gold);
+    color: var(--navy);
+  }
+
+  .slot-sticky-actions {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    gap: 4px;
+    flex-shrink: 0;
+  }
+
+  .slot-sticky-fee {
+    font-size: 0.9rem;
+    font-weight: 800;
+    color: var(--gold);
+  }
+
+  .slot-sticky-book-btn {
+    padding: 10px 18px;
+    background: var(--gold);
+    color: var(--navy);
+    border: none;
+    border-radius: 8px;
+    font-weight: 700;
+    font-size: 0.85rem;
+    cursor: pointer;
+    transition: opacity 0.2s ease;
+  }
+
+  .slot-sticky-book-btn:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+  }
+}

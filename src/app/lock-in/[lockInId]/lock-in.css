@@ -1,0 +1,279 @@
+.lock-in-page {
+  background: var(--bg-subtle, #f9f9f9);
+  min-height: calc(100vh - 80px);
+  padding: var(--space-2xl, 2rem) 0;
+}
+
+.lock-in-container {
+  max-width: 600px;
+  margin: 0 auto;
+  padding: 0 var(--space-lg, 1.5rem);
+}
+
+/* Header */
+.lock-in-header {
+  text-align: center;
+  margin-bottom: var(--space-3xl, 3rem);
+  animation: fadeInDown 0.5s ease;
+}
+
+@keyframes fadeInDown {
+  from {
+    opacity: 0;
+    transform: translateY(-20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.lock-in-title-section {
+  margin-bottom: var(--space-xl, 1.5rem);
+}
+
+.lock-in-title {
+  font-size: 2rem;
+  font-weight: 700;
+  color: var(--navy, #1a1a1a);
+  margin: 0 0 var(--space-md, 1rem) 0;
+}
+
+.lock-in-subtitle {
+  font-size: 1rem;
+  color: var(--muted, #666);
+  margin: 0;
+}
+
+/* Content */
+.lock-in-content {
+  animation: fadeInUp 0.5s ease 0.1s both;
+}
+
+@keyframes fadeInUp {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Referral Details Card */
+.referral-details-card {
+  background: white;
+  border: 1px solid var(--border, #e0e0e0);
+  border-radius: var(--radius-lg, 12px);
+  padding: var(--space-xl, 1.5rem);
+  margin-bottom: var(--space-xl, 1.5rem);
+  box-shadow: var(--shadow-sm, 0 2px 8px rgba(0, 0, 0, 0.1));
+}
+
+.referral-details-card h2 {
+  font-size: 1.1rem;
+  color: var(--navy, #1a1a1a);
+  margin: 0 0 var(--space-lg, 1.5rem) 0;
+  font-weight: 700;
+}
+
+.details-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: var(--space-lg, 1.5rem);
+}
+
+.detail-item {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-xs, 0.5rem);
+}
+
+.detail-label {
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--muted, #666);
+  font-weight: 600;
+}
+
+.detail-value {
+  font-size: 0.95rem;
+  color: var(--navy, #1a1a1a);
+  font-weight: 600;
+}
+
+.detail-value.highlight {
+  color: var(--gold, #d4a573);
+  font-size: 1.1rem;
+}
+
+/* Form */
+.lock-in-form {
+  background: white;
+  border: 1px solid var(--border, #e0e0e0);
+  border-radius: var(--radius-lg, 12px);
+  padding: var(--space-xl, 1.5rem);
+  box-shadow: var(--shadow-sm, 0 2px 8px rgba(0, 0, 0, 0.1));
+}
+
+.lock-in-form h2 {
+  font-size: 1.1rem;
+  color: var(--navy, #1a1a1a);
+  margin: 0 0 var(--space-lg, 1.5rem) 0;
+  font-weight: 700;
+}
+
+.form-group {
+  margin-bottom: var(--space-lg, 1.5rem);
+}
+
+.form-group label {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: var(--navy, #1a1a1a);
+  margin-bottom: var(--space-sm, 0.75rem);
+}
+
+.required {
+  font-size: 0.75rem;
+  color: #f44336;
+  font-weight: 400;
+}
+
+.form-input {
+  width: 100%;
+  padding: var(--space-md, 1rem);
+  border: 2px solid var(--border, #e0e0e0);
+  border-radius: var(--radius-md, 8px);
+  font-size: 0.95rem;
+  font-family: inherit;
+  transition: border-color 0.3s ease;
+}
+
+.form-input:focus {
+  outline: none;
+  border-color: var(--emerald, #00a8e8);
+  box-shadow: 0 0 0 3px rgba(0, 168, 232, 0.1);
+}
+
+/* Checkbox Group */
+.form-group.checkbox {
+  margin-bottom: var(--space-xl, 1.5rem);
+}
+
+.form-group.checkbox input[type='checkbox'] {
+  margin-right: var(--space-md, 1rem);
+  width: 20px;
+  height: 20px;
+  cursor: pointer;
+  accent-color: var(--emerald, #00a8e8);
+}
+
+.form-group.checkbox label {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-md, 1rem);
+  margin-bottom: 0;
+  font-size: 0.9rem;
+  font-weight: 500;
+}
+
+/* Button */
+.btn-large {
+  width: 100%;
+  padding: var(--space-lg, 1.5rem);
+  font-size: 1rem;
+  margin-bottom: var(--space-md, 1rem);
+}
+
+.form-note {
+  text-align: center;
+  font-size: 0.8rem;
+  color: var(--muted, #666);
+  margin: 0;
+}
+
+/* Loading State */
+.loading-spinner {
+  text-align: center;
+  padding: var(--space-3xl, 3rem);
+  font-size: 1.1rem;
+  color: var(--muted, #666);
+}
+
+/* Error State */
+.error-state {
+  background: white;
+  border: 1px solid #f5a5a5;
+  border-radius: var(--radius-lg, 12px);
+  padding: var(--space-3xl, 3rem);
+  text-align: center;
+  box-shadow: var(--shadow-sm, 0 2px 8px rgba(244, 67, 54, 0.1));
+}
+
+.error-icon {
+  font-size: 4rem;
+  margin-bottom: var(--space-lg, 1.5rem);
+  line-height: 1;
+}
+
+.error-state h1 {
+  font-size: 1.5rem;
+  color: var(--navy, #1a1a1a);
+  margin: 0 0 var(--space-md, 1rem) 0;
+}
+
+.error-state p {
+  color: var(--muted, #666);
+  margin: 0 0 var(--space-lg, 1.5rem) 0;
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+  .lock-in-page {
+    padding: var(--space-lg, 1.5rem) 0;
+  }
+
+  .lock-in-title {
+    font-size: 1.5rem;
+  }
+
+  .details-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .referral-details-card,
+  .lock-in-form {
+    padding: var(--space-lg, 1.5rem);
+  }
+
+  .form-group label {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .required {
+    margin-top: var(--space-xs, 0.25rem);
+  }
+
+  .form-group.checkbox label {
+    flex-direction: row;
+  }
+
+  .error-state {
+    padding: var(--space-lg, 1.5rem);
+  }
+
+  .error-icon {
+    font-size: 3rem;
+  }
+
+  .error-state h1 {
+    font-size: 1.2rem;
+  }
+}

@@ -1,0 +1,125 @@
+.provider-card {
+  background: var(--white);
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--border);
+  padding: var(--space-lg);
+  box-shadow: var(--shadow-sm);
+  transition: all var(--transition-base);
+  animation: fadeInUp 0.4s ease both;
+}
+
+.provider-card:hover {
+  box-shadow: var(--shadow-md);
+  border-color: var(--border-dark);
+}
+
+.provider-card-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: var(--space-md);
+}
+
+.provider-card-info {
+  flex: 1;
+}
+
+.provider-card-name {
+  font-family: var(--font-heading);
+  font-size: 1.15rem;
+  font-weight: 600;
+  color: var(--navy);
+  margin-bottom: 4px;
+}
+
+.provider-card-address {
+  font-size: 0.8rem;
+  color: var(--muted);
+  margin-bottom: var(--space-sm);
+}
+
+.provider-card-meta {
+  display: flex;
+  align-items: center;
+  gap: var(--space-md);
+  flex-wrap: wrap;
+}
+
+.provider-card-rating {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 0.85rem;
+  font-weight: 600;
+}
+
+.provider-card-star {
+  color: var(--gold);
+}
+
+.provider-card-reviews {
+  font-size: 0.75rem;
+  color: var(--muted);
+  font-weight: 400;
+}
+
+.provider-card-insurances {
+  display: flex;
+  gap: 4px;
+  flex-wrap: wrap;
+}
+
+.provider-card-insurance-tag {
+  font-size: 0.65rem;
+  padding: 2px 8px;
+  border-radius: var(--radius-pill);
+  background: var(--bg-subtle);
+  color: var(--muted);
+  border: 1px solid var(--border);
+  font-weight: 500;
+}
+
+.provider-card-divider {
+  height: 1px;
+  background: var(--border);
+  margin: var(--space-md) 0;
+}
+
+.provider-card-selected {
+  margin-top: var(--space-md);
+  padding: var(--space-md);
+  background: var(--gold-light);
+  border-radius: var(--radius-md);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-md);
+  animation: slideDown 0.3s ease;
+}
+
+.provider-card-selected-info {
+  font-size: 0.85rem;
+}
+
+.provider-card-selected-info strong {
+  color: var(--navy);
+}
+
+.provider-card-selected-fee {
+  font-family: var(--font-heading);
+  font-size: 1.3rem;
+  font-weight: 700;
+  color: var(--gold-hover);
+  white-space: nowrap;
+}
+
+@media (max-width: 768px) {
+  .provider-card-top {
+    flex-direction: column;
+  }
+
+  .provider-card-selected {
+    flex-direction: column;
+    text-align: center;
+  }
+}

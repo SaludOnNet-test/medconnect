@@ -1,0 +1,79 @@
+.header {
+  background: var(--navy);
+  color: var(--white);
+  padding: 0.75rem 0;
+  position: sticky;
+  top: 0;
+  z-index: 100;
+}
+
+.header-inner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 0 var(--space-lg);
+}
+
+.header-logo {
+  font-family: var(--font-heading);
+  font-size: 1.4rem;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  color: var(--white);
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+}
+
+.header-logo-accent {
+  color: var(--gold);
+}
+
+.header-right {
+  display: flex;
+  align-items: center;
+  gap: var(--space-xl);
+}
+
+.header-phone {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  font-size: 0.85rem;
+  color: var(--muted-light);
+  transition: color var(--transition-fast);
+}
+
+.header-phone:hover {
+  color: var(--gold);
+}
+
+.header-phone-icon {
+  font-size: 1rem;
+}
+
+.header-phone-label {
+  font-size: 0.7rem;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: var(--muted);
+}
+
+.header-phone-number {
+  font-weight: 600;
+  color: var(--white);
+  font-size: 0.95rem;
+}
+
+.header-phone-block {
+  display: flex;
+  flex-direction: column;
+}
+
+@media (max-width: 768px) {
+  .header-phone-label {
+    display: none;
+  }
+}
