@@ -7,7 +7,7 @@
 ## What is PriorSalus?
 A Spanish healthcare appointment-booking platform. Patients book priority specialist appointments faster than the public waiting list. Professionals (doctors/clinics) can refer patients and earn commissions. Platform is managed by an internal operations team.
 
-**Live URL**: https://prioritamed.vercel.app
+**Live URL**: https://medconnect-bay.vercel.app
 **Repo**: No git — deploy with `vercel --prod` from project root
 
 ---
