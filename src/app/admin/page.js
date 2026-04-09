@@ -50,11 +50,11 @@ export default function AdminDashboard() {
   // Initialize mock bookings
   useEffect(() => {
     setBookings([
-      { id: 1, patient: 'María García', doctor: 'Dr. López', clinic: 'Hospital HM Sanchinarro', specialty: 'Traumatología', city: 'Madrid', date: '2026-04-08', time: '10:00', status: 'confirmed', amount: 25.00 },
-      { id: 2, patient: 'Juan Pérez', doctor: 'Dr. Martínez', clinic: 'Clínica Teknon', specialty: 'Cardiología', city: 'Barcelona', date: '2026-04-09', time: '14:30', status: 'confirmed', amount: 9.99 },
-      { id: 3, patient: 'Ana Rodríguez', doctor: 'Dr. García', clinic: 'Hospital Quirónsalud Valencia', specialty: 'Dermatología', city: 'Valencia', date: '2026-04-11', time: '11:15', status: 'pending', amount: 9.99 },
-      { id: 4, patient: 'Carlos López', doctor: 'Dr. López', clinic: 'Hospital HM Sanchinarro', specialty: 'Traumatología', city: 'Madrid', date: '2026-04-14', time: '16:00', status: 'pending', amount: 0.99 },
-      { id: 5, patient: 'Elena Sánchez', doctor: 'Dr. Martínez', clinic: 'Clínica Teknon', specialty: 'Cardiología', city: 'Barcelona', date: '2026-04-05', time: '09:30', status: 'completed', amount: 9.99 },
+      { id: 1, patient: 'María García', patientEmail: 'garcia@example.com', doctor: 'Dr. López', clinic: 'Hospital HM Sanchinarro', specialty: 'Traumatología', city: 'Madrid', date: '2026-04-08', time: '10:00', status: 'confirmed', amount: 25.00 },
+      { id: 2, patient: 'Juan Pérez', patientEmail: 'perez@example.com', doctor: 'Dr. Martínez', clinic: 'Clínica Teknon', specialty: 'Cardiología', city: 'Barcelona', date: '2026-04-09', time: '14:30', status: 'confirmed', amount: 9.99 },
+      { id: 3, patient: 'Ana Rodríguez', patientEmail: 'rodriguez@example.com', doctor: 'Dr. García', clinic: 'Hospital Quirónsalud Valencia', specialty: 'Dermatología', city: 'Valencia', date: '2026-04-11', time: '11:15', status: 'pending', amount: 9.99 },
+      { id: 4, patient: 'Carlos López', patientEmail: 'lopez@example.com', doctor: 'Dr. López', clinic: 'Hospital HM Sanchinarro', specialty: 'Traumatología', city: 'Madrid', date: '2026-04-14', time: '16:00', status: 'pending', amount: 0.99 },
+      { id: 5, patient: 'Elena Sánchez', patientEmail: 'sanchez@example.com', doctor: 'Dr. Martínez', clinic: 'Clínica Teknon', specialty: 'Cardiología', city: 'Barcelona', date: '2026-04-05', time: '09:30', status: 'completed', amount: 9.99 },
       { id: 6, patient: 'David Fernández', doctor: 'Dr. Rodríguez', clinic: 'Hospital Vithas Sevilla', specialty: 'Digestivo', city: 'Sevilla', date: '2026-04-03', time: '13:00', status: 'cancelled', amount: 25.00 },
     ]);
   }, []);
@@ -135,11 +135,33 @@ export default function AdminDashboard() {
     setShowEditModal(true);
   };
 
+  const sendEmail = (templateName, data) =>
+    fetch('/api/email/send', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ templateName, data }),
+    }).catch(() => {});
+
   const handleEditSave = () => {
     const updated = { ...editingBooking, ...editForm, status: 'pending_patient_approval' };
     setBookings(prev => prev.map(b => b.id === editingBooking.id ? updated : b));
-    console.log(`📧 Email al paciente (${editingBooking.patient}): Su cita ha sido modificada a ${editForm.date} ${editForm.time} en ${editForm.clinic}. Tiene 24h para confirmar, proponer otra fecha o solicitar devolución.`);
-    alert(`✅ Booking actualizado. Email enviado al paciente con opciones de confirmación.`);
+
+    // Send adminBookingEdit email to patient with confirm/propose/refund CTAs
+    sendEmail('adminBookingEdit', {
+      to: editingBooking.patientEmail,
+      patientName: editingBooking.patient,
+      oldDate: editingBooking.date,
+      oldTime: editingBooking.time,
+      oldClinic: editingBooking.clinic,
+      newDate: editForm.date || editingBooking.date,
+      newTime: editForm.time || editingBooking.time,
+      newClinic: editForm.clinic || editingBooking.clinic,
+      bookingId: `MC-${editingBooking.id}`,
+      confirmToken: `confirm-${editingBooking.id}-${Date.now()}`,
+      proposeToken: `propose-${editingBooking.id}-${Date.now()}`,
+      refundToken: `refund-${editingBooking.id}-${Date.now()}`,
+    });
+
     setShowEditModal(false);
     setEditingBooking(null);
   };
@@ -155,14 +177,32 @@ export default function AdminDashboard() {
 
   // --- Lock-in Actions ---
   const handleResendLockIn = (bookingId, patientEmail) => {
-    console.log(`📧 Reenviado lock-in a ${patientEmail} - Reserva #${bookingId}`);
-    alert(`✅ Lock-in reenviado a ${patientEmail}`);
+    const booking = bookings.find(b => b.id === bookingId);
+    sendEmail('lockInInvitation', {
+      patientEmail: patientEmail || booking?.patientEmail,
+      clinicName: booking?.clinic || 'Med Connect',
+      specialty: booking?.specialty || 'Consulta médica',
+      providerName: booking?.clinic || '',
+      slotDate: booking?.date || '',
+      slotTime: booking?.time || '',
+      fee: booking?.amount || 0,
+      lockInId: `admin-${bookingId}`,
+    });
   };
 
   const handleSendNewEmail = (bookingId) => {
     if (!newEmailValue.trim()) return;
-    console.log(`📧 Lock-in enviado a nuevo correo ${newEmailValue} - Reserva #${bookingId}`);
-    alert(`✅ Lock-in enviado a ${newEmailValue}`);
+    const booking = bookings.find(b => b.id === bookingId);
+    sendEmail('lockInInvitation', {
+      patientEmail: newEmailValue.trim(),
+      clinicName: booking?.clinic || 'Med Connect',
+      specialty: booking?.specialty || 'Consulta médica',
+      providerName: booking?.clinic || '',
+      slotDate: booking?.date || '',
+      slotTime: booking?.time || '',
+      fee: booking?.amount || 0,
+      lockInId: `admin-${bookingId}`,
+    });
     setNewEmailInputId(null);
     setNewEmailValue('');
   };

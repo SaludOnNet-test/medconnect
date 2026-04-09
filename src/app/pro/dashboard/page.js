@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import Link from 'next/link';
 import Header from '@/components/Header';
 import Footer from '@/components/Footer';
@@ -10,7 +10,31 @@ import { createReferral, REFERRAL_STATES, getReferralStatusDisplay, isSlotAvaila
 
 // TODO: Replace with real clinic ID from user account
 const MY_CLINIC_PROVIDER_ID = 1;
+const HAS_CLERK_KEYS = !!(process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY);
 import './dashboard.css';
+
+// Bridge component — renders nothing, just reads Clerk user and passes data up.
+// Only mounted when ClerkProvider is present (HAS_CLERK_KEYS === true).
+function ClerkUserBridge({ onUser }) {
+  const { useUser } = require('@clerk/nextjs');
+  const { user, isLoaded } = useUser();
+  useEffect(() => {
+    if (isLoaded && user) {
+      onUser({
+        email: user.primaryEmailAddress?.emailAddress || '',
+        name: user.fullName || user.firstName || '',
+      });
+    }
+  }, [user, isLoaded, onUser]);
+  return null;
+}
+
+const sendEmail = (templateName, data) =>
+  fetch('/api/email/send', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ templateName, data }),
+  }).catch(() => {});
 
 export default function ProDashboard() {
   const [isVerified, setIsVerified] = useState(false);
@@ -21,8 +45,11 @@ export default function ProDashboard() {
   const [newEmailValue, setNewEmailValue] = useState('');
   const [timerOverrides, setTimerOverrides] = useState({}); // { [referralId]: isoString }
   const [referrals, setReferrals] = useState([]);
-  const [professionName] = useState('Centro Médico San José');
-  const [professionalEmail] = useState('info@centromedico.es');
+  const [clerkUser, setClerkUser] = useState(null);
+  const handleClerkUser = useCallback((data) => setClerkUser(data), []);
+
+  const professionName = (HAS_CLERK_KEYS && clerkUser?.name) ? clerkUser.name : 'Centro Médico San José';
+  const professionalEmail = (HAS_CLERK_KEYS && clerkUser?.email) ? clerkUser.email : 'info@centromedico.es';
 
   // Initialize referrals from localStorage
   useEffect(() => {
@@ -81,15 +108,31 @@ export default function ProDashboard() {
       professionName,
       patientEmail,
       providerId: provider.id,
-      serviceId: 1, // Could be dynamic
+      serviceId: 1,
       slotDate: slot.date,
       slotTime: slot.time,
       providerName: provider.name,
-      fee: 25.00, // Could be dynamic based on slot
+      fee: 25.00,
     });
 
     setReferrals((prev) => [...prev, newReferral]);
-    alert(`✅ Lock-in enviado a ${patientEmail}\n📧 Verifique la consola para ver la notificación`);
+
+    const emailData = {
+      patientEmail,
+      professionalEmail,
+      clinicName: professionName,
+      specialty: 'Consulta médica',
+      providerName: provider.name,
+      slotDate: slot.date,
+      slotTime: slot.time,
+      fee: 25.00,
+      lockInId: newReferral.id,
+    };
+
+    // Email to patient: lock-in invitation with confirmation link
+    sendEmail('lockInInvitation', emailData);
+    // Email to derivador: confirmation that the case was created
+    sendEmail('derivadorReferralCreated', { ...emailData, to: professionalEmail });
   };
 
   const handleCancelReferral = (referralId) => {
@@ -103,14 +146,34 @@ export default function ProDashboard() {
   };
 
   const handleResendEmail = (referralId, patientEmail) => {
-    console.log(`📧 Re-enviado a ${patientEmail} - Derivación ${referralId}`);
-    alert(`✅ Lock-in reenviado a ${patientEmail}`);
+    const referral = referrals.find((r) => r.id === referralId);
+    sendEmail('lockInInvitation', {
+      patientEmail: patientEmail || referral?.patientEmail,
+      professionalEmail,
+      clinicName: professionName,
+      specialty: 'Consulta médica',
+      providerName: referral?.providerName || '',
+      slotDate: referral?.slotDate || '',
+      slotTime: referral?.slotTime || '',
+      fee: referral?.fee || 25,
+      lockInId: referralId,
+    });
   };
 
   const handleSendNewEmail = (referralId) => {
     if (!newEmailValue.trim()) return;
-    console.log(`📧 Enviado a nuevo correo ${newEmailValue} - Derivación ${referralId}`);
-    alert(`✅ Lock-in enviado a ${newEmailValue}`);
+    const referral = referrals.find((r) => r.id === referralId);
+    sendEmail('lockInInvitation', {
+      patientEmail: newEmailValue.trim(),
+      professionalEmail,
+      clinicName: professionName,
+      specialty: 'Consulta médica',
+      providerName: referral?.providerName || '',
+      slotDate: referral?.slotDate || '',
+      slotTime: referral?.slotTime || '',
+      fee: referral?.fee || 25,
+      lockInId: referralId,
+    });
     setNewEmailInputId(null);
     setNewEmailValue('');
   };
@@ -162,6 +225,7 @@ export default function ProDashboard() {
 
   return (
     <>
+      {HAS_CLERK_KEYS && <ClerkUserBridge onUser={handleClerkUser} />}
       <Header />
       <main className="pro-dashboard">
         <div className="container">
