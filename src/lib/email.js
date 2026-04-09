@@ -3,7 +3,9 @@
 // Production mode: sends via Resend API
 
 const RESEND_API_KEY = process.env.RESEND_API_KEY;
-const DEFAULT_FROM = 'Med Connect <noreply@medconnect.es>';
+// Use RESEND_FROM_EMAIL env var once medconnect.es domain is verified in Resend dashboard.
+// Until then, Resend requires a verified domain — onboarding@resend.dev works for testing.
+const DEFAULT_FROM = process.env.RESEND_FROM_EMAIL || 'Med Connect <onboarding@resend.dev>';
 
 /**
  * Send an email via Resend, or log a mock if no API key is configured.
