@@ -5,12 +5,12 @@ export const metadata = {
   description: 'Reserva citas médicas privadas y diagnósticos con acceso prioritario. Tu salud no puede esperar.',
 };
 
-const hasClerkKeys = !!(process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY);
+// Build-time flag — safe to check here because NEXT_PUBLIC_ vars are inlined at build time
+const publishableKey = process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY;
 
-export default function RootLayout({ children }) {
-  if (hasClerkKeys) {
-    // eslint-disable-next-line @typescript-eslint/no-var-requires
-    const { ClerkProvider } = require('@clerk/nextjs');
+export default async function RootLayout({ children }) {
+  if (publishableKey) {
+    const { ClerkProvider } = await import('@clerk/nextjs');
     return (
       <html lang="es">
         <body>
