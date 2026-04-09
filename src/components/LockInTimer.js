@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { calculateExpirationTime } from '@/data/mock';
 import './LockInTimer.css';
 
@@ -11,38 +11,47 @@ export default function LockInTimer({
   patientName,
   onExpire,
   onResend,
+  onAutoReminder, // fires once when 30 minutes remain (half of the 60-min window)
   showResendButton = true,
-  expiresAtOverride = null, // Pass a new ISO timestamp to reset the timer
+  expiresAtOverride = null,
 }) {
   const activeExpiry = expiresAtOverride || expiresAt;
   const [timeRemaining, setTimeRemaining] = useState(null);
   const [isExpired, setIsExpired] = useState(false);
   const [isWarning, setIsWarning] = useState(false);
   const [isCritical, setIsCritical] = useState(false);
+  const autoReminderFired = useRef(false);
 
   useEffect(() => {
-    // Initial calculation
     const calc = calculateExpirationTime(activeExpiry);
     setTimeRemaining(calc);
     setIsExpired(calc.isExpired);
-    setIsWarning(calc.remainingSeconds <= 300); // 5 minutes
-    setIsCritical(calc.remainingSeconds <= 60); // 1 minute
+    setIsWarning(calc.remainingSeconds <= 300);
+    setIsCritical(calc.remainingSeconds <= 60);
 
     if (calc.isExpired && onExpire) {
       onExpire(referralId);
       return;
     }
 
-    // Set up interval
     const interval = setInterval(() => {
       const newCalc = calculateExpirationTime(activeExpiry);
       setTimeRemaining(newCalc);
 
+      // Auto-reminder at 30 minutes remaining — fires exactly once
+      if (
+        !autoReminderFired.current &&
+        onAutoReminder &&
+        newCalc.remainingSeconds <= 1800 &&
+        !newCalc.isExpired
+      ) {
+        autoReminderFired.current = true;
+        onAutoReminder();
+      }
+
       if (newCalc.isExpired) {
         setIsExpired(true);
-        if (onExpire) {
-          onExpire(referralId);
-        }
+        if (onExpire) onExpire(referralId);
         clearInterval(interval);
       } else {
         setIsWarning(newCalc.remainingSeconds <= 300);
@@ -51,7 +60,7 @@ export default function LockInTimer({
     }, 1000);
 
     return () => clearInterval(interval);
-  }, [activeExpiry, referralId, onExpire]);
+  }, [activeExpiry, referralId, onExpire, onAutoReminder]);
 
   if (!timeRemaining) return null;
 

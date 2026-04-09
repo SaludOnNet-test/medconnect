@@ -207,7 +207,110 @@ export function clinicPatientCompleted({ patientName, patientPhone, providerName
 }
 
 // ─────────────────────────────────────────────
-// 6. Operations Alert (→ Zendesk via email)
+// 6. Derivador: Referral Created Confirmation
+// ─────────────────────────────────────────────
+export function derivadorReferralCreated({ professionalName, patientEmail, clinicName, specialty, providerName, slotDate, slotTime, fee }) {
+  const formattedDate = slotDate ? new Date(slotDate + 'T00:00:00').toLocaleDateString('es-ES', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' }) : slotDate;
+
+  const html = baseWrapper(bodySection(`
+    <div style="background:#eff6ff;border:1px solid #bfdbfe;border-radius:8px;padding:16px;margin-bottom:24px;text-align:center;">
+      <p style="margin:0;font-size:15px;font-weight:700;color:#1d4ed8;">✓ Caso creado — el paciente tiene 60 minutos para confirmar</p>
+    </div>
+    <h2 style="margin:0 0 8px;font-size:20px;font-weight:800;color:#1a3c5e;">Has creado una cita prioritaria para tu paciente</h2>
+    <p style="margin:0 0 24px;font-size:15px;color:#6b7280;">
+      Hemos enviado un email a <strong>${patientEmail}</strong> con el enlace de confirmación.<br>
+      El paciente tiene <strong>60 minutos</strong> para completar sus datos y pagar.
+    </p>
+    <table width="100%" cellpadding="0" cellspacing="0" style="margin-bottom:24px;border:1px solid #e5e7eb;border-radius:8px;overflow:hidden;">
+      <tr style="background:#f9fafb;"><th colspan="2" style="padding:12px 16px;text-align:left;font-size:13px;color:#6b7280;font-weight:600;text-transform:uppercase;">Detalles de la cita</th></tr>
+      ${infoRow('Paciente', patientEmail)}
+      ${infoRow('Especialidad', specialty || 'Consulta médica')}
+      ${infoRow('Centro', providerName)}
+      ${infoRow('Fecha', formattedDate)}
+      ${infoRow('Hora', slotTime)}
+      ${fee ? infoRow('Tarifa de prioridad', `€${fee}`) : ''}
+    </table>
+    <p style="font-size:13px;color:#9ca3af;text-align:center;">Recibirás un email cuando el paciente confirme y pague.</p>
+  `));
+
+  return {
+    subject: `Caso creado — esperando confirmación del paciente`,
+    html,
+  };
+}
+
+// ─────────────────────────────────────────────
+// 7. Derivador: Patient Paid Confirmation
+// ─────────────────────────────────────────────
+export function derivadorPatientPaid({ patientName, providerName, slotDate, slotTime, totalPrice, reference }) {
+  const formattedDate = slotDate ? new Date(slotDate + 'T00:00:00').toLocaleDateString('es-ES', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' }) : slotDate;
+
+  const html = baseWrapper(`
+    <tr><td style="background:#10b981;padding:20px 32px;text-align:center;">
+      <h2 style="margin:0;color:#ffffff;font-size:20px;font-weight:800;">🎉 ¡Tu paciente ha confirmado y pagado!</h2>
+    </td></tr>
+    ${bodySection(`
+      <p style="margin:0 0 24px;font-size:15px;color:#374151;">La derivación se ha completado con éxito. El paciente ha pagado y su cita está confirmada.</p>
+      <table width="100%" cellpadding="0" cellspacing="0" style="margin-bottom:24px;border:1px solid #e5e7eb;border-radius:8px;overflow:hidden;">
+        <tr style="background:#f9fafb;"><th colspan="2" style="padding:12px 16px;text-align:left;font-size:13px;color:#6b7280;font-weight:600;text-transform:uppercase;">Resumen de la cita</th></tr>
+        ${infoRow('Paciente', patientName)}
+        ${infoRow('Centro', providerName)}
+        ${infoRow('Fecha', formattedDate)}
+        ${infoRow('Hora', slotTime)}
+        ${totalPrice ? infoRow('Importe pagado', `€${Number(totalPrice).toFixed(2)}`) : ''}
+        ${infoRow('Referencia', reference)}
+      </table>
+      <div style="background:#f0fdf4;border:1px solid #bbf7d0;border-radius:8px;padding:16px;">
+        <p style="margin:0;font-size:14px;color:#15803d;">💰 Tu comisión será procesada en las próximas 24h tras la fecha de la cita.</p>
+      </div>
+    `)}
+  `);
+
+  return {
+    subject: `¡Paciente confirmado! Referencia ${reference}`,
+    html,
+  };
+}
+
+// ─────────────────────────────────────────────
+// 8. Lock-In Reminder (auto-sent at 30 min mark)
+// ─────────────────────────────────────────────
+export function lockInReminder({ patientEmail, professionalEmail, clinicName, specialty, providerName, slotDate, slotTime, fee, lockInId }) {
+  const referralPayload = Buffer.from(JSON.stringify({
+    patientEmail, professionalEmail, clinicName, specialty, providerName, slotDate, slotTime, fee,
+  })).toString('base64');
+  const lockInUrl = `${BASE_URL}/lock-in/${lockInId}?data=${referralPayload}`;
+  const formattedDate = slotDate ? new Date(slotDate + 'T00:00:00').toLocaleDateString('es-ES', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' }) : slotDate;
+
+  const html = baseWrapper(bodySection(`
+    <div style="background:#fef2f2;border:2px solid #fca5a5;border-radius:8px;padding:16px;margin-bottom:24px;text-align:center;">
+      <p style="margin:0;font-size:16px;font-weight:800;color:#b91c1c;">⚠️ ¡Solo te quedan 30 minutos!</p>
+      <p style="margin:6px 0 0;font-size:14px;color:#7f1d1d;">Si no confirmas antes de que expire el tiempo, <strong>perderás el hueco</strong>.</p>
+    </div>
+    <h2 style="margin:0 0 8px;font-size:20px;font-weight:800;color:#1a3c5e;">Confirma tu cita ahora — el tiempo se acaba</h2>
+    <p style="margin:0 0 24px;font-size:15px;color:#6b7280;"><strong>${clinicName}</strong> te ha reservado un hueco prioritario. Completa tus datos y paga para asegurarlo.</p>
+    <table width="100%" cellpadding="0" cellspacing="0" style="margin-bottom:24px;border:1px solid #e5e7eb;border-radius:8px;overflow:hidden;">
+      <tr style="background:#f9fafb;"><th colspan="2" style="padding:12px 16px;text-align:left;font-size:13px;color:#6b7280;font-weight:600;text-transform:uppercase;">Tu cita reservada</th></tr>
+      ${infoRow('Especialidad', specialty || 'Consulta médica')}
+      ${infoRow('Centro', providerName)}
+      ${infoRow('Fecha', formattedDate)}
+      ${infoRow('Hora', slotTime)}
+      ${fee ? infoRow('Tarifa', `€${fee}`) : ''}
+    </table>
+    <div style="text-align:center;margin:28px 0;">
+      ${ctaButton(lockInUrl, '⚡ Confirmar ahora antes de que expire', '#ef4444', '#ffffff')}
+    </div>
+    <p style="font-size:12px;color:#9ca3af;text-align:center;">Si dejas expirar el tiempo, el hueco será liberado y no podrá recuperarse.</p>
+  `));
+
+  return {
+    subject: `⚠️ Último aviso: 30 minutos para confirmar tu cita en ${providerName}`,
+    html,
+  };
+}
+
+// ─────────────────────────────────────────────
+// 9. Operations Alert (→ Zendesk via email)
 // ─────────────────────────────────────────────
 export function operationsBookingAlert({ bookingId, clinicId, slotType, patientName, providerName, slotDate, slotTime, amount }) {
   const fmtDate = slotDate ? new Date(slotDate + 'T00:00:00').toLocaleDateString('es-ES', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' }) : slotDate;

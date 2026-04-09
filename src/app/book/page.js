@@ -117,7 +117,7 @@ function BookContent() {
       referrals.push(referral);
       localStorage.setItem('referrals', JSON.stringify(referrals));
 
-      // Send lock-in invitation email to patient
+      // Email 1: Patient gets lock-in invitation
       sendEmail('lockInInvitation', {
         patientEmail: form.email,
         professionalEmail: proData.email,
@@ -128,6 +128,18 @@ function BookContent() {
         slotTime: time,
         fee: convenienceFee.amount,
         lockInId: referral.id,
+      });
+
+      // Email 2: Derivador gets confirmation that the case was created
+      sendEmail('derivadorReferralCreated', {
+        to: proData.email,
+        patientEmail: form.email,
+        clinicName: proData.clinicName,
+        specialty: service?.name || 'Consulta médica',
+        providerName,
+        slotDate: date,
+        slotTime: time,
+        fee: convenienceFee.amount,
       });
 
       // Redirect to lock-in completion page
@@ -199,6 +211,19 @@ function BookContent() {
       slotTime: slotTimeToUse,
       amount: totalPrice,
     });
+
+    // Email: Derivador gets notified patient confirmed and paid
+    if (lockInData?.professionalEmail) {
+      sendEmail('derivadorPatientPaid', {
+        to: lockInData.professionalEmail,
+        patientName,
+        providerName: clinicName,
+        slotDate: slotDateToUse,
+        slotTime: slotTimeToUse,
+        totalPrice,
+        reference,
+      });
+    }
 
     setStep('success');
     // Store calendarUrl for the success screen

@@ -87,7 +87,28 @@ export default function LockInPage() {
 
   const handleExpire = () => {
     setIsExpired(true);
-    console.log(`🔔 Lock-in expirado: ${lockInId}`);
+  };
+
+  const handleAutoReminder = () => {
+    if (!referral) return;
+    fetch('/api/email/send', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        templateName: 'lockInReminder',
+        data: {
+          patientEmail: referral.patientEmail,
+          professionalEmail: referral.professionalEmail,
+          clinicName: referral.clinicName || 'Tu clínica',
+          specialty: referral.specialty || 'Consulta médica',
+          providerName: referral.providerName,
+          slotDate: referral.slotDate,
+          slotTime: referral.slotTime,
+          fee: referral.fee,
+          lockInId,
+        },
+      }),
+    }).catch(() => {});
   };
 
   const handleSubmit = async (e) => {
@@ -217,6 +238,7 @@ export default function LockInPage() {
               patientEmail={referral.patientEmail}
               patientName={form.patientName || 'Paciente'}
               onExpire={handleExpire}
+              onAutoReminder={handleAutoReminder}
               showResendButton={false}
             />
 

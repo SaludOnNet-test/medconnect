@@ -1,19 +1,25 @@
 import { sendEmail } from '@/lib/email';
 import {
   lockInInvitation,
+  lockInReminder,
   bookingConfirmation,
   paymentReceipt,
   adminBookingEdit,
   clinicPatientCompleted,
+  derivadorReferralCreated,
+  derivadorPatientPaid,
   operationsBookingAlert,
 } from '@/lib/emailTemplates';
 
 const TEMPLATES = {
   lockInInvitation,
+  lockInReminder,
   bookingConfirmation,
   paymentReceipt,
   adminBookingEdit,
   clinicPatientCompleted,
+  derivadorReferralCreated,
+  derivadorPatientPaid,
   operationsBookingAlert,
 };
 
