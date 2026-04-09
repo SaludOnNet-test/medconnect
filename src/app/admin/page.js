@@ -32,6 +32,13 @@ export default function AdminDashboard() {
   });
 
   useEffect(() => {
+    const hasClerkKeys = !!(process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY);
+    if (hasClerkKeys) {
+      // Middleware already verified role=admin before reaching this page
+      setIsLoading(false);
+      return;
+    }
+    // Mock mode: fall back to localStorage token
     const adminToken = localStorage.getItem('adminToken');
     if (!adminToken) {
       router.push('/admin/login');
