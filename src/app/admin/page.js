@@ -1,5 +1,8 @@
 'use client';
 
+// Authenticated page — never statically prerendered
+export const dynamic = 'force-dynamic';
+
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { providers, insuranceCompanies, isSlotAvailable } from '@/data/mock';
@@ -47,16 +50,40 @@ export default function AdminDashboard() {
     }
   }, [router]);
 
-  // Initialize mock bookings
+  // Load bookings from DB via API; fall back to mock data if unavailable
   useEffect(() => {
-    setBookings([
+    const MOCK_BOOKINGS = [
       { id: 1, patient: 'María García', patientEmail: 'garcia@example.com', doctor: 'Dr. López', clinic: 'Hospital HM Sanchinarro', specialty: 'Traumatología', city: 'Madrid', date: '2026-04-08', time: '10:00', status: 'confirmed', amount: 25.00 },
       { id: 2, patient: 'Juan Pérez', patientEmail: 'perez@example.com', doctor: 'Dr. Martínez', clinic: 'Clínica Teknon', specialty: 'Cardiología', city: 'Barcelona', date: '2026-04-09', time: '14:30', status: 'confirmed', amount: 9.99 },
       { id: 3, patient: 'Ana Rodríguez', patientEmail: 'rodriguez@example.com', doctor: 'Dr. García', clinic: 'Hospital Quirónsalud Valencia', specialty: 'Dermatología', city: 'Valencia', date: '2026-04-11', time: '11:15', status: 'pending', amount: 9.99 },
       { id: 4, patient: 'Carlos López', patientEmail: 'lopez@example.com', doctor: 'Dr. López', clinic: 'Hospital HM Sanchinarro', specialty: 'Traumatología', city: 'Madrid', date: '2026-04-14', time: '16:00', status: 'pending', amount: 0.99 },
       { id: 5, patient: 'Elena Sánchez', patientEmail: 'sanchez@example.com', doctor: 'Dr. Martínez', clinic: 'Clínica Teknon', specialty: 'Cardiología', city: 'Barcelona', date: '2026-04-05', time: '09:30', status: 'completed', amount: 9.99 },
-      { id: 6, patient: 'David Fernández', doctor: 'Dr. Rodríguez', clinic: 'Hospital Vithas Sevilla', specialty: 'Digestivo', city: 'Sevilla', date: '2026-04-03', time: '13:00', status: 'cancelled', amount: 25.00 },
-    ]);
+      { id: 6, patient: 'David Fernández', patientEmail: '', doctor: 'Dr. Rodríguez', clinic: 'Hospital Vithas Sevilla', specialty: 'Digestivo', city: 'Sevilla', date: '2026-04-03', time: '13:00', status: 'cancelled', amount: 25.00 },
+    ];
+
+    fetch('/api/bookings')
+      .then((res) => res.ok ? res.json() : null)
+      .then((data) => {
+        if (Array.isArray(data) && data.length > 0) {
+          // Normalize DB fields to admin table shape
+          setBookings(data.map((b) => ({
+            id: b.id,
+            patient: b.patientName,
+            patientEmail: b.patientEmail,
+            doctor: '',
+            clinic: b.providerName,
+            specialty: b.specialty,
+            city: '',
+            date: b.slotDate,
+            time: b.slotTime,
+            status: b.status,
+            amount: b.amount,
+          })));
+        } else {
+          setBookings(MOCK_BOOKINGS);
+        }
+      })
+      .catch(() => setBookings(MOCK_BOOKINGS));
   }, []);
 
   const handleLogout = () => {

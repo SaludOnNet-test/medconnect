@@ -32,7 +32,21 @@ function BookContent() {
 
   // Handle lock-in redirect: auto-jump to payment step
   useEffect(() => {
-    if (stepParam === 'payment' && lockInId) {
+    if (stepParam !== 'payment' || !lockInId) return;
+
+    async function loadLockIn() {
+      // Try API first
+      try {
+        const res = await fetch(`/api/referrals/${lockInId}`);
+        if (res.ok) {
+          const referral = await res.json();
+          setLockInData(referral);
+          setStep('payment');
+          return;
+        }
+      } catch {}
+
+      // Fallback: localStorage
       try {
         const stored = localStorage.getItem('referrals');
         const referrals = stored ? JSON.parse(stored) : [];
@@ -41,8 +55,10 @@ function BookContent() {
           setLockInData(referral);
           setStep('payment');
         }
-      } catch {/* ignore */}
+      } catch {}
     }
+
+    loadLockIn();
   }, [stepParam, lockInId]);
   const [selectedInsurance, setSelectedInsurance] = useState('');
   
@@ -151,11 +167,46 @@ function BookContent() {
     setStep('payment');
   };
 
-  const handlePaymentSuccess = ({ last4, reference }) => {
+  const handlePaymentSuccess = async ({ last4, reference }) => {
     setPaymentRef(reference);
 
-    // If this was a lock-in referral, mark it CONFIRMED in localStorage
+    const patientEmail = lockInData?.patientEmail || form.email;
+    const patientName = lockInData?.patientName || `${form.name} ${form.surname}`.trim();
+    const slotDateToUse = lockInData?.slotDate || date;
+    const slotTimeToUse = lockInData?.slotTime || time;
+    const clinicName = lockInData?.providerName || providerName;
+
+    // Persist booking to DB
+    fetch('/api/bookings', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        id: reference,
+        referralId: lockInData?.id || null,
+        patientName,
+        patientEmail,
+        patientPhone: lockInData?.patientPhone || null,
+        patientAddress: lockInData?.patientAddress || null,
+        providerId: Number(providerId) || null,
+        providerName: clinicName,
+        specialty: service?.name || null,
+        slotDate: slotDateToUse,
+        slotTime: slotTimeToUse,
+        amount: totalPrice,
+        status: 'confirmed',
+        cardLast4: last4,
+        hasInsurance: hasInsurance === true,
+        insuranceCompany: selectedInsurance || null,
+      }),
+    }).catch(() => {});
+
+    // If this was a lock-in referral, mark it CONFIRMED in DB + localStorage
     if (lockInData) {
+      fetch(`/api/referrals/${lockInData.id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ state: REFERRAL_STATES.CONFIRMED }),
+      }).catch(() => {});
       try {
         const stored = localStorage.getItem('referrals');
         const referrals = stored ? JSON.parse(stored) : [];
@@ -165,14 +216,8 @@ function BookContent() {
             : r
         );
         localStorage.setItem('referrals', JSON.stringify(updated));
-      } catch {/* ignore */}
+      } catch {}
     }
-
-    const patientEmail = lockInData?.patientEmail || form.email;
-    const patientName = lockInData?.patientName || `${form.name} ${form.surname}`.trim();
-    const slotDateToUse = lockInData?.slotDate || date;
-    const slotTimeToUse = lockInData?.slotTime || time;
-    const clinicName = lockInData?.providerName || providerName;
 
     // Build Google Calendar URL
     const start = new Date(`${slotDateToUse}T${slotTimeToUse}:00`);

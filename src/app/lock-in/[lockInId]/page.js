@@ -26,59 +26,81 @@ export default function LockInPage() {
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   useEffect(() => {
-    const stored = localStorage.getItem('referrals');
-    let found = null;
+    async function loadReferral() {
+      let found = null;
 
-    // 1. Try localStorage first (same browser as professional)
-    if (stored) {
+      // 1. Try DB via API (works cross-browser, no localStorage needed)
       try {
-        found = JSON.parse(stored).find((r) => r.id === lockInId) || null;
-      } catch (e) {
-        console.error('Error parsing referrals from localStorage:', e);
-      }
-    }
+        const res = await fetch(`/api/referrals/${lockInId}`);
+        if (res.ok) {
+          found = await res.json();
+        }
+      } catch { /* network error — fall through */ }
 
-    // 2. Fallback: reconstruct from URL ?data= param (cross-browser / email link)
-    if (!found) {
-      const dataParam = searchParams.get('data');
-      if (dataParam) {
-        try {
-          const decoded = JSON.parse(atob(dataParam));
-          found = {
-            id: lockInId,
-            patientEmail: decoded.patientEmail,
-            professionalEmail: decoded.professionalEmail,
-            providerName: decoded.providerName,
-            slotDate: decoded.slotDate,
-            slotTime: decoded.slotTime,
-            fee: decoded.fee,
-            clinicName: decoded.clinicName,
-            specialty: decoded.specialty,
-            lockInWarningAt: new Date(Date.now() + 60 * 60 * 1000).toISOString(),
-            state: 'PENDING',
-          };
-          // Save to localStorage so subsequent operations (submit, timer) work
-          const existing = stored ? JSON.parse(stored) : [];
-          existing.push(found);
-          localStorage.setItem('referrals', JSON.stringify(existing));
-        } catch (e) {
-          console.error('Error decoding referral from URL:', e);
+      // 2. Fallback: reconstruct from URL ?data= param (email link, DB unavailable)
+      if (!found) {
+        const dataParam = searchParams.get('data');
+        if (dataParam) {
+          try {
+            const decoded = JSON.parse(atob(dataParam));
+            found = {
+              id: lockInId,
+              patientEmail: decoded.patientEmail,
+              professionalEmail: decoded.professionalEmail,
+              providerName: decoded.providerName,
+              slotDate: decoded.slotDate,
+              slotTime: decoded.slotTime,
+              fee: decoded.fee,
+              clinicName: decoded.clinicName,
+              specialty: decoded.specialty,
+              lockInWarningAt: new Date(Date.now() + 60 * 60 * 1000).toISOString(),
+              state: 'PENDING',
+            };
+            // Best-effort: save to DB for future requests
+            fetch('/api/referrals', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                id: found.id,
+                patientEmail: found.patientEmail,
+                professionalEmail: found.professionalEmail,
+                providerName: found.providerName,
+                slotDate: found.slotDate,
+                slotTime: found.slotTime,
+                fee: found.fee,
+                specialty: found.specialty,
+                lockInWarningAt: found.lockInWarningAt,
+              }),
+            }).catch(() => {});
+          } catch (e) {
+            console.error('Error decoding referral from URL:', e);
+          }
         }
       }
+
+      // 3. Last resort: localStorage (same browser as professional)
+      if (!found) {
+        try {
+          const stored = localStorage.getItem('referrals');
+          if (stored) found = JSON.parse(stored).find((r) => r.id === lockInId) || null;
+        } catch {}
+      }
+
+      if (found) {
+        setReferral(found);
+        setForm((prev) => ({
+          ...prev,
+          patientName: found.patientName || '',
+          patientPhone: found.patientPhone || '',
+          patientAddress: found.patientAddress || '',
+        }));
+      } else {
+        setIsExpired(true);
+      }
+      setIsLoading(false);
     }
 
-    if (found) {
-      setReferral(found);
-      setForm((prev) => ({
-        ...prev,
-        patientName: found.patientName || '',
-        patientPhone: found.patientPhone || '',
-        patientAddress: found.patientAddress || '',
-      }));
-    } else {
-      setIsExpired(true);
-    }
-    setIsLoading(false);
+    loadReferral();
   }, [lockInId, searchParams]);
 
   const handleFormChange = (field, value) => {
@@ -126,54 +148,63 @@ export default function LockInPage() {
 
     setIsSubmitting(true);
 
-    // Update referral state
+    // Update referral state — API first, localStorage fallback
+    const completedAt = new Date().toISOString();
+    let updateOk = false;
+    try {
+      const res = await fetch(`/api/referrals/${lockInId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          patientName: form.patientName,
+          patientPhone: form.patientPhone,
+          patientAddress: form.patientAddress,
+          state: REFERRAL_STATES.DATA_COMPLETED,
+          completedAt,
+        }),
+      });
+      updateOk = res.ok;
+    } catch {}
+
+    // Also update localStorage as fallback cache
     const stored = localStorage.getItem('referrals');
     if (stored) {
       try {
         const referrals = JSON.parse(stored);
         const updated = referrals.map((r) =>
           r.id === lockInId
-            ? {
-                ...r,
-                patientName: form.patientName,
-                patientPhone: form.patientPhone,
-                patientAddress: form.patientAddress,
-                state: REFERRAL_STATES.DATA_COMPLETED,
-                completedAt: new Date().toISOString(),
-              }
+            ? { ...r, patientName: form.patientName, patientPhone: form.patientPhone,
+                patientAddress: form.patientAddress, state: REFERRAL_STATES.DATA_COMPLETED, completedAt }
             : r
         );
         localStorage.setItem('referrals', JSON.stringify(updated));
-
-        // Notify clinic that patient completed data
-        fetch('/api/email/send', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            templateName: 'clinicPatientCompleted',
-            data: {
-              clinicEmail: referral?.professionalEmail,
-              patientName: form.patientName,
-              patientPhone: form.patientPhone,
-              providerName: referral?.providerName || 'Centro médico',
-              slotDate: referral?.slotDate,
-              slotTime: referral?.slotTime,
-              referralId: lockInId,
-            },
-          }),
-        }).catch(() => {});
-
-        // Redirect to payment page
-        router.push(
-          `/book?lockInId=${lockInId}&patientName=${encodeURIComponent(
-            form.patientName
-          )}&patientEmail=${encodeURIComponent(referral?.patientEmail)}&step=payment`
-        );
-      } catch (e) {
-        console.error('Error updating referral:', e);
-        alert('Error al guardar los datos');
-      }
+      } catch {}
     }
+
+    // Notify clinic that patient completed data
+    fetch('/api/email/send', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        templateName: 'clinicPatientCompleted',
+        data: {
+          clinicEmail: referral?.professionalEmail,
+          patientName: form.patientName,
+          patientPhone: form.patientPhone,
+          providerName: referral?.providerName || 'Centro médico',
+          slotDate: referral?.slotDate,
+          slotTime: referral?.slotTime,
+          referralId: lockInId,
+        },
+      }),
+    }).catch(() => {});
+
+    // Redirect to payment page
+    router.push(
+      `/book?lockInId=${lockInId}&patientName=${encodeURIComponent(
+        form.patientName
+      )}&patientEmail=${encodeURIComponent(referral?.patientEmail)}&step=payment`
+    );
 
     setIsSubmitting(false);
   };

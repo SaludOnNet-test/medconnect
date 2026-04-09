@@ -1,12 +1,15 @@
 'use client';
 
+// Authenticated page — never statically prerendered
+export const dynamic = 'force-dynamic';
+
 import { useEffect, useState, useCallback } from 'react';
 import Link from 'next/link';
 import Header from '@/components/Header';
 import Footer from '@/components/Footer';
 import ReferralModal from '@/components/ReferralModal';
 import LockInTimer from '@/components/LockInTimer';
-import { createReferral, REFERRAL_STATES, getReferralStatusDisplay, isSlotAvailable } from '@/data/mock';
+import { createReferral, generateReferralId, REFERRAL_STATES, getReferralStatusDisplay, isSlotAvailable } from '@/data/mock';
 
 // TODO: Replace with real clinic ID from user account
 const MY_CLINIC_PROVIDER_ID = 1;
@@ -47,73 +50,72 @@ export default function ProDashboard() {
   const [referrals, setReferrals] = useState([]);
   const [clerkUser, setClerkUser] = useState(null);
   const handleClerkUser = useCallback((data) => setClerkUser(data), []);
+  const [isMounted, setIsMounted] = useState(false);
+  useEffect(() => setIsMounted(true), []);
 
   const professionName = (HAS_CLERK_KEYS && clerkUser?.name) ? clerkUser.name : 'Centro Médico San José';
   const professionalEmail = (HAS_CLERK_KEYS && clerkUser?.email) ? clerkUser.email : 'info@centromedico.es';
 
-  // Initialize referrals from localStorage
+  // Load referrals — API first, localStorage fallback
   useEffect(() => {
-    const stored = localStorage.getItem('referrals');
-    if (stored) {
+    async function loadReferrals() {
       try {
-        setReferrals(JSON.parse(stored));
-      } catch (e) {
-        console.error('Error loading referrals:', e);
-      }
-    } else {
-      // Initialize with mock data
-      const mockReferrals = [
-        createReferral({
-          type: 'externa',
-          professionalEmail: 'info@centromedico.es',
-          professionName: 'Centro Médico San José',
-          patientEmail: 'garcia@example.com',
-          providerId: 1,
-          serviceId: 1,
-          slotDate: '2026-04-02',
-          slotTime: '10:00',
-          providerName: 'Hospital Universitario HM Sanchinarro',
-          fee: 25.00,
-        }),
-        createReferral({
-          type: 'externa',
-          professionalEmail: 'info@centromedico.es',
-          professionName: 'Centro Médico San José',
-          patientEmail: 'lopez@example.com',
-          providerId: 2,
-          serviceId: 5,
-          slotDate: '2026-03-31',
-          slotTime: '14:30',
-          providerName: 'Clínica Teknon',
-          fee: 9.99,
-          state: REFERRAL_STATES.DATA_COMPLETED,
-        }),
-      ];
-      setReferrals(mockReferrals);
-      localStorage.setItem('referrals', JSON.stringify(mockReferrals));
-    }
-  }, []);
+        const emailFilter = professionalEmail
+          ? `?professionalEmail=${encodeURIComponent(professionalEmail)}`
+          : '';
+        const res = await fetch(`/api/referrals${emailFilter}`);
+        if (res.ok) {
+          const data = await res.json();
+          if (Array.isArray(data)) {
+            setReferrals(data);
+            return;
+          }
+        }
+      } catch { /* network error — fall through */ }
 
-  // Save referrals to localStorage whenever they change
-  useEffect(() => {
-    if (referrals.length > 0) {
-      localStorage.setItem('referrals', JSON.stringify(referrals));
+      // Fallback: localStorage (works offline / if DB down)
+      const stored = localStorage.getItem('referrals');
+      if (stored) {
+        try { setReferrals(JSON.parse(stored)); } catch {}
+      }
     }
-  }, [referrals]);
+    loadReferrals();
+  }, [professionalEmail]);
 
   const handleCreateReferral = async ({ provider, slot, patientEmail }) => {
-    const newReferral = createReferral({
-      type: modalDeriType,
-      professionalEmail,
-      professionName,
-      patientEmail,
-      providerId: provider.id,
-      serviceId: 1,
-      slotDate: slot.date,
-      slotTime: slot.time,
-      providerName: provider.name,
-      fee: 25.00,
-    });
+    const id = generateReferralId();
+    const lockInWarningAt = new Date(Date.now() + 60 * 60 * 1000).toISOString();
+
+    // Persist to DB via API; fall back to local mock if unavailable
+    let newReferral;
+    try {
+      const res = await fetch('/api/referrals', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          id,
+          patientEmail,
+          professionalEmail,
+          professionName,
+          providerId: provider.id,
+          providerName: provider.name,
+          slotDate: slot.date,
+          slotTime: slot.time,
+          fee: 25.00,
+          specialty: 'Consulta médica',
+          lockInWarningAt,
+        }),
+      });
+      if (res.ok) newReferral = await res.json();
+    } catch { /* fall through */ }
+
+    if (!newReferral) {
+      newReferral = createReferral({
+        type: modalDeriType, professionalEmail, professionName, patientEmail,
+        providerId: provider.id, serviceId: 1, slotDate: slot.date,
+        slotTime: slot.time, providerName: provider.name, fee: 25.00,
+      });
+    }
 
     setReferrals((prev) => [...prev, newReferral]);
 
@@ -129,19 +131,20 @@ export default function ProDashboard() {
       lockInId: newReferral.id,
     };
 
-    // Email to patient: lock-in invitation with confirmation link
     sendEmail('lockInInvitation', emailData);
-    // Email to derivador: confirmation that the case was created
     sendEmail('derivadorReferralCreated', { ...emailData, to: professionalEmail });
   };
 
-  const handleCancelReferral = (referralId) => {
+  const handleCancelReferral = async (referralId) => {
+    try {
+      await fetch(`/api/referrals/${referralId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ state: REFERRAL_STATES.EXPIRED }),
+      });
+    } catch { /* ignore — state update below still applies locally */ }
     setReferrals((prev) =>
-      prev.map((ref) =>
-        ref.id === referralId
-          ? { ...ref, state: REFERRAL_STATES.EXPIRED }
-          : ref
-      )
+      prev.map((ref) => ref.id === referralId ? { ...ref, state: REFERRAL_STATES.EXPIRED } : ref)
     );
   };
 
@@ -225,7 +228,7 @@ export default function ProDashboard() {
 
   return (
     <>
-      {HAS_CLERK_KEYS && <ClerkUserBridge onUser={handleClerkUser} />}
+      {isMounted && HAS_CLERK_KEYS && <ClerkUserBridge onUser={handleClerkUser} />}
       <Header />
       <main className="pro-dashboard">
         <div className="container">
