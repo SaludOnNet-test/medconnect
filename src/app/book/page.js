@@ -120,6 +120,7 @@ function BookContent() {
       // Send lock-in invitation email to patient
       sendEmail('lockInInvitation', {
         patientEmail: form.email,
+        professionalEmail: proData.email,
         clinicName: proData.clinicName,
         specialty: service?.name || 'Consulta médica',
         providerName,

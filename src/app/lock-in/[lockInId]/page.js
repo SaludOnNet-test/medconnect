@@ -1,8 +1,7 @@
 'use client';
 
-import { useEffect, useState } from 'react';
-import { useParams, useRouter } from 'next/navigation';
-import { useSearchParams } from 'next/navigation';
+import { useEffect, useState, Suspense } from 'react';
+import { useParams, useRouter, useSearchParams } from 'next/navigation';
 import Header from '@/components/Header';
 import Footer from '@/components/Footer';
 import LockInTimer from '@/components/LockInTimer';
@@ -12,6 +11,7 @@ import './lock-in.css';
 export default function LockInPage() {
   const params = useParams();
   const router = useRouter();
+  const searchParams = useSearchParams();
   const lockInId = params.lockInId;
 
   const [referral, setReferral] = useState(null);
@@ -26,32 +26,60 @@ export default function LockInPage() {
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   useEffect(() => {
-    // Load referral from localStorage
     const stored = localStorage.getItem('referrals');
+    let found = null;
+
+    // 1. Try localStorage first (same browser as professional)
     if (stored) {
       try {
-        const referrals = JSON.parse(stored);
-        const found = referrals.find((r) => r.id === lockInId);
-        if (found) {
-          setReferral(found);
-          setForm((prev) => ({
-            ...prev,
-            patientName: found.patientName || '',
-            patientPhone: found.patientPhone || '',
-            patientAddress: found.patientAddress || '',
-          }));
-        } else {
-          setIsExpired(true);
-        }
+        found = JSON.parse(stored).find((r) => r.id === lockInId) || null;
       } catch (e) {
-        console.error('Error loading referral:', e);
-        setIsExpired(true);
+        console.error('Error parsing referrals from localStorage:', e);
       }
+    }
+
+    // 2. Fallback: reconstruct from URL ?data= param (cross-browser / email link)
+    if (!found) {
+      const dataParam = searchParams.get('data');
+      if (dataParam) {
+        try {
+          const decoded = JSON.parse(atob(dataParam));
+          found = {
+            id: lockInId,
+            patientEmail: decoded.patientEmail,
+            professionalEmail: decoded.professionalEmail,
+            providerName: decoded.providerName,
+            slotDate: decoded.slotDate,
+            slotTime: decoded.slotTime,
+            fee: decoded.fee,
+            clinicName: decoded.clinicName,
+            specialty: decoded.specialty,
+            lockInWarningAt: new Date(Date.now() + 60 * 60 * 1000).toISOString(),
+            state: 'PENDING',
+          };
+          // Save to localStorage so subsequent operations (submit, timer) work
+          const existing = stored ? JSON.parse(stored) : [];
+          existing.push(found);
+          localStorage.setItem('referrals', JSON.stringify(existing));
+        } catch (e) {
+          console.error('Error decoding referral from URL:', e);
+        }
+      }
+    }
+
+    if (found) {
+      setReferral(found);
+      setForm((prev) => ({
+        ...prev,
+        patientName: found.patientName || '',
+        patientPhone: found.patientPhone || '',
+        patientAddress: found.patientAddress || '',
+      }));
     } else {
       setIsExpired(true);
     }
     setIsLoading(false);
-  }, [lockInId]);
+  }, [lockInId, searchParams]);
 
   const handleFormChange = (field, value) => {
     setForm((prev) => ({ ...prev, [field]: value }));

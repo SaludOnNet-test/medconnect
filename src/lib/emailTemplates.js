@@ -2,7 +2,7 @@
 // All templates use inline CSS for Gmail/Outlook compatibility
 // Colors: navy #1a3c5e, gold #c9a84c, cream #f9f7f4, green #10b981
 
-const BASE_URL = process.env.NEXT_PUBLIC_BASE_URL || 'https://prioritamed.vercel.app';
+const BASE_URL = process.env.NEXT_PUBLIC_BASE_URL || 'https://medconnect-bay.vercel.app';
 
 const baseWrapper = (content) => `
 <!DOCTYPE html>
@@ -40,8 +40,13 @@ const infoRow = (label, value) =>
 // ─────────────────────────────────────────────
 // 1. Lock-In Invitation (clinic created referral)
 // ─────────────────────────────────────────────
-export function lockInInvitation({ patientEmail, clinicName, specialty, providerName, slotDate, slotTime, fee, lockInId }) {
-  const lockInUrl = `${BASE_URL}/lock-in/${lockInId}`;
+export function lockInInvitation({ patientEmail, professionalEmail, clinicName, specialty, providerName, slotDate, slotTime, fee, lockInId }) {
+  // Encode referral data in URL so the patient's browser can reconstruct the referral
+  // even if they open the link on a different device (localStorage is per-browser)
+  const referralPayload = Buffer.from(JSON.stringify({
+    patientEmail, professionalEmail, clinicName, specialty, providerName, slotDate, slotTime, fee,
+  })).toString('base64');
+  const lockInUrl = `${BASE_URL}/lock-in/${lockInId}?data=${referralPayload}`;
   const formattedDate = slotDate ? new Date(slotDate + 'T00:00:00').toLocaleDateString('es-ES', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' }) : slotDate;
 
   const html = baseWrapper(bodySection(`
