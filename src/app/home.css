@@ -1,43 +1,58 @@
+/* ── Hero ─────────────────────────────────────────────────────────────── */
 .home-hero {
-  padding: var(--space-3xl) 0 var(--space-2xl);
+  background: linear-gradient(135deg, #1a3c5e 0%, #0d2640 60%, #162f4a 100%);
+  padding: var(--space-3xl) 0 var(--space-3xl);
   text-align: center;
+  position: relative;
+  overflow: hidden;
+}
+
+.home-hero::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(ellipse at 60% 0%, rgba(201,168,76,0.12) 0%, transparent 60%);
+  pointer-events: none;
 }
 
 .home-search-section {
-  max-width: 900px;
+  max-width: 820px;
   margin: 0 auto var(--space-2xl);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
 }
 
 .home-tagline {
-  font-size: 0.8rem;
+  font-size: 0.78rem;
   text-transform: uppercase;
-  letter-spacing: 0.15em;
+  letter-spacing: 0.18em;
   color: var(--gold);
-  font-weight: 600;
+  font-weight: 700;
   margin-bottom: var(--space-sm);
 }
 
 .home-heading {
-  font-size: 2.8rem;
-  color: var(--navy);
+  font-size: 3rem;
+  color: #fff;
   margin-bottom: var(--space-md);
-  line-height: 1.15;
+  line-height: 1.12;
 }
 
 .home-subheading {
-  font-size: 1.05rem;
-  color: var(--muted);
-  max-width: 600px;
+  font-size: 1.1rem;
+  color: rgba(255,255,255,0.75);
+  max-width: 580px;
   margin: 0 auto var(--space-xl);
-  line-height: 1.6;
+  line-height: 1.65;
 }
 
-/* Value pillars */
+/* ── Value pillars ──────────────────────────────────────────────────────── */
 .home-pillars {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
-  gap: var(--space-xl);
-  max-width: 900px;
+  gap: var(--space-lg);
+  max-width: 960px;
   margin: 0 auto;
   padding: var(--space-2xl) 0;
 }
@@ -45,6 +60,16 @@
 .home-pillar {
   text-align: center;
   padding: var(--space-xl) var(--space-lg);
+  background: #fff;
+  border-radius: 16px;
+  border: 1px solid #e5e7eb;
+  box-shadow: 0 2px 12px rgba(0,0,0,0.05);
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.home-pillar:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 8px 28px rgba(0,0,0,0.10);
 }
 
 .home-pillar-icon {
@@ -55,7 +80,7 @@
 
 .home-pillar-title {
   font-family: var(--font-heading);
-  font-size: 1.1rem;
+  font-size: 1.05rem;
   color: var(--navy);
   margin-bottom: var(--space-sm);
 }
@@ -63,10 +88,57 @@
 .home-pillar-desc {
   font-size: 0.85rem;
   color: var(--muted);
-  line-height: 1.6;
+  line-height: 1.65;
 }
 
-/* Pricing legend */
+/* ── Plus banner ──────────────────────────────────────────────────────── */
+.home-plus-banner {
+  max-width: 700px;
+  margin: 0 auto;
+}
+
+/* ── Trust bar ────────────────────────────────────────────────────────── */
+.home-trust {
+  text-align: center;
+  padding: var(--space-2xl) 0;
+  border-top: 1px solid var(--border);
+}
+
+.home-trust-label {
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  letter-spacing: 0.14em;
+  color: var(--muted);
+  margin-bottom: var(--space-lg);
+  font-weight: 700;
+}
+
+.home-trust-logos {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: var(--space-xl);
+  flex-wrap: wrap;
+}
+
+.home-trust-logo {
+  font-size: 0.82rem;
+  font-weight: 700;
+  letter-spacing: 0.03em;
+  padding: 6px 16px;
+  border-radius: 6px;
+  border: 1px solid #e5e7eb;
+  color: #4b5563;
+  background: #fafafa;
+  transition: border-color 0.15s;
+}
+
+.home-trust-logo:hover {
+  border-color: var(--navy);
+  color: var(--navy);
+}
+
+/* ── Pricing legend (kept for reference) ─────────────────────────────── */
 .home-pricing {
   background: var(--white);
   border-radius: var(--radius-xl);
@@ -110,74 +182,31 @@
   color: var(--muted);
 }
 
-.tier-urgent-card {
-  background: var(--tier-urgent-bg);
-}
+.tier-urgent-card  { background: var(--tier-urgent-bg); }
+.tier-urgent-card .home-pricing-tier-price  { color: var(--tier-urgent); }
+.tier-soon-card    { background: var(--tier-soon-bg); }
+.tier-soon-card .home-pricing-tier-price    { color: var(--tier-soon); }
+.tier-standard-card{ background: var(--tier-standard-bg); }
+.tier-standard-card .home-pricing-tier-price{ color: var(--tier-standard); }
+.tier-free-card    { background: var(--tier-free-bg); }
+.tier-free-card .home-pricing-tier-price    { color: var(--tier-free); }
 
-.tier-urgent-card .home-pricing-tier-price {
-  color: var(--tier-urgent);
-}
-
-.tier-soon-card {
-  background: var(--tier-soon-bg);
-}
-
-.tier-soon-card .home-pricing-tier-price {
-  color: var(--tier-soon);
-}
-
-.tier-standard-card {
-  background: var(--tier-standard-bg);
-}
-
-.tier-standard-card .home-pricing-tier-price {
-  color: var(--tier-standard);
-}
-
-.tier-free-card {
-  background: var(--tier-free-bg);
-}
-
-.tier-free-card .home-pricing-tier-price {
-  color: var(--tier-free);
-}
-
-/* Trust */
-.home-trust {
-  text-align: center;
-  padding: var(--space-2xl) 0;
-  border-top: 1px solid var(--border);
-}
-
-.home-trust-label {
-  font-size: 0.75rem;
-  text-transform: uppercase;
-  letter-spacing: 0.12em;
-  color: var(--muted);
-  margin-bottom: var(--space-lg);
-  font-weight: 600;
-}
-
-.home-trust-logos {
-  display: flex;
-  justify-content: center;
-  gap: var(--space-2xl);
-  flex-wrap: wrap;
-  font-size: 0.85rem;
-  color: var(--muted);
-  font-weight: 600;
-}
-
+/* ── Responsive ───────────────────────────────────────────────────────── */
 @media (max-width: 768px) {
   .home-heading {
-    font-size: 1.8rem;
+    font-size: 2rem;
   }
 
   .home-pillars {
     grid-template-columns: 1fr;
+    gap: var(--space-md);
   }
 
   .home-pricing-tiers {
     grid-template-columns: repeat(2, 1fr);
+  }
+
+  .home-hero {
+    padding: var(--space-2xl) 0;
   }
 }

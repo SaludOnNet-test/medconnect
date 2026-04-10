@@ -1,0 +1,270 @@
+/* ── SearchV2 Page ────────────────────────────────────────────────────── */
+
+/* ── Top bar ─────────────────────────────────────────────────────────── */
+.sv2-topbar {
+  position: sticky;
+  top: 0;
+  z-index: 100;
+  background: #fff;
+  border-bottom: 1px solid #e5e7eb;
+  padding: 10px 0;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+}
+
+.sv2-topbar-inner {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 0 1.5rem;
+}
+
+/* ── Page title ───────────────────────────────────────────────────────── */
+.sv2-title-row {
+  padding: 1.25rem 1.5rem 0;
+  max-width: 1200px;
+  margin: 0 auto;
+}
+
+.sv2-title {
+  font-size: 1.4rem;
+  font-weight: 700;
+  color: #1a3c5e;
+  margin: 0 0 4px;
+  text-transform: capitalize;
+}
+
+.sv2-subtitle {
+  font-size: 0.82rem;
+  color: #9ca3af;
+  margin: 0;
+}
+
+/* ── Two-column layout ────────────────────────────────────────────────── */
+.sv2-layout {
+  display: grid;
+  grid-template-columns: 1fr 420px;
+  gap: 1.5rem;
+  align-items: start;
+  padding-top: 1rem;
+  padding-bottom: 2rem;
+  max-width: 1200px;
+  margin: 0 auto;
+}
+
+/* ── Left panel ───────────────────────────────────────────────────────── */
+.sv2-left {
+  min-width: 0;
+}
+
+/* ── Filter bar ───────────────────────────────────────────────────────── */
+.sv2-filters {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 12px;
+  background: #fff;
+  border: 1px solid #e5e7eb;
+  border-radius: 12px;
+  padding: 0.875rem 1rem;
+  margin-bottom: 1rem;
+  box-shadow: 0 1px 4px rgba(0,0,0,0.04);
+}
+
+.sv2-filter-group {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.sv2-filter-group--right {
+  margin-left: auto;
+  flex-direction: row;
+  align-items: center;
+  gap: 10px;
+}
+
+.sv2-filter-label {
+  font-size: 0.68rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: #9ca3af;
+}
+
+.sv2-select {
+  border: 1.5px solid #e5e7eb;
+  border-radius: 8px;
+  padding: 7px 28px 7px 10px;
+  font-size: 0.85rem;
+  color: #1f2937;
+  background: #fff url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'%3E%3Cpath d='M0 0l5 6 5-6z' fill='%236b7280'/%3E%3C/svg%3E") no-repeat right 10px center;
+  -webkit-appearance: none;
+  appearance: none;
+  cursor: pointer;
+  font-family: inherit;
+  transition: border-color 0.15s;
+}
+
+.sv2-select:focus {
+  outline: none;
+  border-color: #1a3c5e;
+}
+
+/* ── Rating chips ─────────────────────────────────────────────────────── */
+.sv2-rating-chips {
+  display: flex;
+  gap: 6px;
+}
+
+.sv2-chip {
+  padding: 6px 12px;
+  border: 1.5px solid #e5e7eb;
+  border-radius: 20px;
+  background: #fff;
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: #4b5563;
+  cursor: pointer;
+  transition: all 0.15s;
+  font-family: inherit;
+  white-space: nowrap;
+}
+
+.sv2-chip:hover {
+  border-color: #1a3c5e;
+  color: #1a3c5e;
+}
+
+.sv2-chip--active {
+  background: #1a3c5e;
+  border-color: #1a3c5e;
+  color: #fff;
+}
+
+/* ── Results count + map toggle ───────────────────────────────────────── */
+.sv2-count {
+  font-size: 0.85rem;
+  color: #6b7280;
+  white-space: nowrap;
+}
+
+.sv2-count strong {
+  color: #1a3c5e;
+}
+
+.sv2-map-toggle {
+  display: none; /* shown on mobile only */
+  border: 1.5px solid #e5e7eb;
+  border-radius: 8px;
+  background: #fff;
+  padding: 6px 12px;
+  font-size: 0.8rem;
+  font-weight: 600;
+  cursor: pointer;
+  font-family: inherit;
+  color: #4b5563;
+}
+
+/* ── Results list ─────────────────────────────────────────────────────── */
+.sv2-results {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+}
+
+.sv2-empty {
+  text-align: center;
+  padding: 3rem 1rem;
+  color: #6b7280;
+  font-size: 1rem;
+}
+
+/* ── Map panel ────────────────────────────────────────────────────────── */
+.sv2-map-panel {
+  position: sticky;
+  top: 74px; /* below topbar */
+  height: calc(100vh - 100px);
+  border-radius: 14px;
+  overflow: hidden;
+  border: 1px solid #e5e7eb;
+  box-shadow: 0 2px 12px rgba(0,0,0,0.08);
+}
+
+.sv2-map-wrap {
+  position: relative;
+  width: 100%;
+  height: 100%;
+}
+
+.sv2-map-iframe {
+  width: 100%;
+  height: 100%;
+  border: none;
+  display: block;
+  filter: saturate(0.85) brightness(1.03);
+}
+
+/* ── Map pins ─────────────────────────────────────────────────────────── */
+.sv2-map-pin {
+  position: absolute;
+  width: 28px;
+  height: 28px;
+  background: #1a3c5e;
+  color: #fff;
+  border: 2px solid #fff;
+  border-radius: 50%;
+  font-size: 0.72rem;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transform: translate(-50%, -50%);
+  box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+  transition: all 0.15s ease;
+  z-index: 10;
+  font-family: inherit;
+  border: none;
+}
+
+.sv2-map-pin:hover,
+.sv2-map-pin--active {
+  background: #c9a84c;
+  transform: translate(-50%, -50%) scale(1.25);
+  z-index: 20;
+}
+
+/* ── Responsive ───────────────────────────────────────────────────────── */
+@media (max-width: 900px) {
+  .sv2-layout {
+    grid-template-columns: 1fr;
+  }
+
+  .sv2-map-panel {
+    position: relative;
+    top: 0;
+    height: 300px;
+    margin-bottom: 1rem;
+    order: -1;
+  }
+
+  .sv2-map-toggle {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+  }
+}
+
+@media (max-width: 640px) {
+  .sv2-filters {
+    gap: 8px;
+    padding: 0.75rem;
+  }
+
+  .sv2-rating-chips {
+    flex-wrap: wrap;
+  }
+
+  .sv2-title {
+    font-size: 1.15rem;
+  }
+}

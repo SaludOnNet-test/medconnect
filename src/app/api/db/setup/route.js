@@ -67,7 +67,16 @@ export async function GET(request) {
       );
     `);
 
-    return NextResponse.json({ success: true, message: 'Schema ready (tables created if missing)' });
+    // Add reminder_sent column to referrals if it doesn't exist yet (idempotent migration)
+    await pool.request().query(`
+      IF NOT EXISTS (
+        SELECT * FROM sys.columns
+        WHERE Name = 'reminder_sent' AND Object_ID = Object_ID('referrals')
+      )
+      ALTER TABLE referrals ADD reminder_sent BIT NOT NULL DEFAULT 0;
+    `);
+
+    return NextResponse.json({ success: true, message: 'Schema ready (tables + migrations applied)' });
   } catch (err) {
     console.error('[db/setup]', err);
     return NextResponse.json({ error: err.message }, { status: 500 });

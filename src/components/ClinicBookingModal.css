@@ -1,0 +1,283 @@
+/* ── ClinicBookingModal ────────────────────────────────────────────────── */
+.cbm-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.55);
+  z-index: 1000;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  animation: cbm-fade-in 0.15s ease;
+  padding: 0;
+}
+
+@keyframes cbm-fade-in {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+
+.cbm-modal {
+  background: #fff;
+  width: 100%;
+  max-width: 640px;
+  max-height: 90vh;
+  border-radius: 20px 20px 0 0;
+  display: flex;
+  flex-direction: column;
+  animation: cbm-slide-up 0.2s ease;
+  overflow: hidden;
+}
+
+@keyframes cbm-slide-up {
+  from { transform: translateY(40px); opacity: 0; }
+  to   { transform: translateY(0);    opacity: 1; }
+}
+
+@media (min-width: 640px) {
+  .cbm-overlay {
+    align-items: center;
+  }
+  .cbm-modal {
+    border-radius: 20px;
+    max-height: 85vh;
+  }
+}
+
+/* ── Header ───────────────────────────────────────────────────────────── */
+.cbm-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  padding: 1.5rem 1.5rem 1rem;
+  border-bottom: 1px solid #f3f4f6;
+  flex-shrink: 0;
+}
+
+.cbm-title {
+  font-size: 1.15rem;
+  font-weight: 700;
+  color: #1a3c5e;
+  margin: 0 0 4px;
+}
+
+.cbm-subtitle {
+  font-size: 0.82rem;
+  color: #6b7280;
+  margin: 0 0 4px;
+}
+
+.cbm-rating {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.cbm-close {
+  background: #f3f4f6;
+  border: none;
+  border-radius: 50%;
+  width: 32px;
+  height: 32px;
+  font-size: 1rem;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #6b7280;
+  flex-shrink: 0;
+  transition: background 0.15s;
+}
+
+.cbm-close:hover {
+  background: #e5e7eb;
+  color: #1f2937;
+}
+
+/* ── Sections ─────────────────────────────────────────────────────────── */
+.cbm-section {
+  padding: 1.25rem 1.5rem;
+  overflow-y: auto;
+  flex-shrink: 0;
+}
+
+.cbm-section-title {
+  font-size: 0.8rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: #9ca3af;
+  margin: 0 0 0.75rem;
+}
+
+/* ── Date buttons ─────────────────────────────────────────────────────── */
+.cbm-dates {
+  display: flex;
+  gap: 8px;
+  overflow-x: auto;
+  padding-bottom: 4px;
+  scrollbar-width: none;
+}
+
+.cbm-dates::-webkit-scrollbar { display: none; }
+
+.cbm-date-btn {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 10px 14px;
+  border: 1.5px solid #e5e7eb;
+  border-radius: 12px;
+  background: #fff;
+  cursor: pointer;
+  transition: all 0.15s;
+  min-width: 60px;
+  flex-shrink: 0;
+  font-family: inherit;
+}
+
+.cbm-date-btn:hover {
+  border-color: #1a3c5e;
+  background: #f0f4f8;
+}
+
+.cbm-date-btn--active {
+  background: #1a3c5e;
+  border-color: #1a3c5e;
+  color: #fff;
+}
+
+.cbm-date-weekday {
+  font-size: 0.7rem;
+  font-weight: 600;
+  text-transform: capitalize;
+  opacity: 0.7;
+}
+
+.cbm-date-num {
+  font-size: 1.3rem;
+  font-weight: 700;
+  line-height: 1;
+  margin: 2px 0;
+}
+
+.cbm-date-month {
+  font-size: 0.7rem;
+  text-transform: capitalize;
+  opacity: 0.7;
+}
+
+.cbm-date-btn--active .cbm-date-weekday,
+.cbm-date-btn--active .cbm-date-month {
+  opacity: 0.85;
+}
+
+/* ── Time buttons ─────────────────────────────────────────────────────── */
+.cbm-times {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(110px, 1fr));
+  gap: 8px;
+}
+
+.cbm-time-btn {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 10px 8px;
+  border: 1.5px solid #e5e7eb;
+  border-radius: 10px;
+  background: #fff;
+  cursor: pointer;
+  transition: all 0.15s;
+  font-family: inherit;
+}
+
+.cbm-time-btn:hover {
+  border-color: #c9a84c;
+  background: #fefce8;
+}
+
+.cbm-time-btn--active {
+  background: #0d5e42;
+  border-color: #0d5e42;
+  color: #fff;
+}
+
+.cbm-time {
+  font-size: 1rem;
+  font-weight: 700;
+  color: inherit;
+}
+
+.cbm-time-fee {
+  font-size: 0.72rem;
+  font-weight: 700;
+  color: #0d5e42;
+  margin-top: 2px;
+}
+
+.cbm-time-btn--active .cbm-time-fee {
+  color: rgba(255,255,255,0.85);
+}
+
+/* ── Footer ───────────────────────────────────────────────────────────── */
+.cbm-footer {
+  border-top: 1px solid #f3f4f6;
+  padding: 1rem 1.5rem;
+  flex-shrink: 0;
+  background: #fafafa;
+}
+
+.cbm-footer-selected {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.cbm-footer-label {
+  font-size: 0.72rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.07em;
+  color: #9ca3af;
+  margin: 0 0 2px;
+}
+
+.cbm-footer-summary {
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: #1f2937;
+  margin: 0;
+  text-transform: capitalize;
+}
+
+.cbm-footer-fee {
+  font-size: 1.25rem;
+  font-weight: 700;
+  color: #1a3c5e;
+}
+
+.cbm-book-btn {
+  background: #1a3c5e;
+  color: #fff;
+  border: none;
+  border-radius: 10px;
+  padding: 12px 24px;
+  font-size: 0.9rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: background 0.15s;
+  white-space: nowrap;
+  font-family: inherit;
+}
+
+.cbm-book-btn:hover {
+  background: #0d2640;
+}
+
+.cbm-footer-hint {
+  font-size: 0.85rem;
+  color: #9ca3af;
+  text-align: center;
+  margin: 0;
+}

@@ -1,0 +1,233 @@
+/* ── SearchBarV2 ── Doctoralia-inspired search widget ──────────────────── */
+
+.sbv2 {
+  background: #fff;
+  border-radius: 16px;
+  box-shadow: 0 4px 32px rgba(0,0,0,0.13);
+  overflow: visible;
+  max-width: 780px;
+  width: 100%;
+}
+
+/* ── Tabs ───────────────────────────────────────────────────────────────── */
+.sbv2-tabs {
+  display: flex;
+  gap: 0;
+  padding: 12px 12px 0;
+  border-bottom: 1px solid #eee;
+}
+
+.sbv2-tab {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 10px 20px;
+  border: none;
+  background: transparent;
+  border-radius: 10px 10px 0 0;
+  font-size: 0.9rem;
+  font-weight: 500;
+  color: #6b7280;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  font-family: var(--font-body, 'Inter', sans-serif);
+}
+
+.sbv2-tab:hover {
+  background: #f3f4f6;
+  color: var(--navy, #1a3c5e);
+}
+
+.sbv2-tab--active {
+  background: var(--navy, #1a3c5e);
+  color: #fff;
+  font-weight: 600;
+}
+
+.sbv2-tab--active:hover {
+  background: #162f4a;
+  color: #fff;
+}
+
+.sbv2-tab-icon {
+  font-size: 1rem;
+}
+
+/* ── Search Row ─────────────────────────────────────────────────────────── */
+.sbv2-row {
+  display: flex;
+  align-items: center;
+  padding: 12px 12px 12px 16px;
+  gap: 0;
+}
+
+.sbv2-field {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex: 1;
+  min-width: 0;
+}
+
+.sbv2-field--main {
+  flex: 2;
+}
+
+.sbv2-field--city {
+  flex: 1;
+}
+
+.sbv2-field-icon {
+  font-size: 1rem;
+  flex-shrink: 0;
+  color: #9ca3af;
+}
+
+.sbv2-input {
+  border: none;
+  outline: none;
+  font-size: 0.95rem;
+  color: #1f2937;
+  background: transparent;
+  width: 100%;
+  font-family: var(--font-body, 'Inter', sans-serif);
+  padding: 6px 0;
+}
+
+.sbv2-input::placeholder {
+  color: #9ca3af;
+}
+
+.sbv2-divider {
+  width: 1px;
+  height: 32px;
+  background: #e5e7eb;
+  margin: 0 12px;
+  flex-shrink: 0;
+}
+
+.sbv2-btn {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: var(--navy, #1a3c5e);
+  color: #fff;
+  border: none;
+  border-radius: 10px;
+  padding: 12px 24px;
+  font-size: 0.95rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.15s ease, transform 0.1s ease;
+  white-space: nowrap;
+  flex-shrink: 0;
+  font-family: var(--font-body, 'Inter', sans-serif);
+}
+
+.sbv2-btn:hover {
+  background: #162f4a;
+}
+
+.sbv2-btn:active {
+  transform: scale(0.97);
+}
+
+/* ── Suggestions Dropdown ──────────────────────────────────────────────── */
+.sbv2-dropdown {
+  position: absolute;
+  top: calc(100% + 6px);
+  left: 0;
+  right: 0;
+  background: #fff;
+  border: 1px solid #e5e7eb;
+  border-radius: 12px;
+  box-shadow: 0 8px 24px rgba(0,0,0,0.12);
+  z-index: 999;
+  overflow: hidden;
+}
+
+.sbv2-dropdown-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 10px 14px;
+  border: none;
+  background: transparent;
+  text-align: left;
+  cursor: pointer;
+  transition: background 0.1s;
+  font-family: var(--font-body, 'Inter', sans-serif);
+}
+
+.sbv2-dropdown-item:hover {
+  background: #f9fafb;
+}
+
+.sbv2-dropdown-icon {
+  font-size: 1rem;
+  flex-shrink: 0;
+}
+
+.sbv2-dropdown-label {
+  flex: 1;
+  font-size: 0.9rem;
+  color: #1f2937;
+  font-weight: 500;
+}
+
+.sbv2-dropdown-type {
+  font-size: 0.75rem;
+  color: #9ca3af;
+  background: #f3f4f6;
+  padding: 2px 8px;
+  border-radius: 20px;
+}
+
+/* ── Compact mode (used in search-v2 top bar) ──────────────────────────── */
+.sbv2--compact {
+  border-radius: 10px;
+  box-shadow: 0 2px 12px rgba(0,0,0,0.08);
+  max-width: 100%;
+}
+
+.sbv2--compact .sbv2-row {
+  padding: 8px 8px 8px 12px;
+}
+
+.sbv2--compact .sbv2-btn {
+  padding: 10px 16px;
+  border-radius: 8px;
+}
+
+/* ── Responsive ─────────────────────────────────────────────────────────── */
+@media (max-width: 640px) {
+  .sbv2-row {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 8px;
+    padding: 12px;
+  }
+
+  .sbv2-divider {
+    display: none;
+  }
+
+  .sbv2-field--main,
+  .sbv2-field--city {
+    flex: unset;
+    border: 1px solid #e5e7eb;
+    border-radius: 8px;
+    padding: 8px 12px;
+  }
+
+  .sbv2-btn {
+    justify-content: center;
+    padding: 14px;
+  }
+
+  .sbv2-tabs {
+    flex-wrap: nowrap;
+    overflow-x: auto;
+  }
+}

@@ -1,32 +1,44 @@
 import Header from '@/components/Header';
 import Footer from '@/components/Footer';
-import SearchBar from '@/components/SearchBar';
+import SearchBarV2 from '@/components/SearchBarV2';
+import TrustpilotSection from '@/components/TrustpilotSection';
 import './home.css';
+
+const INSURERS = [
+  { name: 'Sanitas',  color: '#e30613' },
+  { name: 'Adeslas',  color: '#005eaa' },
+  { name: 'DKV',      color: '#0070b8' },
+  { name: 'AXA',      color: '#00008f' },
+  { name: 'Mapfre',   color: '#c8102e' },
+  { name: 'Asisa',    color: '#004b87' },
+  { name: 'Cigna',    color: '#007a8c' },
+];
 
 export default function HomePage() {
   return (
     <>
       <Header />
       <main>
-        {/* Hero + SearchBar */}
+
+        {/* ── Hero + SearchBarV2 ──────────────────────────────────────── */}
         <section className="home-hero">
           <div className="container">
             <div className="home-search-section">
               <p className="home-tagline animate-fade-in-up">Citas Premium con Med Connect</p>
               <h1 className="home-heading animate-fade-in-up" style={{ animationDelay: '0.05s' }}>
-                Tu cita médica privada, sin esperas YA
+                Tu cita médica privada,<br />sin esperas
               </h1>
-              <h2 className="home-subheading animate-fade-in-up" style={{ animationDelay: '0.1s', fontSize: '1.2rem', fontWeight: '400', opacity: 0.9 }}>
+              <h2 className="home-subheading animate-fade-in-up" style={{ animationDelay: '0.1s' }}>
                 La clínica, hospital o médico que quieras, en el momento que desees.
               </h2>
-              <div className="animate-fade-in-up" style={{ animationDelay: '0.15s' }}>
-                <SearchBar />
+              <div className="animate-fade-in-up" style={{ animationDelay: '0.15s', width: '100%' }}>
+                <SearchBarV2 />
               </div>
             </div>
           </div>
         </section>
 
-        {/* Value Pillars — "La alternativa premium a las listas de espera" */}
+        {/* ── Value Pillars ───────────────────────────────────────────── */}
         <section className="container">
           <div style={{ textAlign: 'center', marginBottom: 'var(--space-xl)', paddingTop: 'var(--space-2xl)' }}>
             <h2 style={{ fontSize: '1.8rem', color: 'var(--navy)', marginBottom: 'var(--space-sm)' }}>
@@ -58,7 +70,10 @@ export default function HomePage() {
           </div>
         </section>
 
-        {/* SEO / Info Section */}
+        {/* ── Trustpilot Reviews ──────────────────────────────────────── */}
+        <TrustpilotSection />
+
+        {/* ── SEO / Info Section ──────────────────────────────────────── */}
         <section className="container">
           <div className="home-seo-info" style={{ padding: 'var(--space-2xl) 0', borderTop: '1px solid var(--border)', borderBottom: '1px solid var(--border)', textAlign: 'center' }}>
             <h2 style={{ fontSize: '2rem', marginBottom: 'var(--space-lg)' }}>Reserva en 60 segundos, sin listas de espera</h2>
@@ -85,7 +100,7 @@ export default function HomePage() {
           </div>
         </section>
 
-        {/* Med Connect Plus — bridge heading + plan */}
+        {/* ── Med Connect Plus ────────────────────────────────────────── */}
         <section className="container" style={{ paddingTop: 'var(--space-2xl)' }}>
           <p style={{ textAlign: 'center', fontSize: '0.9rem', fontStyle: 'italic', color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 'var(--space-sm)' }}>
             ¿Crees que repetirás este servicio?
@@ -111,7 +126,6 @@ export default function HomePage() {
             </div>
           </div>
 
-          {/* 3 icons — included in Plus plan */}
           <p style={{ textAlign: 'center', fontSize: '0.75rem', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '0.08em', color: 'var(--muted)', margin: 'var(--space-xl) 0 var(--space-lg)' }}>
             Incluido en el plan
           </p>
@@ -140,21 +154,24 @@ export default function HomePage() {
           </div>
         </section>
 
-        {/* Trust bar */}
+        {/* ── Trust bar ───────────────────────────────────────────────── */}
         <section className="container">
           <div className="home-trust">
             <p className="home-trust-label">Aseguradoras compatibles</p>
             <div className="home-trust-logos">
-              <span>Sanitas</span>
-              <span>Adeslas</span>
-              <span>DKV</span>
-              <span>AXA</span>
-              <span>Mapfre</span>
-              <span>Asisa</span>
-              <span>Cigna</span>
+              {INSURERS.map((ins) => (
+                <span
+                  key={ins.name}
+                  className="home-trust-logo"
+                  style={{ borderLeft: `3px solid ${ins.color}` }}
+                >
+                  {ins.name}
+                </span>
+              ))}
             </div>
           </div>
         </section>
+
       </main>
       <Footer />
     </>

@@ -1,0 +1,232 @@
+/* ── ClinicCardV2 ─────────────────────────────────────────────────────── */
+.cv2-card {
+  background: #fff;
+  border: 1px solid #e5e7eb;
+  border-radius: 14px;
+  padding: 1.25rem;
+  margin-bottom: 0.75rem;
+  box-shadow: 0 1px 6px rgba(0,0,0,0.05);
+  transition: box-shadow 0.2s ease, border-color 0.2s ease;
+}
+
+.cv2-card:hover {
+  box-shadow: 0 4px 20px rgba(0,0,0,0.10);
+  border-color: #c9a84c;
+}
+
+.cv2-card--highlighted {
+  border-color: #1a3c5e;
+  box-shadow: 0 4px 20px rgba(26,60,94,0.15);
+}
+
+/* ── Card body ────────────────────────────────────────────────────────── */
+.cv2-card-body {
+  display: flex;
+  gap: 1rem;
+  align-items: flex-start;
+  margin-bottom: 1rem;
+}
+
+/* ── Avatar ───────────────────────────────────────────────────────────── */
+.cv2-avatar {
+  width: 56px;
+  height: 56px;
+  border-radius: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.1rem;
+  font-weight: 700;
+  color: #fff;
+  flex-shrink: 0;
+  letter-spacing: 0.02em;
+}
+
+/* ── Info ─────────────────────────────────────────────────────────────── */
+.cv2-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.cv2-info-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 1rem;
+  margin-bottom: 0.5rem;
+}
+
+.cv2-name {
+  font-size: 1rem;
+  font-weight: 700;
+  color: #1a3c5e;
+  margin: 0 0 4px;
+  line-height: 1.3;
+}
+
+.cv2-address {
+  font-size: 0.8rem;
+  color: #6b7280;
+  margin: 0;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.cv2-icon {
+  font-size: 0.85rem;
+}
+
+/* ── Rating ───────────────────────────────────────────────────────────── */
+.cv2-rating-block {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  flex-shrink: 0;
+}
+
+.cv2-stars {
+  color: #f59e0b;
+  font-size: 0.85rem;
+  letter-spacing: -1px;
+}
+
+.cv2-rating-num {
+  font-size: 0.9rem;
+  font-weight: 700;
+  color: #1f2937;
+}
+
+.cv2-reviews {
+  font-size: 0.72rem;
+  color: #9ca3af;
+}
+
+/* ── Tags ─────────────────────────────────────────────────────────────── */
+.cv2-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 8px;
+}
+
+.cv2-tag {
+  font-size: 0.72rem;
+  font-weight: 600;
+  padding: 3px 10px;
+  border-radius: 20px;
+  background: #f3f4f6;
+  color: #4b5563;
+  border: 1px solid #e5e7eb;
+  white-space: nowrap;
+}
+
+.cv2-tag--more {
+  background: #eff6ff;
+  color: #3b82f6;
+  border-color: #bfdbfe;
+}
+
+.cv2-tag--green {
+  background: #f0fdf4;
+  color: #16a34a;
+  border-color: #bbf7d0;
+}
+
+/* ── Slot chips ───────────────────────────────────────────────────────── */
+.cv2-slots {
+  border-top: 1px solid #f3f4f6;
+  padding-top: 0.75rem;
+}
+
+.cv2-slots-label {
+  font-size: 0.72rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.07em;
+  color: #9ca3af;
+  display: block;
+  margin-bottom: 0.5rem;
+}
+
+.cv2-slots-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.cv2-slot-chip {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 8px 14px;
+  border: 1.5px solid #e5e7eb;
+  border-radius: 10px;
+  background: #fff;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  font-family: inherit;
+}
+
+.cv2-slot-chip:hover {
+  border-color: #1a3c5e;
+  background: #f0f4f8;
+}
+
+.cv2-slot-date {
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: #1f2937;
+}
+
+.cv2-slot-fee {
+  font-size: 0.72rem;
+  color: #0d5e42;
+  font-weight: 700;
+  margin-top: 2px;
+}
+
+.cv2-slot-chip--more {
+  border-color: #c9a84c;
+  color: #8a6914;
+  font-size: 0.8rem;
+  font-weight: 600;
+  background: #fefce8;
+  padding: 8px 16px;
+}
+
+.cv2-slot-chip--more:hover {
+  background: #fef9c3;
+  border-color: #92400e;
+}
+
+.cv2-no-slots {
+  border-top: 1px solid #f3f4f6;
+  padding-top: 0.75rem;
+  font-size: 0.82rem;
+  color: #9ca3af;
+}
+
+.cv2-link {
+  background: none;
+  border: none;
+  color: #1a3c5e;
+  font-weight: 600;
+  cursor: pointer;
+  font-size: inherit;
+  padding: 0;
+  text-decoration: underline;
+}
+
+@media (max-width: 640px) {
+  .cv2-info-top {
+    flex-direction: column;
+    gap: 0.5rem;
+  }
+
+  .cv2-rating-block {
+    align-items: flex-start;
+    flex-direction: row;
+    gap: 6px;
+  }
+}
