@@ -35,9 +35,10 @@ export default function ClinicBookingModal({ provider, serviceId, basePrice = 0,
 
   const handleBook = () => {
     if (!selectedSlot) return;
+    const convFee = getConvenienceFee(selectedSlot.date);
     const totalFee = isSinSeguro
-      ? basePrice + selectedSlot.fee.amount
-      : selectedSlot.fee.amount;
+      ? basePrice + convFee.amount
+      : convFee.amount;
 
     const params = new URLSearchParams({
       provider: provider.id,
@@ -45,7 +46,7 @@ export default function ClinicBookingModal({ provider, serviceId, basePrice = 0,
       date: selectedSlot.date,
       time: selectedSlot.time,
       fee: totalFee,
-      feeLabel: selectedSlot.fee.label,
+      feeLabel: convFee.label,
       isSinSeguro: String(isSinSeguro),
       ...(serviceId ? { service: serviceId } : {}),
     });
@@ -61,7 +62,7 @@ export default function ClinicBookingModal({ provider, serviceId, basePrice = 0,
   }, [onClose]);
 
   const selectedFee = selectedSlot
-    ? (isSinSeguro ? basePrice + selectedSlot.fee.amount : selectedSlot.fee.amount)
+    ? (() => { const f = getConvenienceFee(selectedSlot.date); return isSinSeguro ? basePrice + f.amount : f.amount; })()
     : null;
 
   return (
@@ -111,9 +112,10 @@ export default function ClinicBookingModal({ provider, serviceId, basePrice = 0,
             {slotsForDate.length > 0 ? (
               <div className="cbm-times">
                 {slotsForDate.map((slot, i) => {
+                  const slotConvFee = getConvenienceFee(slot.date);
                   const fee = isSinSeguro
-                    ? basePrice + slot.fee.amount
-                    : slot.fee.amount;
+                    ? basePrice + slotConvFee.amount
+                    : slotConvFee.amount;
                   const isActive = selectedSlot?.time === slot.time;
                   return (
                     <button

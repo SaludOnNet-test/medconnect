@@ -79,9 +79,10 @@ export default function ClinicCardV2({ provider, index = 0, serviceId, basePrice
           <span className="cv2-slots-label">Próximas citas:</span>
           <div className="cv2-slots-row">
             {nextSlots.map((slot, i) => {
+              const convFee = getConvenienceFee(slot.date);
               const fee = isSinSeguro
-                ? (basePrice + slot.fee.amount)
-                : slot.fee.amount;
+                ? (basePrice + convFee.amount)
+                : convFee.amount;
               return (
                 <button
                   key={i}
