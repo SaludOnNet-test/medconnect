@@ -1,4 +1,11 @@
 /* ── ClinicCardV2 ─────────────────────────────────────────────────────── */
+.cv2-avatar-img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  border-radius: 50%;
+  display: block;
+}
 .cv2-card {
   background: #fff;
   border: 1px solid #e5e7eb;

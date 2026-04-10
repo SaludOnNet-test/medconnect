@@ -32,9 +32,11 @@ export default function ClinicCardV2({ provider, index = 0, serviceId, basePrice
   return (
     <div className={`cv2-card ${highlighted ? 'cv2-card--highlighted' : ''}`} id={`clinic-card-${provider.id}`}>
       <div className="cv2-card-body">
-        {/* Avatar */}
-        <div className="cv2-avatar" style={{ background: avatarColor }}>
-          {getInitials(provider.name)}
+        {/* Avatar — shows clinic image if available (from SaludOnNet DB), else initials */}
+        <div className="cv2-avatar" style={provider.imageUrl ? {} : { background: avatarColor }}>
+          {provider.imageUrl
+            ? <img src={provider.imageUrl} alt={provider.name} className="cv2-avatar-img" />
+            : getInitials(provider.name)}
         </div>
 
         {/* Main info */}
@@ -87,7 +89,7 @@ export default function ClinicCardV2({ provider, index = 0, serviceId, basePrice
                 <button
                   key={i}
                   className="cv2-slot-chip"
-                  onClick={() => onOpenModal && onOpenModal(provider)}
+                  onClick={() => onOpenModal && onOpenModal(provider, slot)}
                 >
                   <span className="cv2-slot-date">{formatSlotDate(slot.date)} · {slot.time}</span>
                   <span className="cv2-slot-fee">{fee > 0 ? `${fee.toFixed(2)}€` : 'Gratis'}</span>
@@ -96,14 +98,14 @@ export default function ClinicCardV2({ provider, index = 0, serviceId, basePrice
             })}
             <button
               className="cv2-slot-chip cv2-slot-chip--more"
-              onClick={() => onOpenModal && onOpenModal(provider)}
+              onClick={() => onOpenModal && onOpenModal(provider, null)}
             >
               Ver todos los horarios →
             </button>
           </div>
         </div>
       ) : (
-        <div className="cv2-no-slots">Sin disponibilidad próxima · <button className="cv2-link" onClick={() => onOpenModal && onOpenModal(provider)}>Ver opciones</button></div>
+        <div className="cv2-no-slots">Sin disponibilidad próxima · <button className="cv2-link" onClick={() => onOpenModal && onOpenModal(provider, null)}>Ver opciones</button></div>
       )}
     </div>
   );

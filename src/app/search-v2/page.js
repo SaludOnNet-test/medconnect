@@ -40,6 +40,7 @@ function SearchV2Content() {
   const [sortBy, setSortBy] = useState('rating');
   const [highlightedId, setHighlightedId] = useState(null);
   const [modalProvider, setModalProvider] = useState(null);
+  const [modalInitialSlot, setModalInitialSlot] = useState(null);
   const [showMap, setShowMap] = useState(true);
 
   const currentService = useMemo(() => {
@@ -182,7 +183,7 @@ function SearchV2Content() {
                     basePrice={basePrice}
                     isSinSeguro={isSinSeguro}
                     highlighted={highlightedId === provider.id}
-                    onOpenModal={(p) => setModalProvider(p)}
+                    onOpenModal={(p, slot) => { setModalProvider(p); setModalInitialSlot(slot ?? null); }}
                   />
                 ))
               ) : (
@@ -218,6 +219,7 @@ function SearchV2Content() {
                       onMouseLeave={() => setHighlightedId(null)}
                       onClick={() => {
                         setModalProvider(p);
+                        setModalInitialSlot(null);
                       }}
                       title={p.name}
                     >
@@ -238,7 +240,8 @@ function SearchV2Content() {
           serviceId={serviceId}
           basePrice={basePrice}
           isSinSeguro={isSinSeguro}
-          onClose={() => setModalProvider(null)}
+          initialSlot={modalInitialSlot}
+          onClose={() => { setModalProvider(null); setModalInitialSlot(null); }}
         />
       )}
     </>

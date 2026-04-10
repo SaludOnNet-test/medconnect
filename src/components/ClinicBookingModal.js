@@ -13,10 +13,10 @@ function getDayLabel(dateStr) {
   };
 }
 
-export default function ClinicBookingModal({ provider, serviceId, basePrice = 0, isSinSeguro = false, onClose }) {
+export default function ClinicBookingModal({ provider, serviceId, basePrice = 0, isSinSeguro = false, initialSlot = null, onClose }) {
   const router = useRouter();
-  const [selectedDate, setSelectedDate] = useState(null);
-  const [selectedSlot, setSelectedSlot] = useState(null);
+  const [selectedDate, setSelectedDate] = useState(initialSlot?.date ?? null);
+  const [selectedSlot, setSelectedSlot] = useState(initialSlot ?? null);
 
   // Lock body scroll when modal open
   useEffect(() => {
