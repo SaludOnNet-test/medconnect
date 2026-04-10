@@ -74,7 +74,7 @@ export default function SearchBarV2({ initialSpecialty, initialService, initialC
     else if (selected?.type === 'provider') params.set('providerName', selected.label);
     else if (query.trim()) params.set('providerName', query.trim());
     if (city) params.set('city', city);
-    router.push(`/search?${params.toString()}`);
+    router.push(`/search-v2?${params.toString()}`);
   };
 
   const filteredCities = city
