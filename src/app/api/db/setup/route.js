@@ -76,6 +76,19 @@ export async function GET(request) {
       ALTER TABLE referrals ADD reminder_sent BIT NOT NULL DEFAULT 0;
     `);
 
+    // analytics_events table
+    await pool.request().query(`
+      IF NOT EXISTS (SELECT * FROM sys.tables WHERE name = 'analytics_events')
+      CREATE TABLE analytics_events (
+        id          INT             IDENTITY PRIMARY KEY,
+        event_name  NVARCHAR(64)    NOT NULL,
+        session_id  NVARCHAR(64),
+        properties  NVARCHAR(4000),
+        page_url    NVARCHAR(512),
+        created_at  DATETIMEOFFSET  NOT NULL DEFAULT SYSDATETIMEOFFSET()
+      );
+    `);
+
     return NextResponse.json({ success: true, message: 'Schema ready (tables + migrations applied)' });
   } catch (err) {
     console.error('[db/setup]', err);

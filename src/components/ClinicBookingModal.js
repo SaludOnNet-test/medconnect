@@ -2,6 +2,7 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { availability, getConvenienceFee } from '@/data/mock';
+import { trackEvent } from '@/lib/analytics';
 import './ClinicBookingModal.css';
 
 function getDayLabel(dateStr) {
@@ -18,9 +19,10 @@ export default function ClinicBookingModal({ provider, serviceId, basePrice = 0,
   const [selectedDate, setSelectedDate] = useState(initialSlot?.date ?? null);
   const [selectedSlot, setSelectedSlot] = useState(initialSlot ?? null);
 
-  // Lock body scroll when modal open
+  // Lock body scroll + track clinic_viewed on mount
   useEffect(() => {
     document.body.style.overflow = 'hidden';
+    trackEvent('clinic_viewed', { provider_id: provider.id, provider_name: provider.name, city: provider.city });
     return () => { document.body.style.overflow = ''; };
   }, []);
 
@@ -121,7 +123,10 @@ export default function ClinicBookingModal({ provider, serviceId, basePrice = 0,
                     <button
                       key={i}
                       className={`cbm-time-btn ${isActive ? 'cbm-time-btn--active' : ''}`}
-                      onClick={() => setSelectedSlot(slot)}
+                      onClick={() => {
+                        setSelectedSlot(slot);
+                        trackEvent('slot_selected', { provider_id: provider.id, date: slot.date, time: slot.time });
+                      }}
                     >
                       <span className="cbm-time">{slot.time}</span>
                       <span className="cbm-time-fee">{fee > 0 ? `${fee.toFixed(2)}€` : 'Gratis'}</span>

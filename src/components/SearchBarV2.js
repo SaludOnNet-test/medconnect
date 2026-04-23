@@ -2,6 +2,7 @@
 import { useState, useRef, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { specialties, services as allServices, cities, providers } from '@/data/mock';
+import { trackEvent } from '@/lib/analytics';
 import './SearchBarV2.css';
 
 // Build unified suggestion list: specialties, services, clinic names
@@ -74,6 +75,13 @@ export default function SearchBarV2({ initialSpecialty, initialService, initialC
     else if (selected?.type === 'provider') params.set('providerName', selected.label);
     else if (query.trim()) params.set('providerName', query.trim());
     if (city) params.set('city', city);
+    trackEvent('search_performed', {
+      specialty: selected?.type === 'specialty' ? selected.label : undefined,
+      service:   selected?.type === 'service'   ? selected.label : undefined,
+      provider:  selected?.type === 'provider'  ? selected.label : undefined,
+      query:     query.trim() || undefined,
+      city:      city || undefined,
+    });
     router.push(`/search-v2?${params.toString()}`);
   };
 

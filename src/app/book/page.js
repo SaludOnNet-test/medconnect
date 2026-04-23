@@ -6,6 +6,7 @@ import Header from '@/components/Header';
 import Footer from '@/components/Footer';
 import PaymentForm from '@/components/PaymentForm';
 import { services, insuranceCompanies, createReferral, getConvenienceFee, REFERRAL_STATES } from '@/data/mock';
+import { trackEvent } from '@/lib/analytics';
 import './book.css';
 
 function BookContent() {
@@ -29,6 +30,11 @@ function BookContent() {
   const [paymentRef, setPaymentRef] = useState('');
   const [lockInData, setLockInData] = useState(null);
   const [hasInsurance, setHasInsurance] = useState(null);
+
+  // Track book_started on mount
+  useEffect(() => {
+    trackEvent('book_started', { provider: searchParams.get('providerName'), service: serviceId });
+  }, []);
 
   // Handle lock-in redirect: auto-jump to payment step
   useEffect(() => {
@@ -270,6 +276,7 @@ function BookContent() {
       });
     }
 
+    trackEvent('book_completed', { provider: clinicName, amount: totalPrice, service: serviceId });
     setStep('success');
     // Store calendarUrl for the success screen
     window._mcCalendarUrl = calendarUrl;
