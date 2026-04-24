@@ -1,58 +1,54 @@
 'use client';
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
-import { specialties, services as allServices, cities, providers } from '@/data/mock';
 import { trackEvent } from '@/lib/analytics';
 import './SearchBarV2.css';
 
-// Build unified suggestion list: specialties, services, clinic names
-function buildSuggestions() {
-  const items = [];
-  specialties.forEach((s) =>
-    items.push({ type: 'specialty', id: s.id, label: s.name, icon: '🔬' })
-  );
-  allServices.forEach((s) =>
-    items.push({ type: 'service', id: s.id, specialtyId: s.specialtyId, label: s.name, icon: '🩺' })
-  );
-  providers.forEach((p) =>
-    items.push({ type: 'provider', label: p.name, icon: '🏥' })
-  );
-  return items;
-}
-
-const ALL_SUGGESTIONS = buildSuggestions();
-
 export default function SearchBarV2({ initialSpecialty, initialService, initialCity, compact = false }) {
   const router = useRouter();
-  const [visitType, setVisitType] = useState('presencial'); // 'presencial' | 'online'
+  const [visitType, setVisitType] = useState('presencial');
   const [query, setQuery] = useState('');
   const [city, setCity] = useState(initialCity || '');
   const [suggestions, setSuggestions] = useState([]);
   const [showSuggestions, setShowSuggestions] = useState(false);
-  const [selected, setSelected] = useState(null); // { type, id, specialtyId, label }
+  const [selected, setSelected] = useState(null);
   const [showCityList, setShowCityList] = useState(false);
+  const [dbSpecialties, setDbSpecialties] = useState([]);
+  const [dbCities, setDbCities] = useState([]);
   const inputRef = useRef(null);
 
-  // Initialise query from props
   useEffect(() => {
-    if (initialSpecialty) {
-      const sp = specialties.find((s) => String(s.id) === String(initialSpecialty));
-      if (sp) { setQuery(sp.name); setSelected({ type: 'specialty', id: sp.id, label: sp.name }); }
-    } else if (initialService) {
-      const sv = allServices.find((s) => String(s.id) === String(initialService));
-      if (sv) { setQuery(sv.name); setSelected({ type: 'service', id: sv.id, specialtyId: sv.specialtyId, label: sv.name }); }
+    fetch('/api/clinics/filters')
+      .then((r) => r.json())
+      .then((data) => {
+        if (data.specialties) setDbSpecialties(data.specialties);
+        if (data.cities) setDbCities(data.cities.map((c) => c.city));
+      })
+      .catch(() => {});
+  }, []);
+
+  const allSuggestions = useMemo(
+    () => dbSpecialties.map((s) => ({ type: 'specialty', slug: s.slug, label: s.name, icon: '🔬' })),
+    [dbSpecialties]
+  );
+
+  useEffect(() => {
+    if (!initialSpecialty || dbSpecialties.length === 0) return;
+    const sp = dbSpecialties.find(
+      (s) => s.slug === initialSpecialty || String(s.id) === String(initialSpecialty)
+    );
+    if (sp) {
+      setQuery(sp.name);
+      setSelected({ type: 'specialty', slug: sp.slug, label: sp.name });
     }
-  }, [initialSpecialty, initialService]);
+  }, [initialSpecialty, dbSpecialties]);
 
   const handleQueryChange = (val) => {
     setQuery(val);
     setSelected(null);
     if (val.length > 0) {
       const lower = val.toLowerCase();
-      const filtered = ALL_SUGGESTIONS.filter((s) =>
-        s.label.toLowerCase().includes(lower)
-      ).slice(0, 7);
-      setSuggestions(filtered);
+      setSuggestions(allSuggestions.filter((s) => s.label.toLowerCase().includes(lower)).slice(0, 7));
       setShowSuggestions(true);
     } else {
       setSuggestions([]);
@@ -70,28 +66,26 @@ export default function SearchBarV2({ initialSpecialty, initialService, initialC
   const handleSearch = (e) => {
     e?.preventDefault();
     const params = new URLSearchParams();
-    if (selected?.type === 'specialty') params.set('specialty', selected.id);
-    else if (selected?.type === 'service') { params.set('service', selected.id); if (selected.specialtyId) params.set('specialty', selected.specialtyId); }
-    else if (selected?.type === 'provider') params.set('providerName', selected.label);
-    else if (query.trim()) params.set('providerName', query.trim());
+    if (selected?.type === 'specialty' && selected.slug) {
+      params.set('specialtySlug', selected.slug);
+    } else if (query.trim()) {
+      params.set('providerName', query.trim());
+    }
     if (city) params.set('city', city);
     trackEvent('search_performed', {
       specialty: selected?.type === 'specialty' ? selected.label : undefined,
-      service:   selected?.type === 'service'   ? selected.label : undefined,
-      provider:  selected?.type === 'provider'  ? selected.label : undefined,
-      query:     query.trim() || undefined,
-      city:      city || undefined,
+      query: query.trim() || undefined,
+      city: city || undefined,
     });
     router.push(`/search-v2?${params.toString()}`);
   };
 
   const filteredCities = city
-    ? cities.filter((c) => c.toLowerCase().includes(city.toLowerCase()))
-    : cities;
+    ? dbCities.filter((c) => c.toLowerCase().includes(city.toLowerCase()))
+    : dbCities;
 
   return (
     <div className={`sbv2 ${compact ? 'sbv2--compact' : ''}`}>
-      {/* Visit type tabs — only on full (home) version */}
       {!compact && (
         <div className="sbv2-tabs">
           <button
@@ -111,9 +105,7 @@ export default function SearchBarV2({ initialSpecialty, initialService, initialC
         </div>
       )}
 
-      {/* Search row */}
       <form className="sbv2-row" onSubmit={handleSearch}>
-        {/* Specialty / service / name field */}
         <div className="sbv2-field sbv2-field--main" style={{ position: 'relative' }}>
           <span className="sbv2-field-icon">🔍</span>
           <input
@@ -138,19 +130,15 @@ export default function SearchBarV2({ initialSpecialty, initialService, initialC
                 >
                   <span className="sbv2-dropdown-icon">{item.icon}</span>
                   <span className="sbv2-dropdown-label">{item.label}</span>
-                  <span className="sbv2-dropdown-type">
-                    {item.type === 'specialty' ? 'Especialidad' : item.type === 'service' ? 'Servicio' : 'Centro'}
-                  </span>
+                  <span className="sbv2-dropdown-type">Especialidad</span>
                 </button>
               ))}
             </div>
           )}
         </div>
 
-        {/* Divider */}
         <div className="sbv2-divider" />
 
-        {/* City field */}
         <div className="sbv2-field sbv2-field--city" style={{ position: 'relative' }}>
           <span className="sbv2-field-icon">📍</span>
           <input
@@ -180,7 +168,6 @@ export default function SearchBarV2({ initialSpecialty, initialService, initialC
           )}
         </div>
 
-        {/* Search button */}
         <button type="submit" className="sbv2-btn">
           <svg width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24">
             <circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/>

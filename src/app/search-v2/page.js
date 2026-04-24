@@ -16,10 +16,11 @@ const PAGE_SIZE_MORE = 10;
 
 function SearchV2Content() {
   const searchParams = useSearchParams();
-  const specialtyIdParam  = searchParams.get('specialty') || '';
-  const serviceId         = searchParams.get('service') || '';
-  const cityParam         = searchParams.get('city') || '';
-  const providerNameParam = searchParams.get('providerName') || '';
+  const specialtySlugParam = searchParams.get('specialtySlug') || '';
+  const specialtyIdParam   = searchParams.get('specialty') || '';
+  const serviceId          = searchParams.get('service') || '';
+  const cityParam          = searchParams.get('city') || '';
+  const providerNameParam  = searchParams.get('providerName') || '';
 
   // Filter state
   const [insuranceFilter, setInsuranceFilter] = useState('');
@@ -33,7 +34,7 @@ function SearchV2Content() {
   const [dbProcedures, setDbProcedures]   = useState([]);
 
   // Active filter values
-  const [specialtySlug, setSpecialtySlug] = useState('');
+  const [specialtySlug, setSpecialtySlug] = useState(specialtySlugParam);
   const [procedureSlug, setProcedureSlug] = useState('');
   const [cityFilter, setCityFilter]       = useState(cityParam);
 
@@ -51,6 +52,19 @@ function SearchV2Content() {
 
   const sentinelRef = useRef(null);
   const observerRef = useRef(null);
+
+  // Sync filter states when URL params change (e.g. after SearchBarV2 navigation)
+  useEffect(() => { setCityFilter(cityParam); }, [cityParam]);
+  useEffect(() => {
+    if (specialtySlugParam) {
+      setSpecialtySlug(specialtySlugParam);
+    } else if (specialtyIdParam && dbSpecialties.length > 0) {
+      const sp = dbSpecialties.find((s) => String(s.id) === specialtyIdParam);
+      setSpecialtySlug(sp ? sp.slug : '');
+    } else if (!specialtySlugParam && !specialtyIdParam) {
+      setSpecialtySlug('');
+    }
+  }, [specialtySlugParam, specialtyIdParam, dbSpecialties]);
 
   // Load filter options once
   useEffect(() => {
@@ -159,7 +173,7 @@ function SearchV2Content() {
         <div className="sv2-topbar-inner">
           <SearchBarV2
             compact
-            initialSpecialty={specialtyIdParam}
+            initialSpecialty={specialtySlugParam || specialtyIdParam}
             initialService={serviceId}
             initialCity={cityParam}
           />

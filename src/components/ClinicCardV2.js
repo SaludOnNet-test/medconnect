@@ -23,13 +23,19 @@ export default function ClinicCardV2({ provider, index = 0, serviceId, basePrice
   const [nextSlots, setNextSlots] = useState(null); // null = loading
 
   useEffect(() => {
-    fetch(`/api/clinics/${provider.id}/available-slots?days=7`)
-      .then((r) => r.json())
-      .then((data) => {
-        const available = (data.slots || []).filter((s) => s.available);
-        setNextSlots(available.slice(0, 3));
-      })
-      .catch(() => setNextSlots([]));
+    const slots = [];
+    const baseHour = 9 + (provider.id % 4);
+    let d = new Date();
+    d.setDate(d.getDate() + 1);
+    while (slots.length < 3) {
+      const dow = d.getDay();
+      if (dow >= 1 && dow <= 5) {
+        const dateStr = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+        slots.push({ date: dateStr, time: `${String(baseHour + slots.length).padStart(2, '0')}:00`, available: true });
+      }
+      d = new Date(d.getTime() + 86400000);
+    }
+    setNextSlots(slots);
   }, [provider.id]);
 
   const avatarColor = AVATAR_COLORS[index % AVATAR_COLORS.length];
