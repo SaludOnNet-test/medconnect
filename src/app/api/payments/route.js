@@ -8,11 +8,11 @@
 
 import Stripe from 'stripe';
 
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY, {
-  apiVersion: '2024-04-10',
-});
-
 export async function POST(request) {
+  if (!process.env.STRIPE_SECRET_KEY) {
+    return new Response(JSON.stringify({ error: 'Payment processing not configured' }), { status: 503, headers: { 'Content-Type': 'application/json' } });
+  }
+  const stripe = new Stripe(process.env.STRIPE_SECRET_KEY, { apiVersion: '2024-04-10' });
   try {
     const { amount, paymentMethodId, email, description, name } = await request.json();
 
