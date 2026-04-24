@@ -207,6 +207,28 @@
   border-color: #92400e;
 }
 
+.cv2-slots-loading {
+  border-top: 1px solid #f3f4f6;
+  padding-top: 0.75rem;
+  display: flex;
+  gap: 8px;
+}
+
+.cv2-slot-skeleton {
+  display: inline-block;
+  width: 110px;
+  height: 44px;
+  border-radius: 10px;
+  background: linear-gradient(90deg, #f3f4f6 25%, #e5e7eb 50%, #f3f4f6 75%);
+  background-size: 200% 100%;
+  animation: cv2-shimmer 1.4s infinite;
+}
+
+@keyframes cv2-shimmer {
+  0%   { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
+}
+
 .cv2-no-slots {
   border-top: 1px solid #f3f4f6;
   padding-top: 0.75rem;
