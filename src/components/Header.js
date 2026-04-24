@@ -5,29 +5,15 @@ import './Header.css';
 /**
  * Header — sticky nav bar.
  *
- * Auth state is derived from Clerk's useAuth hook (available in all
- * @clerk/nextjs versions). The conditional require pattern is safe
- * because NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY is a build-time constant —
- * Turbopack evaluates it statically and tree-shakes the unused branch.
+ * Auth links are static: Clerk handles the redirect if the user
+ * is already signed in (they are bounced to AFTER_SIGN_IN_URL).
  *
- * Note: SignedIn / SignedOut wrapper components require @clerk/nextjs v5+.
- * This project uses an earlier version, so we use useAuth + UserButton instead.
+ * NOTE: Calling Clerk hooks (useAuth) here causes SSG failures because
+ * ClerkProvider cannot verify session state at build time. Static links
+ * are the safe pattern for App Router + SSG pages.
  */
 
-const hasClerkKeys = !!(process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY);
-
-// useAuth and UserButton are available in all @clerk/nextjs versions
-let useClerkAuth = () => ({ isLoaded: true, isSignedIn: false });
-let ClerkUserButton = null;
-if (hasClerkKeys) {
-  const clerk = require('@clerk/nextjs');
-  useClerkAuth = clerk.useAuth;
-  ClerkUserButton = clerk.UserButton;
-}
-
 export default function Header() {
-  const { isLoaded, isSignedIn } = useClerkAuth();
-
   return (
     <header className="header">
       <div className="header-inner">
@@ -47,16 +33,10 @@ export default function Header() {
             </div>
           </a>
 
-          {/* Auth buttons */}
+          {/* Auth buttons — static links; Clerk redirects if already signed in */}
           <div className="header-auth">
-            {hasClerkKeys && isLoaded && isSignedIn && ClerkUserButton ? (
-              <ClerkUserButton afterSignOutUrl="/" />
-            ) : (
-              <>
-                <Link href="/sign-in" className="header-btn-login">Iniciar sesión</Link>
-                <Link href="/sign-up" className="header-btn-signup">Crear cuenta</Link>
-              </>
-            )}
+            <Link href="/sign-in" className="header-btn-login">Iniciar sesión</Link>
+            <Link href="/sign-up" className="header-btn-signup">Crear cuenta</Link>
           </div>
         </div>
       </div>
