@@ -38,13 +38,20 @@
   margin: 0;
 }
 
+/* ── Filters row (spans full width above both columns) ───────────────── */
+.sv2-filters-row {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 0.75rem 1.5rem 0;
+}
+
 /* ── Two-column layout ────────────────────────────────────────────────── */
 .sv2-layout {
   display: grid;
   grid-template-columns: 1fr 420px;
   gap: 1.5rem;
   align-items: start;
-  padding-top: 1rem;
+  padding-top: 0.5rem;
   padding-bottom: 2rem;
   max-width: 1200px;
   margin: 0 auto;

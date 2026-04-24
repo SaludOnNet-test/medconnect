@@ -199,6 +199,7 @@ function generateSlots(providerId) {
 }
 
 // Pre-generate availability per provider
+export { generateSlots };
 export const availability = {};
 providers.forEach((p) => {
   availability[p.id] = generateSlots(p.id);

@@ -1,7 +1,7 @@
 'use client';
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { availability, getConvenienceFee } from '@/data/mock';
+import { getConvenienceFee } from '@/data/mock';
 import { trackEvent } from '@/lib/analytics';
 import './ClinicBookingModal.css';
 
@@ -18,6 +18,8 @@ export default function ClinicBookingModal({ provider, serviceId, basePrice = 0,
   const router = useRouter();
   const [selectedDate, setSelectedDate] = useState(initialSlot?.date ?? null);
   const [selectedSlot, setSelectedSlot] = useState(initialSlot ?? null);
+  const [allSlots, setAllSlots] = useState([]);
+  const [slotsLoading, setSlotsLoading] = useState(true);
 
   // Lock body scroll + track clinic_viewed on mount
   useEffect(() => {
@@ -26,7 +28,17 @@ export default function ClinicBookingModal({ provider, serviceId, basePrice = 0,
     return () => { document.body.style.overflow = ''; };
   }, []);
 
-  const allSlots = (availability[provider.id] || []).filter((s) => s.available);
+  // Fetch real slots from API
+  useEffect(() => {
+    setSlotsLoading(true);
+    fetch(`/api/clinics/${provider.id}/available-slots`)
+      .then((r) => r.json())
+      .then((data) => {
+        setAllSlots((data.slots || []).filter((s) => s.available));
+      })
+      .catch(() => setAllSlots([]))
+      .finally(() => setSlotsLoading(false));
+  }, [provider.id]);
 
   // Unique dates (next 7)
   const dates = [...new Set(allSlots.map((s) => s.date))].slice(0, 7);
@@ -88,6 +100,11 @@ export default function ClinicBookingModal({ provider, serviceId, basePrice = 0,
         {/* Date picker */}
         <div className="cbm-section">
           <h3 className="cbm-section-title">Selecciona una fecha</h3>
+          {slotsLoading ? (
+            <p style={{ color: '#9ca3af', fontSize: '0.9rem' }}>Cargando disponibilidad...</p>
+          ) : dates.length === 0 ? (
+            <p style={{ color: '#9ca3af', fontSize: '0.9rem' }}>No hay fechas disponibles próximamente.</p>
+          ) : (
           <div className="cbm-dates">
             {dates.map((date) => {
               const { weekday, day, month } = getDayLabel(date);
@@ -105,6 +122,7 @@ export default function ClinicBookingModal({ provider, serviceId, basePrice = 0,
               );
             })}
           </div>
+          )}
         </div>
 
         {/* Time slots */}

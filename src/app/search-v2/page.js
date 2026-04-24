@@ -1,244 +1,330 @@
 'use client';
-import { useState, useMemo, useEffect, Suspense } from 'react';
+import { useState, useMemo, useEffect, useCallback, useRef, Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
+import dynamic from 'next/dynamic';
 import Header from '@/components/Header';
 import SearchBarV2 from '@/components/SearchBarV2';
 import ClinicCardV2 from '@/components/ClinicCardV2';
 import ClinicBookingModal from '@/components/ClinicBookingModal';
-import { providers, insuranceCompanies, services, specialties } from '@/data/mock';
+import { providers, insuranceCompanies } from '@/data/mock';
 import './search-v2.css';
 
-// Mock lat/lng per city for map centering
-const CITY_COORDS = {
-  'Madrid':    { lat: 40.4168, lng: -3.7038, bbox: '-3.85,40.30,-3.55,40.55' },
-  'Barcelona': { lat: 41.3851, lng: 2.1734,  bbox: '2.05,41.30,2.30,41.47' },
-  'Valencia':  { lat: 39.4699, lng: -0.3763, bbox: '-0.50,39.40,-0.25,39.54' },
-  'Sevilla':   { lat: 37.3891, lng: -5.9845, bbox: '-6.10,37.30,-5.85,37.48' },
-  'Málaga':    { lat: 36.7213, lng: -4.4214, bbox: '-4.55,36.66,-4.30,36.78' },
-};
-const DEFAULT_BBOX = '-3.85,40.30,-3.55,40.55'; // Madrid fallback
+const ClinicMap = dynamic(() => import('@/components/ClinicMap'), { ssr: false });
 
-// Mock map pin positions per provider id (% of map width/height)
-const PIN_POSITIONS = {
-  1: { top: '28%', left: '42%' },
-  2: { top: '55%', left: '62%' },
-  3: { top: '38%', left: '25%' },
-  4: { top: '65%', left: '38%' },
-  5: { top: '20%', left: '70%' },
-  6: { top: '72%', left: '55%' },
-};
+const PAGE_SIZE_INITIAL = 20;
+const PAGE_SIZE_MORE = 10;
 
 function SearchV2Content() {
   const searchParams = useSearchParams();
-  const specialtyId   = searchParams.get('specialty') || '';
-  const serviceId     = searchParams.get('service') || '';
-  const city          = searchParams.get('city') || '';
+  const specialtyIdParam  = searchParams.get('specialty') || '';
+  const serviceId         = searchParams.get('service') || '';
+  const cityParam         = searchParams.get('city') || '';
   const providerNameParam = searchParams.get('providerName') || '';
 
+  // Filter state
   const [insuranceFilter, setInsuranceFilter] = useState('');
-  const [ratingFilter, setRatingFilter] = useState(0); // 0=all, 3, 4, 4.5
-  const [sortBy, setSortBy] = useState('rating');
-  const [highlightedId, setHighlightedId] = useState(null);
-  const [modalProvider, setModalProvider] = useState(null);
+  const [ratingFilter, setRatingFilter]       = useState(0);
+  const [sortBy, setSortBy]                   = useState('rating');
+  const [showMap, setShowMap]                 = useState(true);
+
+  // Real DB filter options
+  const [dbSpecialties, setDbSpecialties] = useState([]);
+  const [dbCities, setDbCities]           = useState([]);
+  const [dbProcedures, setDbProcedures]   = useState([]);
+
+  // Active filter values
+  const [specialtySlug, setSpecialtySlug] = useState('');
+  const [procedureSlug, setProcedureSlug] = useState('');
+  const [cityFilter, setCityFilter]       = useState(cityParam);
+
+  // Results state
+  const [dbClinics, setDbClinics]     = useState(null);
+  const [totalCount, setTotalCount]   = useState(0);
+  const [loadedCount, setLoadedCount] = useState(0);
+  const [isLoading, setIsLoading]     = useState(false);
+  const [hasMore, setHasMore]         = useState(false);
+
+  // Highlight & modal
+  const [highlightedId, setHighlightedId]     = useState(null);
+  const [modalProvider, setModalProvider]     = useState(null);
   const [modalInitialSlot, setModalInitialSlot] = useState(null);
-  const [showMap, setShowMap] = useState(true);
 
-  const currentService = useMemo(() => {
-    if (serviceId) return services.find((s) => s.id === Number(serviceId));
-    if (specialtyId) return services.find((s) => s.specialtyId === Number(specialtyId));
-    return null;
-  }, [serviceId, specialtyId]);
+  const sentinelRef = useRef(null);
+  const observerRef = useRef(null);
 
-  const basePrice = currentService?.basePrice || 0;
+  // Load filter options once
+  useEffect(() => {
+    fetch('/api/clinics/filters')
+      .then((r) => r.json())
+      .then((data) => {
+        if (data.specialties) setDbSpecialties(data.specialties);
+        if (data.cities)      setDbCities(data.cities);
+        if (data.procedures)  setDbProcedures(data.procedures);
+      })
+      .catch(() => {});
+  }, []);
+
+  const buildUrl = useCallback((offset, limit) => {
+    const params = new URLSearchParams();
+    if (cityFilter)        params.set('city', cityFilter);
+    if (specialtySlug)     params.set('specialtySlug', specialtySlug);
+    else if (specialtyIdParam) params.set('specialty', specialtyIdParam);
+    if (procedureSlug)     params.set('procedureSlug', procedureSlug);
+    if (ratingFilter > 0)  params.set('rating', ratingFilter);
+    if (providerNameParam) params.set('name', providerNameParam);
+    params.set('limit', limit);
+    params.set('offset', offset);
+    return `/api/clinics/search?${params.toString()}`;
+  }, [cityFilter, specialtySlug, specialtyIdParam, procedureSlug, ratingFilter, providerNameParam]);
+
+  // Initial load / filter change
+  useEffect(() => {
+    let cancelled = false;
+    setIsLoading(true);
+    setDbClinics(null);
+    setLoadedCount(0);
+    setHasMore(false);
+
+    fetch(buildUrl(0, PAGE_SIZE_INITIAL))
+      .then((r) => r.json())
+      .then((data) => {
+        if (cancelled) return;
+        if (data.clinics) {
+          setDbClinics(data.clinics);
+          setTotalCount(data.total || 0);
+          setLoadedCount(data.clinics.length);
+          setHasMore((data.total || 0) > data.clinics.length);
+        }
+      })
+      .catch(() => { if (!cancelled) setDbClinics([]); })
+      .finally(() => { if (!cancelled) setIsLoading(false); });
+
+    return () => { cancelled = true; };
+  }, [buildUrl]);
+
+  const loadMore = useCallback(() => {
+    if (isLoading || !hasMore) return;
+    setIsLoading(true);
+    fetch(buildUrl(loadedCount, PAGE_SIZE_MORE))
+      .then((r) => r.json())
+      .then((data) => {
+        if (data.clinics) {
+          setDbClinics((prev) => [...(prev || []), ...data.clinics]);
+          setLoadedCount((c) => c + data.clinics.length);
+          setHasMore((data.total || 0) > loadedCount + data.clinics.length);
+        }
+      })
+      .catch(() => {})
+      .finally(() => setIsLoading(false));
+  }, [isLoading, hasMore, buildUrl, loadedCount]);
+
+  // Infinite scroll
+  useEffect(() => {
+    if (observerRef.current) observerRef.current.disconnect();
+    observerRef.current = new IntersectionObserver(
+      (entries) => { if (entries[0].isIntersecting) loadMore(); },
+      { rootMargin: '200px' }
+    );
+    if (sentinelRef.current) observerRef.current.observe(sentinelRef.current);
+    return () => observerRef.current?.disconnect();
+  }, [loadMore]);
+
+  const baseProviders = dbClinics ?? providers;
+
+  const displayProviders = useMemo(() => {
+    let list = [...baseProviders];
+    if (insuranceFilter) {
+      list = list.filter((p) =>
+        Array.isArray(p.acceptedInsurance) && p.acceptedInsurance.includes(insuranceFilter)
+      );
+    }
+    if (sortBy === 'rating')  list.sort((a, b) => (b.rating || 0) - (a.rating || 0));
+    if (sortBy === 'reviews') list.sort((a, b) => (b.reviewCount || 0) - (a.reviewCount || 0));
+    return list;
+  }, [baseProviders, insuranceFilter, sortBy]);
+
+  const filteredProcedures = useMemo(() => {
+    if (!specialtySlug) return dbProcedures;
+    return dbProcedures.filter((p) => p.specialtySlug === specialtySlug);
+  }, [dbProcedures, specialtySlug]);
+
   const isSinSeguro = insuranceFilter === 'Sin seguro - SaludOnNet';
-
-  const filteredProviders = useMemo(() => {
-    let result = providers.filter((p) => {
-      if (specialtyId && !p.specialtyIds.includes(Number(specialtyId))) return false;
-      if (city && p.city !== city) return false;
-      if (insuranceFilter && !p.acceptedInsurance.includes(insuranceFilter)) return false;
-      if (providerNameParam && !p.name.toLowerCase().includes(providerNameParam.toLowerCase())) return false;
-      if (ratingFilter && p.rating < ratingFilter) return false;
-      return true;
-    });
-
-    if (sortBy === 'rating')  result.sort((a, b) => b.rating - a.rating);
-    if (sortBy === 'reviews') result.sort((a, b) => b.reviewCount - a.reviewCount);
-
-    return result;
-  }, [specialtyId, city, insuranceFilter, providerNameParam, ratingFilter, sortBy]);
-
-  // Specialty label for title
-  const specialtyLabel = specialtyId
-    ? (specialties.find((s) => String(s.id) === String(specialtyId))?.name || '')
-    : '';
-
-  const mapBbox = city && CITY_COORDS[city] ? CITY_COORDS[city].bbox : DEFAULT_BBOX;
-  const mapUrl = `https://www.openstreetmap.org/export/embed.html?bbox=${mapBbox}&layer=mapnik&marker=40.4168,-3.7038`;
+  const cityLabel   = cityFilter || cityParam || 'España';
 
   return (
     <>
       <Header />
 
-      {/* Sticky compact search bar */}
       <div className="sv2-topbar">
         <div className="sv2-topbar-inner">
           <SearchBarV2
             compact
-            initialSpecialty={specialtyId}
+            initialSpecialty={specialtyIdParam}
             initialService={serviceId}
-            initialCity={city}
+            initialCity={cityParam}
           />
         </div>
       </div>
 
       <main className="sv2-page">
-
-        {/* ── Page title ────────────────────────────────────────────── */}
+        {/* Title */}
         <div className="sv2-title-row container">
           <div>
             <h1 className="sv2-title">
-              {specialtyLabel ? `${specialtyLabel} en ${city || 'España'}` : `Centros médicos${city ? ` en ${city}` : ''}`}
+              {specialtySlug
+                ? `${dbSpecialties.find((s) => s.slug === specialtySlug)?.name || specialtySlug} en ${cityLabel}`
+                : `Centros médicos en ${cityLabel}`}
             </h1>
-            <p className="sv2-subtitle">
-              Centros médicos privados · Cita disponible hoy
-            </p>
+            <p className="sv2-subtitle">Centros médicos privados · Cita disponible hoy</p>
           </div>
         </div>
 
-        <div className="sv2-layout container">
+        {/* Filters — full width above both columns */}
+        <div className="sv2-filters-row container">
+          <div className="sv2-filters">
+            <div className="sv2-filter-group">
+              <label className="sv2-filter-label">Ciudad</label>
+              <select className="sv2-select" value={cityFilter} onChange={(e) => setCityFilter(e.target.value)}>
+                <option value="">Todas las ciudades</option>
+                {dbCities.map((c) => (
+                  <option key={c.city} value={c.city}>{c.city}{c.province && c.province !== c.city ? ` (${c.province})` : ''}</option>
+                ))}
+              </select>
+            </div>
 
-          {/* ── Left panel ──────────────────────────────────────────── */}
-          <div className="sv2-left">
+            <div className="sv2-filter-group">
+              <label className="sv2-filter-label">Especialidad</label>
+              <select
+                className="sv2-select"
+                value={specialtySlug}
+                onChange={(e) => { setSpecialtySlug(e.target.value); setProcedureSlug(''); }}
+              >
+                <option value="">Todas las especialidades</option>
+                {dbSpecialties.map((s) => (
+                  <option key={s.slug} value={s.slug}>{s.name}</option>
+                ))}
+              </select>
+            </div>
 
-            {/* Filter bar */}
-            <div className="sv2-filters">
-              {/* Insurance dropdown */}
-              <div className="sv2-filter-group">
-                <label className="sv2-filter-label">Aseguradora</label>
-                <select
-                  className="sv2-select"
-                  value={insuranceFilter}
-                  onChange={(e) => setInsuranceFilter(e.target.value)}
-                >
-                  <option value="">Todas las aseguradoras</option>
-                  {insuranceCompanies.map((ins) => (
-                    <option key={ins} value={ins}>{ins}</option>
-                  ))}
-                </select>
-              </div>
+            <div className="sv2-filter-group">
+              <label className="sv2-filter-label">Acto médico</label>
+              <select className="sv2-select" value={procedureSlug} onChange={(e) => setProcedureSlug(e.target.value)}>
+                <option value="">Todos los actos</option>
+                {filteredProcedures.map((p) => (
+                  <option key={p.slug} value={p.slug}>{p.name}</option>
+                ))}
+              </select>
+            </div>
 
-              {/* Rating chips */}
-              <div className="sv2-filter-group">
-                <label className="sv2-filter-label">Valoración</label>
-                <div className="sv2-rating-chips">
-                  {[{ v: 0, label: 'Todos' }, { v: 3, label: '★ 3+' }, { v: 4, label: '★ 4+' }, { v: 4.5, label: '★ 4.5+' }].map(({ v, label }) => (
-                    <button
-                      key={v}
-                      className={`sv2-chip ${ratingFilter === v ? 'sv2-chip--active' : ''}`}
-                      onClick={() => setRatingFilter(v)}
-                    >
-                      {label}
-                    </button>
-                  ))}
-                </div>
-              </div>
+            <div className="sv2-filter-group">
+              <label className="sv2-filter-label">Aseguradora</label>
+              <select className="sv2-select" value={insuranceFilter} onChange={(e) => setInsuranceFilter(e.target.value)}>
+                <option value="">Todas las aseguradoras</option>
+                {insuranceCompanies.map((ins) => (
+                  <option key={ins} value={ins}>{ins}</option>
+                ))}
+              </select>
+            </div>
 
-              {/* Sort */}
-              <div className="sv2-filter-group">
-                <label className="sv2-filter-label">Ordenar</label>
-                <select
-                  className="sv2-select"
-                  value={sortBy}
-                  onChange={(e) => setSortBy(e.target.value)}
-                >
-                  <option value="rating">Mejor valorados</option>
-                  <option value="reviews">Más opiniones</option>
-                </select>
-              </div>
-
-              {/* Count + map toggle (mobile) */}
-              <div className="sv2-filter-group sv2-filter-group--right">
-                <span className="sv2-count">
-                  <strong>{filteredProviders.length}</strong> centros
-                </span>
-                <button
-                  className="sv2-map-toggle"
-                  onClick={() => setShowMap((v) => !v)}
-                >
-                  {showMap ? '🗺️ Ocultar mapa' : '🗺️ Ver mapa'}
-                </button>
+            <div className="sv2-filter-group">
+              <label className="sv2-filter-label">Valoración</label>
+              <div className="sv2-rating-chips">
+                {[{ v: 0, label: 'Todos' }, { v: 3, label: '★ 3+' }, { v: 4, label: '★ 4+' }, { v: 4.5, label: '★ 4.5+' }].map(({ v, label }) => (
+                  <button
+                    key={v}
+                    className={`sv2-chip ${ratingFilter === v ? 'sv2-chip--active' : ''}`}
+                    onClick={() => setRatingFilter(v)}
+                  >
+                    {label}
+                  </button>
+                ))}
               </div>
             </div>
 
-            {/* Results list */}
+            <div className="sv2-filter-group">
+              <label className="sv2-filter-label">Ordenar</label>
+              <select className="sv2-select" value={sortBy} onChange={(e) => setSortBy(e.target.value)}>
+                <option value="rating">Mejor valorados</option>
+                <option value="reviews">Más opiniones</option>
+              </select>
+            </div>
+
+            <div className="sv2-filter-group sv2-filter-group--right">
+              <span className="sv2-count">
+                <strong>{dbClinics ? loadedCount : displayProviders.length}</strong>
+                {totalCount > 0 && dbClinics ? ` de ${totalCount}` : ''} centros
+              </span>
+              <button className="sv2-map-toggle" onClick={() => setShowMap((v) => !v)}>
+                {showMap ? 'Ocultar mapa' : 'Ver mapa'}
+              </button>
+            </div>
+          </div>
+        </div>
+
+        {/* Two-column layout */}
+        <div className="sv2-layout container">
+
+          {/* Left: results */}
+          <div className="sv2-left">
             <div className="sv2-results">
-              {filteredProviders.length > 0 ? (
-                filteredProviders.map((provider, i) => (
+              {displayProviders.length > 0 ? (
+                displayProviders.map((provider, i) => (
                   <ClinicCardV2
                     key={provider.id}
                     provider={provider}
                     index={i}
                     serviceId={serviceId}
-                    basePrice={basePrice}
+                    basePrice={0}
                     isSinSeguro={isSinSeguro}
                     highlighted={highlightedId === provider.id}
                     onOpenModal={(p, slot) => { setModalProvider(p); setModalInitialSlot(slot ?? null); }}
                   />
                 ))
+              ) : isLoading ? (
+                <div className="sv2-empty">
+                  <p style={{ color: '#9ca3af' }}>Cargando centros...</p>
+                </div>
               ) : (
                 <div className="sv2-empty">
-                  <p>😕 No encontramos centros con estos filtros.</p>
-                  <p style={{ fontSize: '0.85rem', color: '#9ca3af' }}>
-                    Prueba a cambiar la aseguradora o la valoración mínima.
-                  </p>
+                  <p>No encontramos centros con estos filtros.</p>
+                  <p style={{ fontSize: '0.85rem', color: '#9ca3af' }}>Prueba a cambiar la aseguradora o la valoración mínima.</p>
+                </div>
+              )}
+
+              {hasMore && <div ref={sentinelRef} style={{ height: 1 }} />}
+              {isLoading && dbClinics !== null && (
+                <div style={{ textAlign: 'center', padding: '1rem', color: '#9ca3af', fontSize: '0.85rem' }}>
+                  Cargando más centros...
                 </div>
               )}
             </div>
           </div>
 
-          {/* ── Map panel ────────────────────────────────────────────── */}
+          {/* Right: map */}
           {showMap && (
             <div className="sv2-map-panel">
               <div className="sv2-map-wrap">
-                <iframe
-                  src={mapUrl}
-                  className="sv2-map-iframe"
-                  title="Mapa de centros médicos"
-                  loading="lazy"
+                <ClinicMap
+                  providers={displayProviders.filter((p) => p.lat && p.lng)}
+                  highlightedId={highlightedId}
+                  city={cityFilter || cityParam}
+                  onPinClick={(p) => {
+                    setHighlightedId(p.id);
+                    setModalProvider(p);
+                    setModalInitialSlot(null);
+                  }}
                 />
-                {/* Numbered pins for each provider */}
-                {filteredProviders.map((p, i) => {
-                  const pos = PIN_POSITIONS[p.id] || { top: `${20 + i * 10}%`, left: `${30 + i * 8}%` };
-                  return (
-                    <button
-                      key={p.id}
-                      className={`sv2-map-pin ${highlightedId === p.id ? 'sv2-map-pin--active' : ''}`}
-                      style={{ top: pos.top, left: pos.left }}
-                      onMouseEnter={() => setHighlightedId(p.id)}
-                      onMouseLeave={() => setHighlightedId(null)}
-                      onClick={() => {
-                        setModalProvider(p);
-                        setModalInitialSlot(null);
-                      }}
-                      title={p.name}
-                    >
-                      {i + 1}
-                    </button>
-                  );
-                })}
               </div>
             </div>
           )}
         </div>
       </main>
 
-      {/* Booking modal */}
       {modalProvider && (
         <ClinicBookingModal
           provider={modalProvider}
           serviceId={serviceId}
-          basePrice={basePrice}
+          basePrice={0}
           isSinSeguro={isSinSeguro}
           initialSlot={modalInitialSlot}
           onClose={() => { setModalProvider(null); setModalInitialSlot(null); }}

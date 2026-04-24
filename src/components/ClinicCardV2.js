@@ -1,5 +1,5 @@
 'use client';
-import { availability, getConvenienceFee } from '@/data/mock';
+import { generateSlots, getConvenienceFee } from '@/data/mock';
 import './ClinicCardV2.css';
 
 // Get initials from clinic name for avatar
@@ -22,7 +22,7 @@ function formatSlotDate(dateStr) {
 }
 
 export default function ClinicCardV2({ provider, index = 0, serviceId, basePrice = 0, isSinSeguro = false, onOpenModal, highlighted = false }) {
-  const slots = (availability[provider.id] || []).filter((s) => s.available);
+  const slots = generateSlots(provider.id).filter((s) => s.available);
 
   // Get next 3 available slots
   const nextSlots = slots.slice(0, 3);
