@@ -367,3 +367,58 @@
   margin-bottom: -2px;
 }
 
+/* Stripe Elements styling */
+.payment-stripe-element {
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  padding: var(--space-md);
+  background: white;
+  font-family: inherit;
+}
+
+.payment-actions {
+  display: flex;
+  gap: var(--space-md);
+  margin-top: var(--space-xl);
+}
+
+.payment-btn {
+  flex: 1;
+  padding: 0.75rem 1rem;
+  border: none;
+  border-radius: var(--radius-md);
+  font-size: 0.95rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-sm);
+}
+
+.payment-btn-back {
+  background: var(--bg-subtle);
+  color: var(--navy);
+  border: 1px solid var(--border);
+}
+
+.payment-btn-back:hover:not(:disabled) {
+  background: var(--border);
+}
+
+.payment-btn-primary {
+  background: var(--navy);
+  color: white;
+}
+
+.payment-btn-primary:hover:not(:disabled) {
+  background: #1a2f4a;
+  box-shadow: 0 4px 12px rgba(26, 47, 74, 0.2);
+}
+
+.payment-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
