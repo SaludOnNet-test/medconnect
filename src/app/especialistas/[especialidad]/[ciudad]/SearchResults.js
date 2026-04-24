@@ -12,7 +12,7 @@ import ClinicCardV2 from '@/components/ClinicCardV2';
 import ClinicBookingModal from '@/components/ClinicBookingModal';
 import SearchBarV2 from '@/components/SearchBarV2';
 import { providers, insuranceCompanies, services } from '@/data/mock';
-import '../../search-v2/search-v2.css'; // reuse existing styles
+import '../../../search-v2/search-v2.css'; // reuse existing styles
 
 const CITY_COORDS = {
   'Madrid':    { bbox: '-3.85,40.30,-3.55,40.55' },
