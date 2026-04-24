@@ -22,7 +22,7 @@ export default function SearchBarV2({ initialSpecialty, initialService, initialC
       .then((r) => r.json())
       .then((data) => {
         if (data.specialties) setDbSpecialties(data.specialties);
-        if (data.cities) setDbCities(data.cities.map((c) => c.city));
+        if (data.cities) setDbCities(data.cities); // keep full {city, province} objects
       })
       .catch(() => {});
   }, []);
@@ -48,12 +48,11 @@ export default function SearchBarV2({ initialSpecialty, initialService, initialC
     setSelected(null);
     if (val.length > 0) {
       const lower = val.toLowerCase();
-      setSuggestions(allSuggestions.filter((s) => s.label.toLowerCase().includes(lower)).slice(0, 7));
-      setShowSuggestions(true);
+      setSuggestions(allSuggestions.filter((s) => s.label.toLowerCase().includes(lower)).slice(0, 8));
     } else {
-      setSuggestions([]);
-      setShowSuggestions(false);
+      setSuggestions(allSuggestions.slice(0, 8));
     }
+    setShowSuggestions(true);
   };
 
   const handleSelectSuggestion = (item) => {
@@ -80,9 +79,11 @@ export default function SearchBarV2({ initialSpecialty, initialService, initialC
     router.push(`/search-v2?${params.toString()}`);
   };
 
-  const filteredCities = city
-    ? dbCities.filter((c) => c.toLowerCase().includes(city.toLowerCase()))
-    : dbCities;
+  const filteredCities = dbCities.length === 0 ? [] : (
+    city
+      ? dbCities.filter((c) => `${c.city} ${c.province || ''}`.toLowerCase().includes(city.toLowerCase()))
+      : dbCities
+  );
 
   return (
     <div className={`sbv2 ${compact ? 'sbv2--compact' : ''}`}>
@@ -115,7 +116,7 @@ export default function SearchBarV2({ initialSpecialty, initialService, initialC
             placeholder="especialidad, enfermedad o nombre"
             value={query}
             onChange={(e) => handleQueryChange(e.target.value)}
-            onFocus={() => query && setShowSuggestions(true)}
+            onFocus={() => { setSuggestions(query ? allSuggestions.filter((s) => s.label.toLowerCase().includes(query.toLowerCase())).slice(0, 8) : allSuggestions.slice(0, 8)); setShowSuggestions(true); }}
             onBlur={() => setTimeout(() => setShowSuggestions(false), 180)}
             autoComplete="off"
           />
@@ -155,13 +156,15 @@ export default function SearchBarV2({ initialSpecialty, initialService, initialC
             <div className="sbv2-dropdown">
               {filteredCities.slice(0, 8).map((c) => (
                 <button
-                  key={c}
+                  key={c.city}
                   type="button"
                   className="sbv2-dropdown-item"
-                  onMouseDown={() => { setCity(c); setShowCityList(false); }}
+                  onMouseDown={() => { setCity(c.city); setShowCityList(false); }}
                 >
                   <span className="sbv2-dropdown-icon">📍</span>
-                  <span className="sbv2-dropdown-label">{c}</span>
+                  <span className="sbv2-dropdown-label">
+                    {c.city}{c.province && c.province !== c.city ? ` (${c.province})` : ''}
+                  </span>
                 </button>
               ))}
             </div>

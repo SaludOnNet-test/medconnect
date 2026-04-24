@@ -89,6 +89,25 @@ export async function GET(request) {
       );
     `);
 
+    // clinic_schedules — real schedules imported from Doctoralia
+    await pool.request().query(`
+      IF NOT EXISTS (SELECT * FROM sys.tables WHERE name = 'clinic_schedules')
+      CREATE TABLE clinic_schedules (
+        id           INT             IDENTITY PRIMARY KEY,
+        clinic_id    INT             NOT NULL,
+        day_of_week  TINYINT         NOT NULL,
+        start_time   NVARCHAR(5)     NOT NULL,
+        end_time     NVARCHAR(5)     NOT NULL,
+        is_available BIT             NOT NULL DEFAULT 1,
+        source       NVARCHAR(50),
+        created_at   DATETIMEOFFSET  DEFAULT SYSDATETIMEOFFSET()
+      );
+    `);
+    await pool.request().query(`
+      IF NOT EXISTS (SELECT * FROM sys.indexes WHERE name = 'IX_clinic_schedules_clinic_id' AND object_id = OBJECT_ID('clinic_schedules'))
+        CREATE INDEX IX_clinic_schedules_clinic_id ON clinic_schedules(clinic_id);
+    `);
+
     return NextResponse.json({ success: true, message: 'Schema ready (tables + migrations applied)' });
   } catch (err) {
     console.error('[db/setup]', err);
