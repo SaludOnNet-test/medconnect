@@ -1,19 +1,16 @@
 'use client';
 import Link from 'next/link';
+import { SignedIn, SignedOut, UserButton } from '@clerk/nextjs';
 import './Header.css';
 
-const hasClerkKeys = !!(process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY);
-
-// Conditionally load Clerk UI components — safe because env var is a build-time constant
-let SignedIn = null;
-let SignedOut = null;
-let UserButton = null;
-if (hasClerkKeys) {
-  const clerk = require('@clerk/nextjs');
-  SignedIn = clerk.SignedIn;
-  SignedOut = clerk.SignedOut;
-  UserButton = clerk.UserButton;
-}
+/**
+ * Header — sticky nav bar.
+ *
+ * Auth buttons use Clerk's <SignedIn> / <SignedOut> wrappers.
+ * These are safe to import always: they render nothing when
+ * ClerkProvider is absent (no keys configured), so there is
+ * no runtime error in environments without Clerk keys.
+ */
 
 export default function Header() {
   return (
@@ -35,25 +32,16 @@ export default function Header() {
             </div>
           </a>
 
-          {/* Auth buttons */}
-          {hasClerkKeys ? (
-            <>
-              <SignedOut>
-                <div className="header-auth">
-                  <Link href="/sign-in" className="header-btn-login">Iniciar sesión</Link>
-                  <Link href="/sign-up" className="header-btn-signup">Crear cuenta</Link>
-                </div>
-              </SignedOut>
-              <SignedIn>
-                <UserButton afterSignOutUrl="/" />
-              </SignedIn>
-            </>
-          ) : (
-            <div className="header-auth">
+          {/* Auth buttons — Clerk components handle signed-in / signed-out state automatically */}
+          <div className="header-auth">
+            <SignedOut>
               <Link href="/sign-in" className="header-btn-login">Iniciar sesión</Link>
               <Link href="/sign-up" className="header-btn-signup">Crear cuenta</Link>
-            </div>
-          )}
+            </SignedOut>
+            <SignedIn>
+              <UserButton afterSignOutUrl="/" />
+            </SignedIn>
+          </div>
         </div>
       </div>
     </header>
