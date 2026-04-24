@@ -1,3 +1,4 @@
+import Link from 'next/link';
 import Header from '@/components/Header';
 import Footer from '@/components/Footer';
 import SearchBarV2 from '@/components/SearchBarV2';
@@ -100,56 +101,22 @@ export default function HomePage() {
           </div>
         </section>
 
-        {/* ── Med Connect Plus ────────────────────────────────────────── */}
-        <section className="container" style={{ paddingTop: 'var(--space-2xl)' }}>
-          <p style={{ textAlign: 'center', fontSize: '0.9rem', fontStyle: 'italic', color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 'var(--space-sm)' }}>
-            ¿Crees que repetirás este servicio?
-          </p>
-          <div className="home-plus-banner animate-fade-in-up">
-            <div className="home-plus-content" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center', backgroundColor: 'var(--gold-light)', padding: 'var(--space-lg)', borderRadius: 'var(--radius-lg)', border: '1px solid var(--gold)' }}>
-              <h2 style={{ fontSize: '2rem', marginBottom: 'var(--space-sm)', color: 'var(--navy)' }}>Med<span style={{ color: 'var(--gold)' }}>Connect</span> Plus</h2>
-              <p style={{ marginBottom: 'var(--space-md)', color: 'var(--navy)', fontWeight: '500', maxWidth: '600px' }}>
-                Únete al club de salud más exclusivo. Videoconsulta ilimitada y prioridad máxima en citas presenciales para el titular.
-              </p>
-              <div style={{ display: 'flex', gap: 'var(--space-md)', marginBottom: 'var(--space-md)' }}>
-                <div style={{ textAlign: 'left' }}>
-                  <span style={{ display: 'block', fontSize: '1.5rem', fontWeight: 'bold' }}>5.99€<small style={{ fontSize: '0.8rem' }}>/mes</small></span>
-                  <small style={{ color: 'var(--muted)' }}>Pago anual (71.88€)</small>
-                </div>
-                <div style={{ width: '1px', background: 'var(--gold)', opacity: 0.5 }}></div>
-                <div style={{ textAlign: 'left' }}>
-                  <span style={{ display: 'block', fontSize: '1.5rem', fontWeight: 'bold' }}>7.99€<small style={{ fontSize: '0.8rem' }}>/mes</small></span>
-                  <small style={{ color: 'var(--muted)' }}>Pago mensual</small>
-                </div>
-              </div>
-              <a href="/suscripcion" className="btn btn-navy">Suscribirme ahora</a>
-            </div>
-          </div>
-
-          <p style={{ textAlign: 'center', fontSize: '0.75rem', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '0.08em', color: 'var(--muted)', margin: 'var(--space-xl) 0 var(--space-lg)' }}>
-            Incluido en el plan
-          </p>
-          <div className="home-pillars" style={{ paddingBottom: 'var(--space-2xl)' }}>
-            <div className="home-pillar">
-              <span className="home-pillar-icon" style={{ borderRadius: '50%', background: 'var(--gold-light)', color: 'var(--gold)', width: '60px', height: '60px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '24px', margin: '0 auto var(--space-md)' }}>⚡</span>
-              <h3 className="home-pillar-title">Exclusividad Med Connect</h3>
-              <p className="home-pillar-desc">
-                Forma parte del club de salud más ágil y exclusivo de España. Acceso a la red médica con prioridad total.
-              </p>
-            </div>
-            <div className="home-pillar">
-              <span className="home-pillar-icon" style={{ borderRadius: '50%', background: 'var(--gold-light)', color: 'var(--gold)', width: '60px', height: '60px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '24px', margin: '0 auto var(--space-md)' }}>📱</span>
-              <h3 className="home-pillar-title">Tecnología Médica</h3>
-              <p className="home-pillar-desc">
-                Chat médico 24/7 y videoconsulta ilimitada con médicos de familia desde tu móvil.
-              </p>
-            </div>
-            <div className="home-pillar">
-              <span className="home-pillar-icon" style={{ borderRadius: '50%', background: 'var(--gold-light)', color: 'var(--gold)', width: '60px', height: '60px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '24px', margin: '0 auto var(--space-md)' }}>🛡️</span>
-              <h3 className="home-pillar-title">Seguridad y Transparencia</h3>
-              <p className="home-pillar-desc">
-                Gestión impecable de tu agenda de salud. Sin listas de espera y con total claridad en costes.
-              </p>
+        {/* ── Account CTA ─────────────────────────────────────────────── */}
+        <section className="container" style={{ paddingTop: 'var(--space-2xl)', paddingBottom: 'var(--space-2xl)' }}>
+          <div style={{ background: 'var(--navy)', borderRadius: 'var(--radius-lg)', padding: '3rem 2rem', textAlign: 'center', color: '#fff' }}>
+            <h2 style={{ fontSize: '1.8rem', fontWeight: '800', marginBottom: '0.75rem' }}>
+              Gestiona todas tus citas en un solo lugar
+            </h2>
+            <p style={{ color: 'rgba(255,255,255,0.75)', maxWidth: '520px', margin: '0 auto 1.75rem', lineHeight: '1.7' }}>
+              Crea tu cuenta gratuita y accede a tu historial de reservas, recibe recordatorios y gestiona tus citas desde cualquier dispositivo.
+            </p>
+            <div style={{ display: 'flex', gap: '1rem', justifyContent: 'center', flexWrap: 'wrap' }}>
+              <Link href="/sign-up" style={{ padding: '0.75rem 2rem', borderRadius: '8px', background: 'var(--gold)', color: 'var(--navy)', fontWeight: '700', fontSize: '1rem', display: 'inline-block' }}>
+                Crear cuenta gratis
+              </Link>
+              <Link href="/sign-in" style={{ padding: '0.75rem 2rem', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.35)', color: '#fff', fontWeight: '600', fontSize: '1rem', display: 'inline-block' }}>
+                Ya tengo cuenta
+              </Link>
             </div>
           </div>
         </section>

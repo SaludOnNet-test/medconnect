@@ -1,3 +1,4 @@
+import Link from 'next/link';
 import './Footer.css';
 
 export default function Footer() {
@@ -8,12 +9,13 @@ export default function Footer() {
           Med<span>Connect</span>
         </div>
         <div className="footer-links">
-          <a href="#">Política de Privacidad</a>
-          <a href="#">Términos de Uso</a>
-          <a href="#">Contacto</a>
+          <Link href="/privacidad">Política de Privacidad</Link>
+          <Link href="/legal">Aviso Legal</Link>
+          <Link href="/cookies">Política de Cookies</Link>
+          <a href="mailto:hola@medconnect.es">Contacto</a>
         </div>
         <div className="footer-copy">
-          © 2026 Med Connect. Todos los derechos reservados.
+          © 2026 Med Connect — Saludonnet Spain SL. Todos los derechos reservados.
         </div>
       </div>
     </footer>

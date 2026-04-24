@@ -20,7 +20,7 @@ export default function LegalPage() {
               {[
                 ['Razón social', 'Saludonnet Spain SL'],
                 ['Nombre comercial', 'Med Connect'],
-                ['CIF', 'B-XXXXXXXX (pendiente de actualizar)'],
+                // CIF omitted during MVP — to be added before public launch
                 ['Domicilio', 'España'],
                 ['Email de contacto', 'hola@medconnect.es'],
                 ['Actividad', 'Intermediación en la reserva de citas médicas privadas'],

@@ -2,6 +2,19 @@
 import Link from 'next/link';
 import './Header.css';
 
+const hasClerkKeys = !!(process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY);
+
+// Conditionally load Clerk UI components — safe because env var is a build-time constant
+let SignedIn = null;
+let SignedOut = null;
+let UserButton = null;
+if (hasClerkKeys) {
+  const clerk = require('@clerk/nextjs');
+  SignedIn = clerk.SignedIn;
+  SignedOut = clerk.SignedOut;
+  UserButton = clerk.UserButton;
+}
+
 export default function Header() {
   return (
     <header className="header">
@@ -11,7 +24,7 @@ export default function Header() {
         </Link>
 
         <div className="header-right">
-          <Link href="/derivadores" style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--gold)' }}>
+          <Link href="/derivadores" className="header-link-pro">
             Derivar un paciente
           </Link>
           <a href="tel:+34900123456" className="header-phone">
@@ -21,6 +34,26 @@ export default function Header() {
               <span className="header-phone-number">900 123 456</span>
             </div>
           </a>
+
+          {/* Auth buttons */}
+          {hasClerkKeys ? (
+            <>
+              <SignedOut>
+                <div className="header-auth">
+                  <Link href="/sign-in" className="header-btn-login">Iniciar sesión</Link>
+                  <Link href="/sign-up" className="header-btn-signup">Crear cuenta</Link>
+                </div>
+              </SignedOut>
+              <SignedIn>
+                <UserButton afterSignOutUrl="/" />
+              </SignedIn>
+            </>
+          ) : (
+            <div className="header-auth">
+              <Link href="/sign-in" className="header-btn-login">Iniciar sesión</Link>
+              <Link href="/sign-up" className="header-btn-signup">Crear cuenta</Link>
+            </div>
+          )}
         </div>
       </div>
     </header>

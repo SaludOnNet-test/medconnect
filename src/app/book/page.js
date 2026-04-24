@@ -76,10 +76,6 @@ function BookContent() {
     email: '',
   });
 
-  // Subscription states
-  const [isPlusSubscribed, setIsPlusSubscribed] = useState(false);
-  const [subscriptionPlan, setSubscriptionPlan] = useState('monthly'); // 'monthly' | 'annual'
-
   const [form, setForm] = useState({
     name: '',
     surname: '',
@@ -96,15 +92,14 @@ function BookContent() {
     setProData((prev) => ({ ...prev, [field]: value }));
   };
 
-  const activeFee = isPlusSubscribed ? 0 : fee;
-  const subCost = isPlusSubscribed ? (subscriptionPlan === 'monthly' ? 7.99 : 71.88) : 0;
+  const activeFee = fee;
 
   const totalPrice =
-    (hasInsurance === true
+    hasInsurance === true
       ? activeFee
       : hasInsurance === false
         ? servicePrice + activeFee
-        : 0) + subCost;
+        : 0;
 
   const sendEmail = (templateName, data) => {
     fetch('/api/email/send', {
@@ -360,19 +355,27 @@ function BookContent() {
                 </div>
               )}
 
-              {isPlusSubscribed && (
-                <div className="book-info-box book-info-box--green" style={{ marginTop: '1rem' }}>
-                  <strong>✨ ¡Bienvenido a Med Connect Plus!</strong><br />
-                  Tu suscripción {subscriptionPlan === 'monthly' ? 'mensual' : 'anual'} está activa.
-                  A partir de ahora, tienes acceso prioritario ilimitado.
-                </div>
-              )}
-
               <div className="book-confirmation-ref" style={{ marginTop: '1.5rem' }}>
                 {paymentRef}
               </div>
 
-              <div style={{ display: 'flex', gap: '1rem', justifyContent: 'center', flexWrap: 'wrap', marginTop: '2rem' }}>
+              {/* Account creation prompt — shown to guests so they can save their booking history */}
+              <div style={{ marginTop: '1.75rem', padding: '1.25rem 1.5rem', background: '#f0f9ff', borderRadius: '10px', border: '1px solid #bae6fd', textAlign: 'center' }}>
+                <p style={{ fontWeight: '700', color: '#0369a1', marginBottom: '0.4rem', fontSize: '0.95rem' }}>💡 Guarda tu historial de citas</p>
+                <p style={{ fontSize: '0.85rem', color: '#6b7280', marginBottom: '1rem' }}>
+                  Crea una cuenta gratuita con este email y accede a todas tus reservas en cualquier momento.
+                </p>
+                <Link
+                  href={`/sign-up?email=${encodeURIComponent(lockInData?.patientEmail || form.email)}`}
+                  className="btn btn-gold"
+                  style={{ display: 'inline-block' }}
+                >
+                  Crear mi cuenta
+                </Link>
+                <p style={{ fontSize: '0.78rem', color: '#9ca3af', marginTop: '0.6rem' }}>¿Ya tienes cuenta? <Link href="/sign-in" style={{ color: '#0369a1' }}>Iniciar sesión</Link></p>
+              </div>
+
+              <div style={{ display: 'flex', gap: '1rem', justifyContent: 'center', flexWrap: 'wrap', marginTop: '1.5rem' }}>
                 {calendarUrl && (
                   <a href={calendarUrl} target="_blank" rel="noopener noreferrer" className="btn btn-outline btn-lg book-success-calendar-btn">
                     📅 Añadir al calendario
@@ -574,60 +577,6 @@ function BookContent() {
               )}
             </div>
 
-            {/* MedConnect Plus Upsell */}
-            {hasInsurance !== null && !isReferral && (
-              <div className="book-upsell-card animate-fade-in">
-                <div className="book-upsell-header">
-                  <span className="book-upsell-badge">RECOMENDADO</span>
-                  <h3>Hazte Med Connect Plus</h3>
-                </div>
-                <p>Prioridad máxima en tus citas presenciales y servicios digitales ilimitados (Chat y Video con Médico de Familia).</p>
-                
-                <div className="book-upsell-options">
-                  <label className={`book-upsell-option ${isPlusSubscribed && subscriptionPlan === 'monthly' ? 'active' : ''}`}>
-                    <input 
-                      type="radio" 
-                      name="subPlan" 
-                      checked={isPlusSubscribed && subscriptionPlan === 'monthly'} 
-                      onChange={() => {
-                        setIsPlusSubscribed(true);
-                        setSubscriptionPlan('monthly');
-                      }} 
-                    />
-                    <div className="upsell-option-info">
-                      <strong>Plan Mensual</strong>
-                      <span>7.99€/mes</span>
-                    </div>
-                  </label>
-                  <label className={`book-upsell-option ${isPlusSubscribed && subscriptionPlan === 'annual' ? 'active' : ''}`}>
-                    <input 
-                      type="radio" 
-                      name="subPlan" 
-                      checked={isPlusSubscribed && subscriptionPlan === 'annual'} 
-                      onChange={() => {
-                        setIsPlusSubscribed(true);
-                        setSubscriptionPlan('annual');
-                      }} 
-                    />
-                    <div className="upsell-option-info">
-                      <strong>Plan Anual</strong>
-                      <span>71.88€/año (paga 5.99€/mes)</span>
-                    </div>
-                  </label>
-                </div>
-
-                {isPlusSubscribed && (
-                  <button 
-                    type="button" 
-                    className="book-upsell-remove"
-                    onClick={() => setIsPlusSubscribed(false)}
-                  >
-                    No añadir suscripción por ahora
-                  </button>
-                )}
-              </div>
-            )}
-
             {/* Price Breakdown */}
             {hasInsurance !== null && (
               <div className="book-price-breakdown animate-fade-in">
@@ -644,18 +593,10 @@ function BookContent() {
                   <span className="book-price-label">
                     🎫 {feeLabel || 'Fee de reserva'}
                   </span>
-                  <span className={`book-price-amount ${activeFee === 0 && isPlusSubscribed ? 'book-price-struck' : activeFee === 0 ? 'book-price-free' : ''}`}>
-                    {isPlusSubscribed && <span className="struck-price">{Number(fee).toFixed(2)}€</span>}
+                  <span className="book-price-amount">
                     {activeFee > 0 ? `${Number(activeFee).toFixed(2)}€` : '0€'}
                   </span>
                 </div>
-
-                {isPlusSubscribed && (
-                  <div className="book-price-row" style={{ color: 'var(--gold)', fontWeight: 600 }}>
-                    <span className="book-price-label">✨ Suscripción Med Connect Plus ({subscriptionPlan === 'monthly' ? 'Mensual' : 'Anual'})</span>
-                    <span className="book-price-amount">{subscriptionPlan === 'monthly' ? '7.99' : '71.88'}€</span>
-                  </div>
-                )}
 
                 <div className="book-price-row total">
                   <span>Total a pagar hoy</span>

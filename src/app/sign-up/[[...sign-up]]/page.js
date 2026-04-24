@@ -2,7 +2,9 @@ import { SignUp } from '@clerk/nextjs';
 
 const hasClerkKeys = !!(process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY);
 
-export default function SignUpPage() {
+export default function SignUpPage({ searchParams }) {
+  const acceptCookies = searchParams?.accept_cookies === '1';
+
   if (!hasClerkKeys) {
     return (
       <main style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '60vh', flexDirection: 'column', gap: '1rem', padding: '2rem' }}>
@@ -17,8 +19,26 @@ export default function SignUpPage() {
   }
 
   return (
-    <main style={{ display: 'flex', justifyContent: 'center', padding: '4rem 1rem' }}>
-      <SignUp />
+    <main style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', padding: '3rem 1rem' }}>
+      {acceptCookies && (
+        <div style={{
+          marginBottom: '1.5rem',
+          padding: '0.75rem 1.25rem',
+          background: '#f0fdf4',
+          border: '1px solid #86efac',
+          borderRadius: '8px',
+          maxWidth: '400px',
+          width: '100%',
+          fontSize: '0.85rem',
+          color: '#166534',
+          lineHeight: '1.5',
+        }}>
+          ✅ <strong>Al crear tu cuenta aceptas el uso de cookies analíticas</strong> (Google Analytics y Microsoft Clarity) para mejorar el servicio. Puedes gestionar tus preferencias en cualquier momento desde la <a href="/cookies" style={{ color: '#166534' }}>Política de cookies</a>.
+        </div>
+      )}
+      <SignUp
+        afterSignUpUrl={acceptCookies ? '/accept-cookies' : '/'}
+      />
     </main>
   );
 }

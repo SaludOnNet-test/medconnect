@@ -72,8 +72,54 @@
   flex-direction: column;
 }
 
+.header-link-pro {
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--gold);
+}
+
+/* Auth buttons */
+.header-auth {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+}
+
+.header-btn-login {
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: rgba(255,255,255,0.85);
+  padding: 0.4rem 0.9rem;
+  border-radius: 6px;
+  transition: color var(--transition-fast);
+}
+
+.header-btn-login:hover {
+  color: var(--white);
+}
+
+.header-btn-signup {
+  font-size: 0.85rem;
+  font-weight: 700;
+  color: var(--navy);
+  background: var(--gold);
+  padding: 0.4rem 1rem;
+  border-radius: 6px;
+  transition: opacity var(--transition-fast);
+}
+
+.header-btn-signup:hover {
+  opacity: 0.9;
+}
+
 @media (max-width: 768px) {
   .header-phone-label {
+    display: none;
+  }
+  .header-btn-login {
+    display: none;
+  }
+  .header-link-pro {
     display: none;
   }
 }
