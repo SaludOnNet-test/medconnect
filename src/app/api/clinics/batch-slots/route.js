@@ -1,6 +1,21 @@
 import { NextResponse } from 'next/server';
 import { getPool, DB_AVAILABLE } from '@/lib/db';
-import { generateSlots } from '@/data/mock';
+
+function deterministicSlots(id, maxSlots = 3) {
+  const slots = [];
+  const baseHour = 9 + (id % 4);
+  const d = new Date();
+  d.setDate(d.getDate() + 1);
+  while (slots.length < maxSlots) {
+    const dow = d.getDay();
+    if (dow >= 1 && dow <= 5) {
+      const dateStr = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+      slots.push({ date: dateStr, time: `${String(baseHour + slots.length).padStart(2, '0')}:00`, available: true });
+    }
+    d.setDate(d.getDate() + 1);
+  }
+  return slots;
+}
 
 const SPANISH_HOLIDAYS = [
   '2026-04-02', '2026-04-03', '2026-04-06',
@@ -92,11 +107,10 @@ export async function GET(request) {
     }
   }
 
-  // For any clinic without DB schedules, fall back to mock
+  // For any clinic without DB schedules, generate deterministic preview slots
   for (const id of ids) {
     if (result[id] === undefined) {
-      const mockSlots = generateSlots(id).filter((s) => s.available).slice(0, maxSlotsPerClinic);
-      result[id] = mockSlots;
+      result[id] = deterministicSlots(id, maxSlotsPerClinic);
     }
   }
 

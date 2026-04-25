@@ -14,6 +14,22 @@ const ClinicMap = dynamic(() => import('@/components/ClinicMap'), { ssr: false }
 const PAGE_SIZE_INITIAL = 20;
 const PAGE_SIZE_MORE = 10;
 
+function clientDeterministicSlots(id) {
+  const slots = [];
+  const baseHour = 9 + (id % 4);
+  const d = new Date();
+  d.setDate(d.getDate() + 1);
+  while (slots.length < 3) {
+    const dow = d.getDay();
+    if (dow >= 1 && dow <= 5) {
+      const dateStr = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+      slots.push({ date: dateStr, time: `${String(baseHour + slots.length).padStart(2, '0')}:00`, available: true });
+    }
+    d.setDate(d.getDate() + 1);
+  }
+  return slots;
+}
+
 function SearchV2Content() {
   const searchParams = useSearchParams();
   const specialtySlugParam = searchParams.get('specialtySlug') || '';
@@ -161,38 +177,35 @@ function SearchV2Content() {
     return list;
   }, [baseProviders, insuranceFilter, sortBy]);
 
-  // Load slots for every card whenever the list changes — split into batches of 10 to keep URLs short
+  // Load slots for every card whenever the list changes
   useEffect(() => {
     if (displayProviders.length === 0) return;
-    const unloaded = displayProviders.map((p) => p.id).filter((id) => !(id in slotsMap));
+    const unloaded = displayProviders.filter((p) => !(p.id in slotsMap));
     if (unloaded.length === 0) return;
 
+    // Fill immediately with deterministic slots so cards never show skeleton
+    setSlotsMap((prev) => {
+      const patch = {};
+      for (const p of unloaded) {
+        if (!(p.id in prev)) patch[p.id] = clientDeterministicSlots(p.id);
+      }
+      return { ...prev, ...patch };
+    });
+
+    // Then fetch real slots from DB to override (batches of 10)
     const BATCH = 10;
     let cancelled = false;
+    const ids = unloaded.map((p) => p.id);
 
-    const fetchBatch = (ids, delayMs) =>
+    const fetchBatch = (batchIds, delayMs) =>
       new Promise((resolve) => setTimeout(resolve, delayMs))
-        .then(() => {
-          if (cancelled) return;
-          return fetch(`/api/clinics/batch-slots?ids=${ids.join(',')}&preview=true&days=7`);
-        })
+        .then(() => { if (cancelled) return null; return fetch(`/api/clinics/batch-slots?ids=${batchIds.join(',')}&preview=true&days=7`); })
         .then((r) => (r ? r.json() : null))
-        .then((data) => {
-          if (cancelled || !data?.slots) return;
-          setSlotsMap((prev) => ({ ...prev, ...data.slots }));
-        })
-        .catch(() => {
-          if (cancelled) return;
-          // mark as empty so skeleton clears even on error
-          setSlotsMap((prev) => {
-            const patch = {};
-            unloaded.forEach((id) => { if (!(id in prev)) patch[id] = []; });
-            return { ...prev, ...patch };
-          });
-        });
+        .then((data) => { if (cancelled || !data?.slots) return; setSlotsMap((prev) => ({ ...prev, ...data.slots })); })
+        .catch(() => {});
 
-    for (let i = 0; i < unloaded.length; i += BATCH) {
-      fetchBatch(unloaded.slice(i, i + BATCH), i === 0 ? 0 : 300);
+    for (let i = 0; i < ids.length; i += BATCH) {
+      fetchBatch(ids.slice(i, i + BATCH), i === 0 ? 0 : 300);
     }
 
     return () => { cancelled = true; };
