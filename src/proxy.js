@@ -11,22 +11,11 @@ export async function proxy(request) {
 
   const { clerkMiddleware, createRouteMatcher } = await import('@clerk/nextjs/server');
 
-  const isAdminRoute = createRouteMatcher(['/admin', '/admin/:path+']);
+  // /admin/** uses its own auth (admin_users table + HMAC tokens, see src/lib/adminAuth.js).
+  // Clerk only protects /pro/dashboard.
   const isProRoute = createRouteMatcher(['/pro/dashboard', '/pro/dashboard/:path+']);
 
   return clerkMiddleware(async (auth, req) => {
-    const { pathname } = req.nextUrl;
-
-    // /admin/login is always public
-    if (isAdminRoute(req) && pathname !== '/admin/login') {
-      const { userId, sessionClaims } = await auth();
-      if (!userId || sessionClaims?.publicMetadata?.role !== 'admin') {
-        const url = new URL('/sign-in', req.url);
-        url.searchParams.set('redirect_url', req.url);
-        return NextResponse.redirect(url);
-      }
-    }
-
     if (isProRoute(req)) {
       const { userId, sessionClaims } = await auth();
       const role = sessionClaims?.publicMetadata?.role;

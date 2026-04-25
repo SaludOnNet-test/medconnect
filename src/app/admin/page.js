@@ -35,18 +35,13 @@ export default function AdminDashboard() {
   });
 
   useEffect(() => {
-    const hasClerkKeys = !!(process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY);
-    if (hasClerkKeys) {
-      // Middleware already verified role=admin before reaching this page
-      setIsLoading(false);
-      return;
-    }
-    // Mock mode: fall back to localStorage token
-    const adminToken = localStorage.getItem('adminToken');
+    // Auth is now handled by the admin_users table + HMAC tokens (see src/lib/adminAuth.js).
+    // The legacy /admin dashboard now redirects to /admin/ops (the active operations console).
+    const adminToken = typeof window !== 'undefined' ? localStorage.getItem('adminToken') : null;
     if (!adminToken) {
-      router.push('/admin/login');
+      router.replace('/admin/login');
     } else {
-      setIsLoading(false);
+      router.replace('/admin/ops');
     }
   }, [router]);
 
