@@ -1,5 +1,5 @@
 'use client';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { getConvenienceFee } from '@/data/mock';
 import './ClinicCardV2.css';
 
@@ -19,29 +19,70 @@ function formatSlotDate(dateStr) {
   return d.toLocaleDateString('es-ES', { weekday: 'short', day: 'numeric', month: 'short' });
 }
 
-export default function ClinicCardV2({ provider, index = 0, serviceId, basePrice = 0, isSinSeguro = false, onOpenModal, highlighted = false }) {
-  const [nextSlots, setNextSlots] = useState(null); // null = loading
+function deterministicSlots(providerId) {
+  const slots = [];
+  const baseHour = 9 + (providerId % 4);
+  let d = new Date();
+  d.setDate(d.getDate() + 1);
+  while (slots.length < 3) {
+    const dow = d.getDay();
+    if (dow >= 1 && dow <= 5) {
+      const dateStr = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+      slots.push({ date: dateStr, time: `${String(baseHour + slots.length).padStart(2, '0')}:00`, available: true });
+    }
+    d = new Date(d.getTime() + 86400000);
+  }
+  return slots;
+}
+
+// props:
+//   slots     — undefined: loading (show skeleton), Array: loaded (may be empty)
+//               when omitted together with onVisible, falls back to deterministic generation
+//   onVisible — callback(clinicId) when card enters viewport; parent handles batched fetching
+export default function ClinicCardV2({
+  provider, index = 0, serviceId, basePrice = 0,
+  isSinSeguro = false, onOpenModal, highlighted = false,
+  slots, onVisible,
+}) {
+  const cardRef = useRef(null);
+  // fallback slots used when no parent manages slot state
+  const [fallbackSlots, setFallbackSlots] = useState(onVisible ? undefined : undefined);
 
   useEffect(() => {
-    const slots = [];
-    const baseHour = 9 + (provider.id % 4);
-    let d = new Date();
-    d.setDate(d.getDate() + 1);
-    while (slots.length < 3) {
-      const dow = d.getDay();
-      if (dow >= 1 && dow <= 5) {
-        const dateStr = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
-        slots.push({ date: dateStr, time: `${String(baseHour + slots.length).padStart(2, '0')}:00`, available: true });
-      }
-      d = new Date(d.getTime() + 86400000);
+    if (onVisible) {
+      // Parent manages slots — set up IntersectionObserver to notify parent
+      const el = cardRef.current;
+      if (!el) return;
+      const observer = new IntersectionObserver(
+        ([entry]) => {
+          if (entry.isIntersecting) {
+            onVisible(provider.id);
+            observer.disconnect();
+          }
+        },
+        { rootMargin: '150px' }
+      );
+      observer.observe(el);
+      return () => observer.disconnect();
+    } else {
+      // Standalone use: generate deterministic preview slots
+      setFallbackSlots(deterministicSlots(provider.id));
     }
-    setNextSlots(slots);
-  }, [provider.id]);
+  }, [provider.id, onVisible]);
+
+  // When used standalone (no parent), use fallback; otherwise use prop
+  const nextSlots = onVisible
+    ? (slots === undefined ? undefined : (slots || []).filter((s) => s.available).slice(0, 3))
+    : (fallbackSlots || []).slice(0, 3);
 
   const avatarColor = AVATAR_COLORS[index % AVATAR_COLORS.length];
 
   return (
-    <div className={`cv2-card ${highlighted ? 'cv2-card--highlighted' : ''}`} id={`clinic-card-${provider.id}`}>
+    <div
+      ref={cardRef}
+      className={`cv2-card ${highlighted ? 'cv2-card--highlighted' : ''}`}
+      id={`clinic-card-${provider.id}`}
+    >
       <div className="cv2-card-body">
         <div className="cv2-avatar" style={provider.imageUrl ? {} : { background: avatarColor }}>
           {provider.imageUrl
@@ -80,8 +121,8 @@ export default function ClinicCardV2({ provider, index = 0, serviceId, basePrice
         </div>
       </div>
 
-      {/* Slot chips */}
-      {nextSlots === null ? (
+      {/* Slot area */}
+      {nextSlots === undefined ? (
         <div className="cv2-slots-loading">
           <span className="cv2-slot-skeleton" />
           <span className="cv2-slot-skeleton" />

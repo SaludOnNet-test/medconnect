@@ -50,6 +50,38 @@ function SearchV2Content() {
   const [modalProvider, setModalProvider]     = useState(null);
   const [modalInitialSlot, setModalInitialSlot] = useState(null);
 
+  // Slot batch-loading — one API call per visible batch of cards
+  const [slotsMap, setSlotsMap] = useState({}); // { [clinicId]: Slot[] | undefined }
+  const pendingIdsRef  = useRef(new Set());
+  const loadedIdsRef   = useRef(new Set());
+  const batchTimerRef  = useRef(null);
+
+  const requestSlots = useCallback((clinicId) => {
+    if (loadedIdsRef.current.has(clinicId)) return;
+    loadedIdsRef.current.add(clinicId);
+    pendingIdsRef.current.add(clinicId);
+    clearTimeout(batchTimerRef.current);
+    batchTimerRef.current = setTimeout(() => {
+      const ids = [...pendingIdsRef.current];
+      pendingIdsRef.current.clear();
+      fetch(`/api/clinics/batch-slots?ids=${ids.join(',')}&preview=true&days=7`)
+        .then((r) => r.json())
+        .then((data) => {
+          if (data.slots) {
+            setSlotsMap((prev) => ({ ...prev, ...data.slots }));
+          }
+        })
+        .catch(() => {
+          // on error mark all as empty so skeleton clears
+          setSlotsMap((prev) => {
+            const patch = {};
+            ids.forEach((id) => { patch[id] = []; });
+            return { ...prev, ...patch };
+          });
+        });
+    }, 50); // collect IDs for 50ms, then fire one batch request
+  }, []);
+
   const sentinelRef = useRef(null);
   const observerRef = useRef(null);
 
@@ -91,13 +123,17 @@ function SearchV2Content() {
     return `/api/clinics/search?${params.toString()}`;
   }, [cityFilter, specialtySlug, specialtyIdParam, procedureSlug, ratingFilter, providerNameParam]);
 
-  // Initial load / filter change
+  // Initial load / filter change — also reset slot state
   useEffect(() => {
     let cancelled = false;
     setIsLoading(true);
     setDbClinics(null);
     setLoadedCount(0);
     setHasMore(false);
+    setSlotsMap({});
+    loadedIdsRef.current.clear();
+    pendingIdsRef.current.clear();
+    clearTimeout(batchTimerRef.current);
 
     fetch(buildUrl(0, PAGE_SIZE_INITIAL))
       .then((r) => r.json())
@@ -292,6 +328,8 @@ function SearchV2Content() {
                     isSinSeguro={isSinSeguro}
                     highlighted={highlightedId === provider.id}
                     onOpenModal={(p, slot) => { setModalProvider(p); setModalInitialSlot(slot ?? null); }}
+                    slots={slotsMap[provider.id]}
+                    onVisible={requestSlots}
                   />
                 ))
               ) : isLoading ? (
