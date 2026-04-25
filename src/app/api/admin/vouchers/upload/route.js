@@ -1,6 +1,8 @@
 import { NextResponse } from 'next/server';
 import { getPool, query, sql, DB_AVAILABLE } from '@/lib/db';
 import { requireAuth } from '@/lib/adminAuth';
+import { sendEmail } from '@/lib/email';
+import { voucherDelivery } from '@/lib/emailTemplates';
 
 /**
  * POST /api/admin/vouchers/upload
@@ -97,26 +99,20 @@ export async function POST(request) {
   let emailResult = { ok: true, mock: true };
   if (resend || !alreadySent) {
     try {
-      const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || `https://${request.headers.get('host')}`;
-      const r = await fetch(`${baseUrl}/api/email/send`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          templateName: 'voucherDelivery',
-          data: {
-            patientEmail: booking.patient_email,
-            patientName: booking.patient_name,
-            providerName: booking.provider_name,
-            slotDate: booking.slot_date,
-            slotTime: booking.slot_time,
-            procedureName: booking.procedure_name,
-            servicePrice: booking.service_price,
-            voucherUrl: finalVoucher.voucher_url || null,
-            sonOrderRef: finalVoucher.son_order_ref || null,
-          },
-        }),
+      // Call template + sendEmail directly — avoids a fragile self-fetch that
+      // breaks when NEXT_PUBLIC_BASE_URL points to a domain that doesn't
+      // resolve from the runtime (common in local dev).
+      const { subject, html } = voucherDelivery({
+        patientName: booking.patient_name,
+        providerName: booking.provider_name,
+        slotDate: booking.slot_date,
+        slotTime: booking.slot_time,
+        procedureName: booking.procedure_name,
+        servicePrice: booking.service_price,
+        voucherUrl: finalVoucher.voucher_url || null,
+        sonOrderRef: finalVoucher.son_order_ref || null,
       });
-      emailResult = await r.json().catch(() => ({ ok: false }));
+      emailResult = await sendEmail({ to: booking.patient_email, subject, html });
     } catch (e) {
       console.error('[vouchers/upload] email send failed', e);
       emailResult = { ok: false, error: e.message };
