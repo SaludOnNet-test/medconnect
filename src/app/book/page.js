@@ -177,29 +177,41 @@ function BookContent() {
     const slotTimeToUse = lockInData?.slotTime || time;
     const clinicName = lockInData?.providerName || providerName;
 
-    // Persist booking to DB
-    fetch('/api/bookings', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        id: reference,
-        referralId: lockInData?.id || null,
-        patientName,
-        patientEmail,
-        patientPhone: lockInData?.patientPhone || null,
-        patientAddress: lockInData?.patientAddress || null,
-        providerId: Number(providerId) || null,
-        providerName: clinicName,
-        specialty: service?.name || null,
-        slotDate: slotDateToUse,
-        slotTime: slotTimeToUse,
-        amount: totalPrice,
-        status: 'confirmed',
-        cardLast4: last4,
-        hasInsurance: hasInsurance === true,
-        insuranceCompany: selectedInsurance || null,
-      }),
-    }).catch(() => {});
+    // Persist booking to DB and capture the operations case ID for the ops email
+    let opsCaseId = null;
+    let paymentToClinic = null;
+    let tier = null;
+    try {
+      const r = await fetch('/api/bookings', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          id: reference,
+          referralId: lockInData?.id || null,
+          patientName,
+          patientEmail,
+          patientPhone: lockInData?.patientPhone || form.phone || null,
+          patientAddress: lockInData?.patientAddress || null,
+          providerId: Number(providerId) || null,
+          providerName: clinicName,
+          specialty: service?.name || null,
+          slotDate: slotDateToUse,
+          slotTime: slotTimeToUse,
+          amount: totalPrice,
+          status: 'confirmed',
+          cardLast4: last4,
+          hasInsurance: hasInsurance === true,
+          insuranceCompany: selectedInsurance || null,
+          paymentIntentId: reference,
+        }),
+      });
+      const j = await r.json().catch(() => ({}));
+      if (j._case) {
+        opsCaseId = j._case.id ?? null;
+        paymentToClinic = j._case.paymentToClinic ?? null;
+        tier = j._case.tier ?? null;
+      }
+    } catch (e) { /* keep going */ }
 
     // If this was a lock-in referral, mark it CONFIRMED in DB + localStorage
     if (lockInData) {
@@ -236,6 +248,8 @@ function BookContent() {
       totalPrice,
       reference,
       calendarUrl,
+      hasInsurance,
+      feeAmount: activeFee,
     });
     sendEmail('paymentReceipt', {
       patientEmail,
@@ -249,13 +263,21 @@ function BookContent() {
     });
     sendEmail('operationsBookingAlert', {
       bookingId: reference,
+      caseId: opsCaseId,
       clinicId: providerId,
-      slotType: 'real',
+      clinicPhone: provider?.telephone || null,
       patientName,
+      patientEmail,
+      patientPhone: lockInData?.patientPhone || form.phone || null,
       providerName: clinicName,
       slotDate: slotDateToUse,
       slotTime: slotTimeToUse,
       amount: totalPrice,
+      tier,
+      paymentToClinic,
+      specialty: service?.name || null,
+      hasInsurance: hasInsurance === true,
+      insuranceCompany: selectedInsurance || null,
     });
 
     // Email: Derivador gets notified patient confirmed and paid
@@ -335,9 +357,11 @@ function BookContent() {
           <div className="book-container">
             <div className="book-success">
               <div className="book-success-icon">✓</div>
-              <h2 className="book-success-title">¡Cita confirmada!</h2>
+              <h2 className="book-success-title">¡Reserva prioritaria confirmada!</h2>
               <p className="book-success-subtitle">
-                Tu pago ha sido procesado correctamente. Te hemos enviado un correo de confirmación.
+                {hasInsurance === true
+                  ? 'Hemos confirmado tu reserva prioritaria. Acude con tu tarjeta de asegurado — la consulta corre por tu póliza.'
+                  : 'Hemos confirmado tu cita y la consulta privada. Llega 10 minutos antes; en recepción ya saben quién eres.'}
               </p>
 
               <div className="book-summary-card" style={{ textAlign: 'left', marginTop: '1.5rem' }}>
@@ -349,9 +373,20 @@ function BookContent() {
               </div>
 
               {hasInsurance === true && (
-                <div className="book-info-box" style={{ marginTop: '1rem' }}>
-                  <strong>ℹ️ Información Importante</strong><br />
-                  Recuerda presentar tu <strong>tarjeta de asegurado</strong> al llegar a la clínica.
+                <div className="book-info-box" style={{ marginTop: '1rem', textAlign: 'left' }}>
+                  <strong>Cuando llegues a la clínica</strong>
+                  <p style={{ marginTop: '0.5rem', marginBottom: 0, fontSize: '0.9rem', lineHeight: 1.6 }}>
+                    Entrega tu <strong>tarjeta de asegurado</strong> en recepción, como en cualquier cita concertada. La clínica facturará la consulta a tu aseguradora. Tu pago de hoy cubre solo la <strong>tarifa de prioridad</strong> — no se vuelve a cobrar.
+                  </p>
+                </div>
+              )}
+
+              {hasInsurance === false && (
+                <div className="book-info-box" style={{ marginTop: '1rem', textAlign: 'left' }}>
+                  <strong>Cuando llegues a la clínica</strong>
+                  <p style={{ marginTop: '0.5rem', marginBottom: 0, fontSize: '0.9rem', lineHeight: 1.6 }}>
+                    Trae tu DNI y este email de confirmación. Ya has pagado la <strong>consulta privada</strong> y la <strong>tarifa de prioridad</strong> — no se vuelve a cobrar nada en recepción.
+                  </p>
                 </div>
               )}
 
@@ -532,21 +567,39 @@ function BookContent() {
                 </div>
               </div>
 
-              {/* Insurance toggle */}
+              {/* Insurance context + toggle */}
               <div className="form-group" style={{ marginTop: 'var(--space-lg)' }}>
+                <div style={{
+                  background: '#f0f9ff',
+                  border: '1px solid #bae6fd',
+                  borderRadius: '10px',
+                  padding: '0.75rem 1rem',
+                  marginBottom: 'var(--space-md)',
+                  fontSize: '0.85rem',
+                  color: '#0c4a6e',
+                  lineHeight: 1.6,
+                }}>
+                  <strong>Antes de continuar:</strong> el acto médico lo paga tu seguro a la clínica. A nosotros solo nos pagas la <strong>tarifa de prioridad</strong> por gestionarte la reserva prioritaria.
+                </div>
                 <label className="form-label">¿{isReferral ? 'El paciente tiene' : 'Tienes'} seguro médico privado?</label>
                 <div className="book-insurance-toggle">
                   <div
                     className={`book-insurance-option ${hasInsurance === true ? 'active' : ''}`}
                     onClick={() => setHasInsurance(true)}
                   >
-                    Sí, {isReferral ? 'tiene' : 'tengo'} seguro
+                    <strong>Sí, {isReferral ? 'tiene' : 'tengo'} seguro</strong>
+                    <span style={{ display: 'block', fontSize: '0.78rem', color: 'var(--muted)', marginTop: '4px', fontWeight: 400 }}>
+                      Pagas solo la tarifa de prioridad. La consulta va por tu póliza.
+                    </span>
                   </div>
                   <div
                     className={`book-insurance-option ${hasInsurance === false ? 'active' : ''}`}
                     onClick={() => setHasInsurance(false)}
                   >
-                    No {isReferral ? 'tiene' : 'tengo'} seguro
+                    <strong>No {isReferral ? 'tiene' : 'tengo'} seguro</strong>
+                    <span style={{ display: 'block', fontSize: '0.78rem', color: 'var(--muted)', marginTop: '4px', fontWeight: 400 }}>
+                      Pagas la consulta privada + la tarifa de prioridad. Total visible antes del pago.
+                    </span>
                   </div>
                 </div>
               </div>
@@ -572,7 +625,7 @@ function BookContent() {
 
               {hasInsurance === true && (
                 <p style={{ marginTop: 'var(--space-md)', fontSize: '0.85rem', color: 'var(--muted)', fontStyle: 'italic' }}>
-                  * Recuerda que deberás mostrar tu tarjeta de asegurado en la clínica. Nosotros gestionaremos tu acceso de forma preferente.
+                  * Te hemos reservado este hueco con prioridad. Acude con tu tarjeta de asegurado y la clínica te atenderá bajo tu póliza, como cualquier otra cita concertada.
                 </p>
               )}
             </div>
@@ -582,16 +635,21 @@ function BookContent() {
               <div className="book-price-breakdown animate-fade-in">
                 <p className="book-step-label" style={{ marginBottom: 'var(--space-md)' }}>Resumen del pago</p>
 
-                {hasInsurance === false && service && (
+                {/* Medical service line — ALWAYS visible to make clear what insurance covers */}
+                {service && (
                   <div className="book-price-row">
-                    <span className="book-price-label">🩺 {service.name}</span>
-                    <span className="book-price-amount">{Number(servicePrice).toFixed(2)}€</span>
+                    <span className="book-price-label">🩺 Consulta de {service.name}</span>
+                    <span className="book-price-amount">
+                      {hasInsurance === true
+                        ? <span style={{ color: '#00805a', fontWeight: 600 }}>Cubierto por tu seguro</span>
+                        : `${Number(servicePrice).toFixed(2)}€`}
+                    </span>
                   </div>
                 )}
 
                 <div className="book-price-row">
                   <span className="book-price-label">
-                    🎫 {feeLabel || 'Fee de reserva'}
+                    🎫 Tarifa de prioridad{feeLabel ? ` (${feeLabel.toLowerCase()})` : ''}
                   </span>
                   <span className="book-price-amount">
                     {activeFee > 0 ? `${Number(activeFee).toFixed(2)}€` : '0€'}
@@ -599,11 +657,23 @@ function BookContent() {
                 </div>
 
                 <div className="book-price-row total">
-                  <span>Total a pagar hoy</span>
+                  <span>Total que pagas hoy</span>
                   <span className="book-price-amount">
                     {totalPrice > 0 ? `${Number(totalPrice).toFixed(2)}€` : 'Gratis'}
                   </span>
                 </div>
+
+                {hasInsurance === true && (
+                  <p style={{ marginTop: 'var(--space-md)', fontSize: '0.8rem', color: 'var(--muted)', lineHeight: 1.6 }}>
+                    ⓘ Tu seguro cubre la consulta directamente con la clínica. Tú solo pagas la prioridad por la reserva.
+                  </p>
+                )}
+
+                {hasInsurance === false && (
+                  <p style={{ marginTop: 'var(--space-md)', fontSize: '0.8rem', color: 'var(--muted)', lineHeight: 1.6 }}>
+                    ⓘ Sin seguro pagas dos cosas en una: la <strong>consulta privada</strong> (tarifa oficial de la clínica, según el catálogo SaludOnNet) y la <strong>tarifa de prioridad</strong> por conseguirte el hueco urgente. Ese es el total — no se vuelve a cobrar en la clínica.
+                  </p>
+                )}
               </div>
             )}
 

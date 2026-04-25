@@ -9,6 +9,9 @@ import {
   derivadorReferralCreated,
   derivadorPatientPaid,
   operationsBookingAlert,
+  patientAlternativeSlot,
+  patientFinalConfirmation,
+  patientRefunded,
 } from '@/lib/emailTemplates';
 
 const TEMPLATES = {
@@ -21,6 +24,9 @@ const TEMPLATES = {
   derivadorReferralCreated,
   derivadorPatientPaid,
   operationsBookingAlert,
+  patientAlternativeSlot,
+  patientFinalConfirmation,
+  patientRefunded,
 };
 
 export async function POST(request) {

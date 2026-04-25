@@ -2,41 +2,29 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
+import { adminLogin, getAdminToken } from '@/lib/adminClient';
 import '../admin.css';
 
 export default function AdminLogin() {
-  const [email, setEmail] = useState('');
+  const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const router = useRouter();
 
-  const hasClerkKeys = !!(process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY);
-
-  // Check if already logged in
   useEffect(() => {
-    if (hasClerkKeys) {
-      router.replace('/sign-in?redirect_url=/admin');
-      return;
-    }
-    const adminToken = localStorage.getItem('adminToken');
-    if (adminToken) {
-      router.push('/admin');
-    }
-  }, [router, hasClerkKeys]);
+    if (getAdminToken()) router.replace('/admin/ops');
+  }, [router]);
 
-  const handleLogin = (e) => {
+  const handleLogin = async (e) => {
     e.preventDefault();
     setError('');
     setIsLoading(true);
-
-    // Hardcoded credentials
-    if (email === 'Admin' && password === 'ADMIN') {
-      localStorage.setItem('adminToken', 'admin-token-' + Date.now());
-      localStorage.setItem('adminLoggedIn', 'true');
-      router.push('/admin');
-    } else {
-      setError('Invalid credentials. Use Admin / ADMIN');
+    try {
+      await adminLogin(username, password);
+      router.replace('/admin/ops');
+    } catch (err) {
+      setError(err.message || 'Credenciales inválidas');
       setPassword('');
     }
     setIsLoading(false);
@@ -46,27 +34,28 @@ export default function AdminLogin() {
     <div className="admin-login-container">
       <div className="admin-login-card">
         <div className="admin-login-header">
-          <h1>Med Connect Admin</h1>
-          <p>Operations Dashboard</p>
+          <h1>Med Connect — Operaciones</h1>
+          <p>Panel de control</p>
         </div>
 
         <form onSubmit={handleLogin} className="admin-login-form">
           <div className="form-group">
-            <label htmlFor="email">Email</label>
+            <label htmlFor="username">Usuario</label>
             <input
-              id="email"
+              id="username"
               type="text"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
+              value={username}
+              onChange={(e) => setUsername(e.target.value)}
               placeholder="Admin"
               className="form-input"
               required
               disabled={isLoading}
+              autoFocus
             />
           </div>
 
           <div className="form-group">
-            <label htmlFor="password">Password</label>
+            <label htmlFor="password">Contraseña</label>
             <input
               id="password"
               type="password"
@@ -81,19 +70,17 @@ export default function AdminLogin() {
 
           {error && <div className="admin-error-message">{error}</div>}
 
-          <button
-            type="submit"
-            className="btn-primary admin-login-btn"
-            disabled={isLoading}
-          >
-            {isLoading ? 'Logging in...' : 'Login'}
+          <button type="submit" className="btn-primary admin-login-btn" disabled={isLoading}>
+            {isLoading ? 'Entrando…' : 'Entrar'}
           </button>
         </form>
 
         <div className="admin-credentials-hint">
-          <p><strong>Demo Credentials:</strong></p>
-          <p>Email: <code>Admin</code></p>
-          <p>Password: <code>ADMIN</code></p>
+          <p><strong>Credenciales por defecto:</strong></p>
+          <p>Usuario: <code>Admin</code> · Contraseña: <code>ADMIN</code></p>
+          <p style={{ marginTop: 8, fontSize: 12, opacity: 0.7 }}>
+            Cámbialas y crea operadores adicionales desde el dashboard.
+          </p>
         </div>
       </div>
     </div>

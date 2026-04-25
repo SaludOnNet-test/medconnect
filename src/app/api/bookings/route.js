@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { getPool, sql, DB_AVAILABLE } from '@/lib/db';
+import { createCaseForBooking } from '@/lib/opsCases';
 
 function toBooking(row) {
   return {
@@ -92,6 +93,7 @@ export async function POST(request) {
     cardLast4,
     hasInsurance,
     insuranceCompany,
+    paymentIntentId,
   } = body;
 
   if (!id || !patientEmail) {
@@ -117,22 +119,36 @@ export async function POST(request) {
       .input('card_last4', sql.NVarChar(4), cardLast4 || null)
       .input('has_insurance', sql.Bit, hasInsurance ? 1 : 0)
       .input('insurance_company', sql.NVarChar(100), insuranceCompany || null)
+      .input('payment_intent_id', sql.NVarChar(80), paymentIntentId || id || null)
       .query(`
         INSERT INTO bookings
           (id, referral_id, patient_name, patient_email, patient_phone, patient_address,
            provider_id, provider_name, specialty, slot_date, slot_time,
-           amount, status, card_last4, has_insurance, insurance_company)
+           amount, status, card_last4, has_insurance, insurance_company, payment_intent_id)
         VALUES
           (@id, @referral_id, @patient_name, @patient_email, @patient_phone, @patient_address,
            @provider_id, @provider_name, @specialty, @slot_date, @slot_time,
-           @amount, @status, @card_last4, @has_insurance, @insurance_company)
+           @amount, @status, @card_last4, @has_insurance, @insurance_company, @payment_intent_id)
       `);
+
+    // Open an operations case for this booking (best-effort, do not break booking creation)
+    let opsCase = null;
+    try {
+      opsCase = await createCaseForBooking({
+        id, providerId, providerName, slotDate, slotTime, amount,
+      });
+    } catch (caseErr) {
+      console.error('[POST /api/bookings] case creation failed', caseErr);
+    }
 
     const result = await pool.request()
       .input('id', sql.NVarChar(50), id)
       .query('SELECT * FROM bookings WHERE id = @id');
 
-    return NextResponse.json(toBooking(result.recordset[0]), { status: 201 });
+    return NextResponse.json({
+      ...toBooking(result.recordset[0]),
+      _case: opsCase,
+    }, { status: 201 });
   } catch (err) {
     console.error('[POST /api/bookings]', err);
     return NextResponse.json({ error: err.message }, { status: 500 });

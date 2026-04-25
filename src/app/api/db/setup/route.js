@@ -108,6 +108,84 @@ export async function GET(request) {
         CREATE INDEX IX_clinic_schedules_clinic_id ON clinic_schedules(clinic_id);
     `);
 
+    // ── Migration: payment_intent_id on bookings (for refunds) ─────────
+    await pool.request().query(`
+      IF NOT EXISTS (
+        SELECT * FROM sys.columns
+        WHERE Name = 'payment_intent_id' AND Object_ID = Object_ID('bookings')
+      )
+      ALTER TABLE bookings ADD payment_intent_id NVARCHAR(80);
+    `);
+
+    // ── operations_cases: one case per booking that needs ops handling ─
+    await pool.request().query(`
+      IF NOT EXISTS (SELECT * FROM sys.tables WHERE name = 'operations_cases')
+      CREATE TABLE operations_cases (
+        id                       INT IDENTITY PRIMARY KEY,
+        booking_id               NVARCHAR(50)   NOT NULL,
+        status                   NVARCHAR(40)   NOT NULL DEFAULT 'pending_call',
+        assigned_to              NVARCHAR(255),
+
+        original_clinic_id       INT,
+        original_clinic_name     NVARCHAR(255),
+        original_slot_date       NVARCHAR(20),
+        original_slot_time       NVARCHAR(10),
+
+        alternative_clinic_id    INT,
+        alternative_clinic_name  NVARCHAR(255),
+        alternative_slot_date    NVARCHAR(20),
+        alternative_slot_time    NVARCHAR(10),
+        alternative_reason       NVARCHAR(500),
+
+        amount_paid              DECIMAL(10,2),
+        payment_to_clinic        DECIMAL(10,2),
+        tier                     TINYINT,
+
+        refund_id                NVARCHAR(80),
+        refund_amount            DECIMAL(10,2),
+        refund_reason            NVARCHAR(500),
+
+        call_log                 NVARCHAR(MAX),
+        ops_notes                NVARCHAR(MAX),
+        patient_decision         NVARCHAR(40),
+        patient_response_token   NVARCHAR(80),
+
+        created_at               DATETIMEOFFSET NOT NULL DEFAULT SYSDATETIMEOFFSET(),
+        updated_at               DATETIMEOFFSET NOT NULL DEFAULT SYSDATETIMEOFFSET(),
+        resolved_at              DATETIMEOFFSET
+      );
+    `);
+    await pool.request().query(`
+      IF NOT EXISTS (SELECT * FROM sys.indexes WHERE name = 'IX_operations_cases_status' AND object_id = OBJECT_ID('operations_cases'))
+        CREATE INDEX IX_operations_cases_status ON operations_cases(status);
+    `);
+    await pool.request().query(`
+      IF NOT EXISTS (SELECT * FROM sys.indexes WHERE name = 'IX_operations_cases_booking_id' AND object_id = OBJECT_ID('operations_cases'))
+        CREATE INDEX IX_operations_cases_booking_id ON operations_cases(booking_id);
+    `);
+
+    // ── admin_users: simple username/password auth for ops dashboard ───
+    await pool.request().query(`
+      IF NOT EXISTS (SELECT * FROM sys.tables WHERE name = 'admin_users')
+      CREATE TABLE admin_users (
+        id            INT IDENTITY PRIMARY KEY,
+        username      NVARCHAR(80)  NOT NULL UNIQUE,
+        password_hash NVARCHAR(255) NOT NULL,
+        display_name  NVARCHAR(120),
+        role          NVARCHAR(20)  NOT NULL DEFAULT 'ops',
+        is_active     BIT           NOT NULL DEFAULT 1,
+        created_at    DATETIMEOFFSET NOT NULL DEFAULT SYSDATETIMEOFFSET(),
+        last_login    DATETIMEOFFSET
+      );
+    `);
+
+    // Seed default admin (Admin / ADMIN) if no admins exist yet
+    await pool.request().query(`
+      IF NOT EXISTS (SELECT 1 FROM admin_users)
+      INSERT INTO admin_users (username, password_hash, display_name, role)
+      VALUES ('Admin', 'plain:ADMIN', 'Default Admin', 'admin');
+    `);
+
     return NextResponse.json({ success: true, message: 'Schema ready (tables + migrations applied)' });
   } catch (err) {
     console.error('[db/setup]', err);

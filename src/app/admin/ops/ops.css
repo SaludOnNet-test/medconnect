@@ -1,0 +1,305 @@
+.ops-page {
+  max-width: 1280px;
+  margin: 0 auto;
+  padding: 24px 28px 60px;
+  font-family: 'Segoe UI', system-ui, sans-serif;
+  color: #1f2937;
+}
+
+.ops-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-end;
+  border-bottom: 1px solid #e5e7eb;
+  padding-bottom: 16px;
+  margin-bottom: 20px;
+  gap: 16px;
+}
+
+.ops-header h1 {
+  margin: 0 0 4px;
+  font-size: 24px;
+  font-weight: 800;
+  color: #1a3c5e;
+}
+
+.ops-subtitle {
+  margin: 0;
+  font-size: 14px;
+  color: #6b7280;
+}
+
+.ops-header-right {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.ops-user {
+  font-size: 13px;
+  color: #4b5563;
+}
+
+.ops-link-btn {
+  padding: 6px 12px;
+  border-radius: 6px;
+  border: 1px solid #d1d5db;
+  background: #fff;
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 600;
+  color: #374151;
+  text-decoration: none;
+}
+
+.ops-link-btn:hover {
+  background: #f3f4f6;
+  border-color: #9ca3af;
+}
+
+.ops-filters {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-bottom: 20px;
+  align-items: center;
+}
+
+.ops-filter {
+  padding: 6px 14px;
+  border-radius: 999px;
+  border: 1px solid #d1d5db;
+  background: #fff;
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 600;
+  color: #4b5563;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.ops-filter:hover {
+  background: #f9fafb;
+}
+
+.ops-filter.active {
+  background: #1a3c5e;
+  color: #fff;
+  border-color: #1a3c5e;
+}
+
+.ops-count {
+  background: rgba(255,255,255,0.25);
+  color: inherit;
+  padding: 1px 8px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.ops-filter:not(.active) .ops-count {
+  background: #e5e7eb;
+  color: #4b5563;
+}
+
+.ops-table-wrap {
+  background: #fff;
+  border: 1px solid #e5e7eb;
+  border-radius: 12px;
+  overflow: hidden;
+  box-shadow: 0 1px 6px rgba(0,0,0,0.04);
+}
+
+.ops-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.ops-table thead th {
+  text-align: left;
+  background: #f9fafb;
+  border-bottom: 1px solid #e5e7eb;
+  padding: 10px 14px;
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: #6b7280;
+  font-weight: 700;
+}
+
+.ops-table tbody td {
+  border-bottom: 1px solid #f3f4f6;
+  padding: 12px 14px;
+  font-size: 13px;
+  vertical-align: top;
+}
+
+.ops-row {
+  cursor: pointer;
+  transition: background 0.1s;
+}
+
+.ops-row:hover {
+  background: #f9fafb;
+}
+
+.ops-patient-name {
+  font-weight: 600;
+  color: #111827;
+}
+
+.ops-patient-meta {
+  font-size: 11px;
+  color: #6b7280;
+  margin-top: 2px;
+}
+
+.ops-status {
+  display: inline-block;
+  padding: 3px 10px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.ops-status-pending_call { background: #fef3c7; color: #92400e; }
+.ops-status-clinic_accepted { background: #dcfce7; color: #166534; }
+.ops-status-clinic_proposed_alternative { background: #fed7aa; color: #c2410c; }
+.ops-status-clinic_rejected_searching { background: #fee2e2; color: #b91c1c; }
+.ops-status-alternative_clinic_proposed { background: #fed7aa; color: #c2410c; }
+.ops-status-patient_accepted { background: #dcfce7; color: #166534; }
+.ops-status-patient_rejected_refunding,
+.ops-status-no_alternative_refunding { background: #fee2e2; color: #b91c1c; }
+.ops-status-confirmed { background: #d1fae5; color: #065f46; }
+.ops-status-refunded { background: #e0e7ff; color: #3730a3; }
+.ops-status-cancelled { background: #f3f4f6; color: #4b5563; }
+.ops-status-expired { background: #fef2f2; color: #991b1b; }
+
+/* ── Detail page ────────────────────────────────────────────────────── */
+.ops-detail {
+  max-width: 1080px;
+  margin: 0 auto;
+  padding: 24px 28px 60px;
+  font-family: 'Segoe UI', system-ui, sans-serif;
+}
+
+.ops-back-link {
+  display: inline-block;
+  margin-bottom: 12px;
+  font-size: 13px;
+  color: #1a3c5e;
+  text-decoration: none;
+  font-weight: 600;
+}
+
+.ops-back-link:hover { text-decoration: underline; }
+
+.ops-detail-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 2fr) minmax(0, 1fr);
+  gap: 24px;
+}
+
+@media (max-width: 900px) {
+  .ops-detail-grid { grid-template-columns: 1fr; }
+}
+
+.ops-card {
+  background: #fff;
+  border: 1px solid #e5e7eb;
+  border-radius: 12px;
+  padding: 18px 20px;
+  margin-bottom: 16px;
+  box-shadow: 0 1px 6px rgba(0,0,0,0.04);
+}
+
+.ops-card h2 {
+  margin: 0 0 12px;
+  font-size: 15px;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: #6b7280;
+  font-weight: 700;
+}
+
+.ops-kv {
+  display: grid;
+  grid-template-columns: minmax(140px, 30%) 1fr;
+  gap: 6px 16px;
+  font-size: 14px;
+}
+
+.ops-kv dt {
+  color: #6b7280;
+  font-weight: 500;
+}
+
+.ops-kv dd {
+  margin: 0;
+  color: #111827;
+  font-weight: 600;
+  word-break: break-word;
+}
+
+.ops-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.ops-action-btn {
+  padding: 12px 16px;
+  border-radius: 8px;
+  border: 1.5px solid;
+  background: #fff;
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 700;
+  text-align: left;
+  transition: background 0.15s;
+}
+
+.ops-action-btn:hover { filter: brightness(0.97); }
+.ops-action-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+
+.ops-action-success { border-color: #16a34a; color: #14532d; background: #f0fdf4; }
+.ops-action-warn    { border-color: #ea580c; color: #7c2d12; background: #fff7ed; }
+.ops-action-danger  { border-color: #dc2626; color: #7f1d1d; background: #fef2f2; }
+.ops-action-neutral { border-color: #6b7280; color: #1f2937; background: #f9fafb; }
+
+.ops-form-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+.ops-form-row input,
+.ops-form-row select,
+.ops-form textarea,
+.ops-form input {
+  padding: 8px 10px;
+  border: 1px solid #d1d5db;
+  border-radius: 6px;
+  font-size: 13px;
+  font-family: inherit;
+  width: 100%;
+}
+
+.ops-form { margin-top: 12px; padding: 12px; background: #f9fafb; border-radius: 8px; border: 1px solid #e5e7eb; }
+.ops-form h3 { margin: 0 0 8px; font-size: 13px; color: #1a3c5e; font-weight: 700; }
+
+.ops-call-log {
+  background: #1f2937;
+  color: #d1d5db;
+  border-radius: 8px;
+  padding: 14px;
+  font-family: 'Consolas','Monaco',monospace;
+  font-size: 12px;
+  white-space: pre-wrap;
+  line-height: 1.5;
+  max-height: 300px;
+  overflow-y: auto;
+}
