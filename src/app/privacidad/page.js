@@ -10,8 +10,8 @@ export default function PrivacidadPage() {
   return (
     <>
       <Header />
-      <main style={{ maxWidth: '800px', margin: '0 auto', padding: '3rem 1.5rem 5rem', color: '#374151', lineHeight: '1.8' }}>
-        <h1 style={{ fontSize: '2rem', fontWeight: '800', color: '#1a3c5e', marginBottom: '0.5rem' }}>Política de Privacidad</h1>
+      <main className="legal-page" style={{ color: '#374151', lineHeight: '1.8' }}>
+        <h1 style={{ fontSize: 'clamp(1.5rem, 5vw, 2rem)', fontWeight: '800', color: '#1a3c5e', marginBottom: '0.5rem' }}>Política de Privacidad</h1>
         <p style={{ color: '#9ca3af', fontSize: '0.9rem', marginBottom: '2.5rem' }}>Última actualización: abril 2026</p>
 
         <Section title="1. Responsable del tratamiento">
@@ -28,7 +28,8 @@ export default function PrivacidadPage() {
         </Section>
 
         <Section title="3. Finalidades y base legal">
-          <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.9rem' }}>
+          <div className="table-scroll">
+          <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.9rem', minWidth: '480px' }}>
             <thead>
               <tr style={{ background: '#f3f4f6' }}>
                 <th style={thStyle}>Finalidad</th>
@@ -50,6 +51,7 @@ export default function PrivacidadPage() {
               ))}
             </tbody>
           </table>
+          </div>
         </Section>
 
         <Section title="4. Destinatarios de los datos">

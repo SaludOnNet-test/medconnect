@@ -10,11 +10,12 @@ export default function LegalPage() {
   return (
     <>
       <Header />
-      <main style={{ maxWidth: '800px', margin: '0 auto', padding: '3rem 1.5rem 5rem', color: '#374151', lineHeight: '1.8' }}>
-        <h1 style={{ fontSize: '2rem', fontWeight: '800', color: '#1a3c5e', marginBottom: '0.5rem' }}>Aviso Legal</h1>
+      <main className="legal-page" style={{ color: '#374151', lineHeight: '1.8' }}>
+        <h1 style={{ fontSize: 'clamp(1.5rem, 5vw, 2rem)', fontWeight: '800', color: '#1a3c5e', marginBottom: '0.5rem' }}>Aviso Legal</h1>
         <p style={{ color: '#9ca3af', fontSize: '0.9rem', marginBottom: '2.5rem' }}>En cumplimiento de la Ley 34/2002, de 11 de julio, de Servicios de la Sociedad de la Información y de Comercio Electrónico (LSSI-CE)</p>
 
         <Section title="1. Datos identificativos del titular">
+          <div className="table-scroll">
           <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.9rem' }}>
             <tbody>
               {[
@@ -32,6 +33,7 @@ export default function LegalPage() {
               ))}
             </tbody>
           </table>
+          </div>
         </Section>
 
         <Section title="2. Objeto y ámbito de aplicación">

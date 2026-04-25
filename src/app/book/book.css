@@ -200,14 +200,84 @@
   margin-bottom: var(--space-xl);
 }
 
-@media (max-width: 768px) {
+@media (max-width: 640px) {
+  .book-page {
+    padding: var(--space-xl) 0;
+  }
+
+  .book-container {
+    padding: 0 var(--space-md);
+  }
+
+  .book-title {
+    font-size: 1.4rem;
+  }
+
+  .book-form,
+  .book-price-breakdown {
+    padding: var(--space-md);
+  }
+
   .book-form-grid {
     grid-template-columns: 1fr;
+    gap: var(--space-sm);
   }
 
   .book-summary-details {
     flex-direction: column;
     gap: var(--space-sm);
+  }
+
+  .book-insurance-toggle {
+    flex-direction: column;
+    gap: var(--space-sm);
+  }
+
+  .book-price-row {
+    flex-wrap: wrap;
+    font-size: 0.85rem;
+    gap: 4px;
+  }
+
+  .book-actions .btn {
+    max-width: 100%;
+  }
+
+  .book-upsell-options {
+    grid-template-columns: 1fr;
+  }
+
+  .payment-summary-bar {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: var(--space-sm);
+    padding: var(--space-md);
+  }
+
+  .payment-card-inner {
+    padding: var(--space-md);
+  }
+
+  .payment-field-row {
+    grid-template-columns: 1fr;
+  }
+
+  .payment-actions {
+    flex-direction: column;
+  }
+}
+
+/* Result pages (confirmed / propose / refund) — shared mobile-aware container. */
+.book-result-page {
+  padding: 2rem 1rem;
+  max-width: 480px;
+  margin: 0 auto;
+  font-family: system-ui, -apple-system, sans-serif;
+}
+
+@media (max-width: 640px) {
+  .book-result-page {
+    padding: 1.5rem 1rem;
   }
 }
 

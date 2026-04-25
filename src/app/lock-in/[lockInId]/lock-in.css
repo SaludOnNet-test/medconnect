@@ -277,3 +277,21 @@
     font-size: 1.2rem;
   }
 }
+
+@media (max-width: 640px) {
+  .form-input {
+    padding: 0.75rem;
+    font-size: 0.95rem;
+  }
+
+  .referral-details-card,
+  .lock-in-form {
+    padding: var(--space-md, 1rem);
+  }
+
+  .form-group.checkbox label {
+    align-items: flex-start;
+    gap: var(--space-sm, 0.5rem);
+    word-break: break-word;
+  }
+}

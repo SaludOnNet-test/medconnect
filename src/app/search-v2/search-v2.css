@@ -1,22 +1,5 @@
 /* ── SearchV2 Page ────────────────────────────────────────────────────── */
 
-/* ── Top bar ─────────────────────────────────────────────────────────── */
-.sv2-topbar {
-  position: sticky;
-  top: 0;
-  z-index: 100;
-  background: #fff;
-  border-bottom: 1px solid #e5e7eb;
-  padding: 10px 0;
-  box-shadow: 0 2px 8px rgba(0,0,0,0.06);
-}
-
-.sv2-topbar-inner {
-  max-width: 1200px;
-  margin: 0 auto;
-  padding: 0 1.5rem;
-}
-
 /* ── Page title ───────────────────────────────────────────────────────── */
 .sv2-title-row {
   padding: 1.25rem 1.5rem 0;
@@ -38,11 +21,55 @@
   margin: 0;
 }
 
-/* ── Filters row (spans full width above both columns) ───────────────── */
+/* ── Actions bar (always visible: count + map toggle, filters trigger on mobile) ── */
+.sv2-actions-row {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 0.75rem 1.5rem 0.25rem;
+}
+
+.sv2-actions-bar {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
+.sv2-actions-btn {
+  border: 1.5px solid #e5e7eb;
+  border-radius: 8px;
+  background: #fff;
+  padding: 7px 14px;
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: #4b5563;
+  cursor: pointer;
+  font-family: inherit;
+  transition: all 0.15s;
+}
+
+.sv2-actions-btn:hover {
+  border-color: #1a3c5e;
+  color: #1a3c5e;
+}
+
+.sv2-filters-trigger {
+  display: none; /* shown only on mobile */
+}
+
+/* Map toggle is always visible (desktop + mobile). */
+.sv2-map-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  margin-left: auto;
+}
+
+/* ── Filters row (desktop: inline above results) ─────────────────────── */
 .sv2-filters-row {
   max-width: 1200px;
   margin: 0 auto;
-  padding: 0.75rem 1.5rem 0;
+  padding: 0.5rem 1.5rem 0;
 }
 
 /* ── Two-column layout ────────────────────────────────────────────────── */
@@ -55,6 +82,11 @@
   padding-bottom: 2rem;
   max-width: 1200px;
   margin: 0 auto;
+}
+
+/* When the map is hidden, the results take the full width. */
+.sv2-layout--list-only {
+  grid-template-columns: 1fr;
 }
 
 /* ── Left panel ───────────────────────────────────────────────────────── */
@@ -76,17 +108,61 @@
   box-shadow: 0 1px 4px rgba(0,0,0,0.04);
 }
 
+/* Mobile drawer header (hidden on desktop) */
+.sv2-filters-header {
+  display: none;
+  width: 100%;
+  align-items: center;
+  justify-content: space-between;
+  padding-bottom: 0.5rem;
+  border-bottom: 1px solid #f3f4f6;
+  margin-bottom: 0.25rem;
+}
+
+.sv2-filters-title {
+  font-size: 1rem;
+  font-weight: 700;
+  color: #1a3c5e;
+}
+
+.sv2-filters-close {
+  border: none;
+  background: transparent;
+  font-size: 1.1rem;
+  color: #6b7280;
+  cursor: pointer;
+  padding: 4px 8px;
+  line-height: 1;
+}
+
+.sv2-filters-apply-wrap {
+  display: none; /* mobile only */
+  width: 100%;
+  margin-top: auto;
+  padding-top: 0.5rem;
+}
+
+.sv2-filters-apply {
+  width: 100%;
+  border: none;
+  background: #1a3c5e;
+  color: #fff;
+  font-weight: 700;
+  padding: 12px;
+  border-radius: 10px;
+  font-size: 0.95rem;
+  cursor: pointer;
+  font-family: inherit;
+}
+
+.sv2-filters-apply:hover {
+  background: #122c45;
+}
+
 .sv2-filter-group {
   display: flex;
   flex-direction: column;
   gap: 4px;
-}
-
-.sv2-filter-group--right {
-  margin-left: auto;
-  flex-direction: row;
-  align-items: center;
-  gap: 10px;
 }
 
 .sv2-filter-label {
@@ -147,7 +223,7 @@
   color: #fff;
 }
 
-/* ── Results count + map toggle ───────────────────────────────────────── */
+/* ── Results count ────────────────────────────────────────────────────── */
 .sv2-count {
   font-size: 0.85rem;
   color: #6b7280;
@@ -156,19 +232,6 @@
 
 .sv2-count strong {
   color: #1a3c5e;
-}
-
-.sv2-map-toggle {
-  display: none; /* shown on mobile only */
-  border: 1.5px solid #e5e7eb;
-  border-radius: 8px;
-  background: #fff;
-  padding: 6px 12px;
-  font-size: 0.8rem;
-  font-weight: 600;
-  cursor: pointer;
-  font-family: inherit;
-  color: #4b5563;
 }
 
 /* ── Results list ─────────────────────────────────────────────────────── */
@@ -240,7 +303,12 @@
   z-index: 20;
 }
 
-/* ── Responsive ───────────────────────────────────────────────────────── */
+/* ── Drawer backdrop (mobile only when filters open) ─────────────────── */
+.sv2-filters-backdrop {
+  display: none;
+}
+
+/* ── Tablet: stack map below filters/list ─────────────────────────────── */
 @media (max-width: 900px) {
   .sv2-layout {
     grid-template-columns: 1fr;
@@ -249,29 +317,74 @@
   .sv2-map-panel {
     position: relative;
     top: 0;
-    height: 300px;
+    height: 320px;
     margin-bottom: 1rem;
     order: -1;
   }
+}
 
-  .sv2-map-toggle {
-    display: flex;
+/* ── Mobile: filters become a slide-up drawer ─────────────────────────── */
+@media (max-width: 640px) {
+  .sv2-title {
+    font-size: 1.15rem;
+  }
+
+  .sv2-actions-row {
+    padding: 0.5rem 1rem 0.25rem;
+  }
+
+  .sv2-filters-trigger {
+    display: inline-flex;
     align-items: center;
     gap: 4px;
   }
-}
 
-@media (max-width: 640px) {
-  .sv2-filters {
-    gap: 8px;
-    padding: 0.75rem;
+  /* Filters hidden by default on mobile; revealed via drawer when open. */
+  .sv2-filters-row {
+    display: none;
+  }
+
+  .sv2-filters-row--open {
+    display: block;
+    position: fixed;
+    inset: 0;
+    z-index: 1000;
+    padding: 0;
+    margin: 0;
+    max-width: none;
+  }
+
+  .sv2-filters-row--open .sv2-filters {
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    max-height: 85vh;
+    overflow-y: auto;
+    margin: 0;
+    border-radius: 16px 16px 0 0;
+    padding: 1rem;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 14px;
+    z-index: 2;
+    box-shadow: 0 -8px 24px rgba(0,0,0,0.18);
+  }
+
+  .sv2-filters-row--open .sv2-filters-header,
+  .sv2-filters-row--open .sv2-filters-apply-wrap {
+    display: flex;
+  }
+
+  .sv2-filters-row--open .sv2-filters-backdrop {
+    display: block;
+    position: absolute;
+    inset: 0;
+    background: rgba(0,0,0,0.5);
+    z-index: 1;
   }
 
   .sv2-rating-chips {
     flex-wrap: wrap;
-  }
-
-  .sv2-title {
-    font-size: 1.15rem;
   }
 }

@@ -10,8 +10,8 @@ export default function CookiesPage() {
   return (
     <>
       <Header />
-      <main style={{ maxWidth: '800px', margin: '0 auto', padding: '3rem 1.5rem 5rem', color: '#374151', lineHeight: '1.8' }}>
-        <h1 style={{ fontSize: '2rem', fontWeight: '800', color: '#1a3c5e', marginBottom: '0.5rem' }}>Política de Cookies</h1>
+      <main className="legal-page" style={{ color: '#374151', lineHeight: '1.8' }}>
+        <h1 style={{ fontSize: 'clamp(1.5rem, 5vw, 2rem)', fontWeight: '800', color: '#1a3c5e', marginBottom: '0.5rem' }}>Política de Cookies</h1>
         <p style={{ color: '#9ca3af', fontSize: '0.9rem', marginBottom: '2.5rem' }}>Última actualización: abril 2026</p>
 
         <p>De acuerdo con el artículo 22.2 de la LSSI y el Reglamento (UE) 2016/679 (RGPD), te informamos sobre las cookies que utilizamos.</p>
@@ -21,7 +21,8 @@ export default function CookiesPage() {
         </Section>
 
         <Section title="Cookies que usamos">
-          <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.875rem' }}>
+          <div className="table-scroll">
+          <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.875rem', minWidth: '560px' }}>
             <thead>
               <tr style={{ background: '#f3f4f6' }}>
                 {['Cookie', 'Proveedor', 'Tipo', 'Finalidad', 'Duración'].map(h => (
@@ -48,6 +49,7 @@ export default function CookiesPage() {
               ))}
             </tbody>
           </table>
+          </div>
           <p style={{ fontSize: '0.85rem', color: '#6b7280', marginTop: '0.75rem' }}>
             Las cookies técnicas (mc_cookie_consent, mc_sid) son necesarias para el funcionamiento básico y no requieren consentimiento. Las analíticas solo se activan si las aceptas.
           </p>

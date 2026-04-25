@@ -3,7 +3,6 @@ import { useState, useMemo, useEffect, useCallback, useRef, Suspense } from 'rea
 import { useSearchParams } from 'next/navigation';
 import dynamic from 'next/dynamic';
 import Header from '@/components/Header';
-import SearchBarV2 from '@/components/SearchBarV2';
 import ClinicCardV2 from '@/components/ClinicCardV2';
 import ClinicBookingModal from '@/components/ClinicBookingModal';
 import { providers, insuranceCompanies } from '@/data/mock';
@@ -42,7 +41,8 @@ function SearchV2Content() {
   const [insuranceFilter, setInsuranceFilter] = useState('');
   const [ratingFilter, setRatingFilter]       = useState(0);
   const [sortBy, setSortBy]                   = useState('rating');
-  const [showMap, setShowMap]                 = useState(true);
+  const [showMap, setShowMap]                 = useState(false);
+  const [filtersOpen, setFiltersOpen]         = useState(false);
 
   // Real DB filter options
   const [dbSpecialties, setDbSpecialties] = useState([]);
@@ -224,17 +224,6 @@ function SearchV2Content() {
     <>
       <Header />
 
-      <div className="sv2-topbar">
-        <div className="sv2-topbar-inner">
-          <SearchBarV2
-            compact
-            initialSpecialty={specialtySlugParam || specialtyIdParam}
-            initialService={serviceId}
-            initialCity={cityParam}
-          />
-        </div>
-      </div>
-
       <main className="sv2-page">
         {/* Title */}
         <div className="sv2-title-row container">
@@ -248,9 +237,71 @@ function SearchV2Content() {
           </div>
         </div>
 
-        {/* Filters — full width above both columns */}
-        <div className="sv2-filters-row container">
-          <div className="sv2-filters">
+        {/* Insurance disclaimer banner */}
+        <div className="container" style={{ paddingTop: '0.75rem', paddingBottom: '0.5rem' }}>
+          <div style={{
+            background: '#fffaeb',
+            border: '1px solid #f0d97a',
+            borderRadius: '10px',
+            padding: '0.75rem 1rem',
+            fontSize: '0.85rem',
+            color: '#5b4400',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '0.5rem',
+          }}>
+            <span aria-hidden style={{ fontSize: '1rem' }}>ℹ️</span>
+            <span>
+              Los precios mostrados son la <strong>tarifa de prioridad</strong> (lo que pagas por la reserva).
+              Si tienes seguro, la consulta la cubre tu póliza.
+            </span>
+          </div>
+        </div>
+
+        {/* Actions bar — always visible (count, filters button on mobile, map toggle) */}
+        <div className="sv2-actions-row container">
+          <div className="sv2-actions-bar">
+            <button
+              type="button"
+              className="sv2-actions-btn sv2-filters-trigger"
+              onClick={() => setFiltersOpen(true)}
+              aria-expanded={filtersOpen}
+              aria-controls="sv2-filters"
+            >
+              ⚙ Filtros
+            </button>
+            <span className="sv2-count">
+              <strong>{dbClinics ? loadedCount : displayProviders.length}</strong>
+              {totalCount > 0 && dbClinics ? ` de ${totalCount}` : ''} centros
+            </span>
+            <button
+              type="button"
+              className="sv2-actions-btn sv2-map-toggle"
+              onClick={() => setShowMap((v) => !v)}
+            >
+              {showMap ? 'Ocultar mapa' : 'Ver mapa'}
+            </button>
+          </div>
+        </div>
+
+        {/* Filters — inline on desktop, slide-up sheet on mobile */}
+        <div
+          className={`sv2-filters-row container ${filtersOpen ? 'sv2-filters-row--open' : ''}`}
+          aria-hidden={!filtersOpen ? undefined : 'false'}
+        >
+          <div className="sv2-filters" id="sv2-filters" role="group" aria-label="Filtros de búsqueda">
+            <div className="sv2-filters-header">
+              <span className="sv2-filters-title">Filtros</span>
+              <button
+                type="button"
+                className="sv2-filters-close"
+                onClick={() => setFiltersOpen(false)}
+                aria-label="Cerrar filtros"
+              >
+                ✕
+              </button>
+            </div>
+
             <div className="sv2-filter-group">
               <label className="sv2-filter-label">Ciudad</label>
               <select className="sv2-select" value={cityFilter} onChange={(e) => setCityFilter(e.target.value)}>
@@ -286,7 +337,9 @@ function SearchV2Content() {
             </div>
 
             <div className="sv2-filter-group">
-              <label className="sv2-filter-label">Aseguradora</label>
+              <label className="sv2-filter-label" title="Solo mostramos clínicas concertadas con tu aseguradora.">
+                Filtrar por mi seguro
+              </label>
               <select className="sv2-select" value={insuranceFilter} onChange={(e) => setInsuranceFilter(e.target.value)}>
                 <option value="">Todas las aseguradoras</option>
                 {insuranceCompanies.map((ins) => (
@@ -318,20 +371,23 @@ function SearchV2Content() {
               </select>
             </div>
 
-            <div className="sv2-filter-group sv2-filter-group--right">
-              <span className="sv2-count">
-                <strong>{dbClinics ? loadedCount : displayProviders.length}</strong>
-                {totalCount > 0 && dbClinics ? ` de ${totalCount}` : ''} centros
-              </span>
-              <button className="sv2-map-toggle" onClick={() => setShowMap((v) => !v)}>
-                {showMap ? 'Ocultar mapa' : 'Ver mapa'}
+            <div className="sv2-filters-apply-wrap">
+              <button type="button" className="sv2-filters-apply" onClick={() => setFiltersOpen(false)}>
+                Aplicar
               </button>
             </div>
           </div>
+          {filtersOpen && (
+            <div
+              className="sv2-filters-backdrop"
+              onClick={() => setFiltersOpen(false)}
+              aria-hidden="true"
+            />
+          )}
         </div>
 
-        {/* Two-column layout */}
-        <div className="sv2-layout container">
+        {/* Two-column layout (single column when map is hidden) */}
+        <div className={`sv2-layout container ${showMap ? '' : 'sv2-layout--list-only'}`}>
 
           {/* Left: results */}
           <div className="sv2-left">

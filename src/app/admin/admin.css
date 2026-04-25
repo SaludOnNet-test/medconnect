@@ -681,3 +681,42 @@
     margin: 0 1rem;
   }
 }
+
+@media (max-width: 640px) {
+  .admin-login-container {
+    padding: 1rem;
+  }
+
+  .admin-login-card {
+    padding: 2rem 1rem;
+    margin: 0;
+  }
+
+  .admin-login-header h1 {
+    font-size: 1.4rem;
+  }
+
+  /* Tabs scroll horizontally instead of wrapping (cleaner on small screens). */
+  .admin-tabs {
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .admin-tab {
+    flex-shrink: 0;
+  }
+
+  /* Filter bar stacks vertically. */
+  .admin-filter-bar {
+    flex-wrap: wrap;
+    gap: 0.5rem;
+  }
+
+  /* Modal fills most of the viewport on phones. */
+  .admin-modal {
+    width: 100%;
+    margin: 0.5rem;
+    max-height: calc(100vh - 1rem);
+  }
+}

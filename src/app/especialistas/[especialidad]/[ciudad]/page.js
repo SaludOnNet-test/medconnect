@@ -126,7 +126,7 @@ export default function EspecialistasCiudadPage({ params }) {
     .map(([slug, data]) => ({ slug, name: data.name }));
 
   return (
-    <>
+    <div className="seo-page">
       <Header />
 
       {/* JSON-LD structured data */}
@@ -383,6 +383,6 @@ export default function EspecialistasCiudadPage({ params }) {
       </section>
 
       <Footer />
-    </>
+    </div>
   );
 }

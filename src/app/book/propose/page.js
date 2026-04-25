@@ -1,6 +1,7 @@
 import Link from 'next/link';
 import Header from '@/components/Header';
 import Footer from '@/components/Footer';
+import '../book.css';
 
 export default async function BookingProposePage({ searchParams }) {
   const params = await searchParams;
@@ -9,8 +10,8 @@ export default async function BookingProposePage({ searchParams }) {
   return (
     <>
       <Header />
-      <main style={{ minHeight: '70vh', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '2rem' }}>
-        <div style={{ textAlign: 'center', maxWidth: '480px' }}>
+      <main className="book-result-page" style={{ minHeight: '70vh', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+        <div style={{ textAlign: 'center' }}>
           <div style={{ fontSize: '4rem', marginBottom: '1rem' }}>📅</div>
           <h1 style={{ fontSize: '2rem', color: 'var(--navy)', marginBottom: '0.75rem' }}>
             Propuesta de nueva fecha

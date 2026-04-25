@@ -78,7 +78,7 @@
   color: var(--gold);
 }
 
-/* Auth buttons */
+/* Auth — desktop: two separate buttons (default visible). */
 .header-auth {
   display: flex;
   align-items: center;
@@ -112,14 +112,89 @@
   opacity: 0.9;
 }
 
-@media (max-width: 768px) {
-  .header-phone-label {
+/* Auth — mobile: single "Acceder" button with dropdown (hidden on desktop). */
+.header-account {
+  position: relative;
+  display: none;
+}
+
+.header-btn-account {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  font-size: 0.85rem;
+  font-weight: 700;
+  color: var(--navy);
+  background: var(--gold);
+  border: none;
+  padding: 0.45rem 0.9rem;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: opacity var(--transition-fast);
+}
+
+.header-btn-account:hover {
+  opacity: 0.9;
+}
+
+.header-btn-account-caret {
+  font-size: 0.75rem;
+  line-height: 1;
+}
+
+.header-account-menu {
+  position: absolute;
+  top: calc(100% + 6px);
+  right: 0;
+  min-width: 160px;
+  background: var(--white);
+  border: 1px solid rgba(0,0,0,0.08);
+  border-radius: 8px;
+  box-shadow: 0 8px 24px rgba(0,0,0,0.18);
+  padding: 4px;
+  z-index: 200;
+  display: flex;
+  flex-direction: column;
+}
+
+.header-account-menu-item {
+  display: block;
+  padding: 0.6rem 0.75rem;
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: var(--navy);
+  border-radius: 6px;
+  transition: background var(--transition-fast);
+}
+
+.header-account-menu-item:hover {
+  background: rgba(0,0,0,0.05);
+}
+
+@media (max-width: 640px) {
+  /* Phone collapses to icon only — tap-to-call still works via href="tel:". */
+  .header-phone-block {
     display: none;
   }
-  .header-btn-login {
+  .header-phone-icon {
+    font-size: 1.25rem;
+  }
+
+  /* Hide the desktop two-button group; show the dropdown trigger. */
+  .header-auth {
     display: none;
   }
+  .header-account {
+    display: block;
+  }
+
+  /* Hide pro link on mobile (was the previous behavior at 768px). */
   .header-link-pro {
     display: none;
+  }
+
+  /* Tighten the right-side gap so logo + phone + Acceder fit comfortably. */
+  .header-right {
+    gap: var(--space-md);
   }
 }

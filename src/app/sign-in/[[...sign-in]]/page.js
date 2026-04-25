@@ -20,7 +20,7 @@ export default function SignInPage() {
   }
 
   return (
-    <main style={{ display: 'flex', justifyContent: 'center', padding: '4rem 1rem' }}>
+    <main className="auth-shell">
       <SignIn />
     </main>
   );

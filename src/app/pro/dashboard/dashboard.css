@@ -376,3 +376,25 @@
     gap: var(--space-xs);
   }
 }
+
+@media (max-width: 640px) {
+  .pro-dash-content {
+    padding: var(--space-md);
+  }
+
+  .pro-table-header {
+    padding: var(--space-md);
+    flex-wrap: wrap;
+    gap: var(--space-sm);
+  }
+
+  /* Stack inline action button groups vertically (e.g. Resend / Edit / Cancel). */
+  .pro-actions-stack {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .pro-actions-stack > * {
+    width: 100%;
+  }
+}

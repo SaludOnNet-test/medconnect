@@ -279,7 +279,60 @@ img {
   animation: fadeIn 0.4s ease both;
 }
 
-/* ── Responsive ── */
+/* ── Utilities ── */
+.table-scroll {
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+/* Shared shell for auth pages (sign-in, sign-up). */
+.auth-shell {
+  display: flex;
+  justify-content: center;
+  align-items: flex-start;
+  padding: 4rem 1rem;
+}
+
+.auth-shell--column {
+  flex-direction: column;
+  align-items: center;
+  padding: 3rem 1rem;
+}
+
+@media (max-width: 640px) {
+  .auth-shell,
+  .auth-shell--column {
+    padding: 2rem 1rem;
+  }
+}
+
+/* SEO landing pages (especialistas/[especialidad]/[ciudad]) — mobile overrides
+   for sections that use inline styles. These tighten paddings on small phones. */
+@media (max-width: 640px) {
+  .seo-page section {
+    padding-top: 1.5rem !important;
+    padding-bottom: 1.5rem !important;
+  }
+}
+
+/* Legal pages (legal, cookies, privacidad) — shared mobile-aware container. */
+.legal-page {
+  max-width: 800px;
+  margin: 0 auto;
+  padding: 3rem 1.5rem 5rem;
+}
+
+@media (max-width: 640px) {
+  .legal-page {
+    padding: 2rem 1rem 3rem;
+  }
+}
+
+/* ── Responsive ──
+   Breakpoints used across the app:
+   - 640px → mobile (phones)
+   - 900px → tablet
+   - 1200px → max content width                                          */
 @media (max-width: 768px) {
   body {
     font-size: 14px;

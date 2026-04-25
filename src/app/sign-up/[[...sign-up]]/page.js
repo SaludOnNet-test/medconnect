@@ -19,17 +19,17 @@ export default function SignUpPage({ searchParams }) {
   }
 
   return (
-    <main style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', padding: '3rem 1rem' }}>
+    <main className="auth-shell auth-shell--column">
       {acceptCookies && (
         <div style={{
           marginBottom: '1.5rem',
-          padding: '0.75rem 1.25rem',
+          padding: '0.75rem 1rem',
           background: '#f0fdf4',
           border: '1px solid #86efac',
           borderRadius: '8px',
-          maxWidth: '400px',
+          maxWidth: 'min(400px, calc(100vw - 2rem))',
           width: '100%',
-          fontSize: '0.85rem',
+          fontSize: '0.9rem',
           color: '#166534',
           lineHeight: '1.5',
         }}>

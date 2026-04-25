@@ -81,3 +81,22 @@
 .pro-login-forgot:hover {
   color: var(--navy);
 }
+
+@media (max-width: 640px) {
+  .pro-login-page {
+    padding: var(--space-lg) var(--space-md);
+  }
+
+  .pro-login-header,
+  .pro-login-body {
+    padding: var(--space-lg) var(--space-md);
+  }
+
+  .pro-login-title {
+    font-size: 1.25rem;
+  }
+
+  .pro-login-tab {
+    font-size: 0.8rem;
+  }
+}
