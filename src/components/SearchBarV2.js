@@ -14,23 +14,36 @@ export default function SearchBarV2({ initialSpecialty, initialService, initialC
   const [selected, setSelected] = useState(null);
   const [showCityList, setShowCityList] = useState(false);
   const [dbSpecialties, setDbSpecialties] = useState([]);
-  const [dbCities, setDbCities] = useState([]);
+  const [dbProcedures, setDbProcedures]   = useState([]);
+  const [dbClinicNames, setDbClinicNames] = useState([]);
+  const [dbCities, setDbCities]           = useState([]);
   const inputRef = useRef(null);
 
   useEffect(() => {
+    // Specialties + cities + procedures — single request
     fetch('/api/clinics/filters')
       .then((r) => r.json())
       .then((data) => {
         if (data.specialties) setDbSpecialties(data.specialties);
-        if (data.cities) setDbCities(data.cities); // keep full {city, province} objects
+        if (data.cities)      setDbCities(data.cities);
+        if (data.procedures)  setDbProcedures(data.procedures);
+      })
+      .catch(() => {});
+
+    // Clinic names for autocomplete — full real list (max 100)
+    fetch('/api/clinics/search?limit=100&offset=0')
+      .then((r) => r.json())
+      .then((data) => {
+        if (data.clinics) setDbClinicNames(data.clinics.map((c) => c.name));
       })
       .catch(() => {});
   }, []);
 
-  const allSuggestions = useMemo(
-    () => dbSpecialties.map((s) => ({ type: 'specialty', slug: s.slug, label: s.name, icon: '🔬' })),
-    [dbSpecialties]
-  );
+  const allSuggestions = useMemo(() => [
+    ...dbSpecialties.map((s) => ({ type: 'specialty', slug: s.slug, label: s.name, icon: '🔬' })),
+    ...dbProcedures.map((p)  => ({ type: 'procedure', slug: p.slug, label: p.name, icon: '🩺' })),
+    ...dbClinicNames.map((c) => ({ type: 'provider',               label: c,        icon: '🏥' })),
+  ], [dbSpecialties, dbProcedures, dbClinicNames]);
 
   useEffect(() => {
     if (!initialSpecialty || dbSpecialties.length === 0) return;
@@ -67,14 +80,20 @@ export default function SearchBarV2({ initialSpecialty, initialService, initialC
     const params = new URLSearchParams();
     if (selected?.type === 'specialty' && selected.slug) {
       params.set('specialtySlug', selected.slug);
+    } else if (selected?.type === 'procedure' && selected.slug) {
+      params.set('procedureSlug', selected.slug);
+    } else if (selected?.type === 'provider') {
+      params.set('providerName', selected.label);
     } else if (query.trim()) {
       params.set('providerName', query.trim());
     }
     if (city) params.set('city', city);
     trackEvent('search_performed', {
-      specialty: selected?.type === 'specialty' ? selected.label : undefined,
-      query: query.trim() || undefined,
-      city: city || undefined,
+      specialty: selected?.type === 'specialty'  ? selected.label : undefined,
+      procedure: selected?.type === 'procedure'  ? selected.label : undefined,
+      provider:  selected?.type === 'provider'   ? selected.label : undefined,
+      query:     query.trim() || undefined,
+      city:      city || undefined,
     });
     router.push(`/search-v2?${params.toString()}`);
   };
@@ -113,7 +132,7 @@ export default function SearchBarV2({ initialSpecialty, initialService, initialC
             ref={inputRef}
             className="sbv2-input"
             type="text"
-            placeholder="especialidad, enfermedad o nombre"
+            placeholder="Especialidad, procedimiento o clínica"
             value={query}
             onChange={(e) => handleQueryChange(e.target.value)}
             onFocus={() => { setSuggestions(query ? allSuggestions.filter((s) => s.label.toLowerCase().includes(query.toLowerCase())).slice(0, 8) : allSuggestions.slice(0, 8)); setShowSuggestions(true); }}
@@ -131,7 +150,9 @@ export default function SearchBarV2({ initialSpecialty, initialService, initialC
                 >
                   <span className="sbv2-dropdown-icon">{item.icon}</span>
                   <span className="sbv2-dropdown-label">{item.label}</span>
-                  <span className="sbv2-dropdown-type">Especialidad</span>
+                  <span className="sbv2-dropdown-type">
+                    {item.type === 'specialty' ? 'Especialidad' : item.type === 'procedure' ? 'Procedimiento' : 'Centro'}
+                  </span>
                 </button>
               ))}
             </div>
