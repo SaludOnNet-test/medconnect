@@ -50,37 +50,8 @@ function SearchV2Content() {
   const [modalProvider, setModalProvider]     = useState(null);
   const [modalInitialSlot, setModalInitialSlot] = useState(null);
 
-  // Slot batch-loading — one API call per visible batch of cards
-  const [slotsMap, setSlotsMap] = useState({}); // { [clinicId]: Slot[] | undefined }
-  const pendingIdsRef  = useRef(new Set());
-  const loadedIdsRef   = useRef(new Set());
-  const batchTimerRef  = useRef(null);
-
-  const requestSlots = useCallback((clinicId) => {
-    if (loadedIdsRef.current.has(clinicId)) return;
-    loadedIdsRef.current.add(clinicId);
-    pendingIdsRef.current.add(clinicId);
-    clearTimeout(batchTimerRef.current);
-    batchTimerRef.current = setTimeout(() => {
-      const ids = [...pendingIdsRef.current];
-      pendingIdsRef.current.clear();
-      fetch(`/api/clinics/batch-slots?ids=${ids.join(',')}&preview=true&days=7`)
-        .then((r) => r.json())
-        .then((data) => {
-          if (data.slots) {
-            setSlotsMap((prev) => ({ ...prev, ...data.slots }));
-          }
-        })
-        .catch(() => {
-          // on error mark all as empty so skeleton clears
-          setSlotsMap((prev) => {
-            const patch = {};
-            ids.forEach((id) => { patch[id] = []; });
-            return { ...prev, ...patch };
-          });
-        });
-    }, 50); // collect IDs for 50ms, then fire one batch request
-  }, []);
+  // Slot batch-loading — one request per group of cards, fired from the page (not per-card)
+  const [slotsMap, setSlotsMap] = useState({});
 
   const sentinelRef = useRef(null);
   const observerRef = useRef(null);
@@ -131,9 +102,6 @@ function SearchV2Content() {
     setLoadedCount(0);
     setHasMore(false);
     setSlotsMap({});
-    loadedIdsRef.current.clear();
-    pendingIdsRef.current.clear();
-    clearTimeout(batchTimerRef.current);
 
     fetch(buildUrl(0, PAGE_SIZE_INITIAL))
       .then((r) => r.json())
@@ -192,6 +160,44 @@ function SearchV2Content() {
     if (sortBy === 'reviews') list.sort((a, b) => (b.reviewCount || 0) - (a.reviewCount || 0));
     return list;
   }, [baseProviders, insuranceFilter, sortBy]);
+
+  // Load slots for every card whenever the list changes — split into batches of 10 to keep URLs short
+  useEffect(() => {
+    if (displayProviders.length === 0) return;
+    const unloaded = displayProviders.map((p) => p.id).filter((id) => !(id in slotsMap));
+    if (unloaded.length === 0) return;
+
+    const BATCH = 10;
+    let cancelled = false;
+
+    const fetchBatch = (ids, delayMs) =>
+      new Promise((resolve) => setTimeout(resolve, delayMs))
+        .then(() => {
+          if (cancelled) return;
+          return fetch(`/api/clinics/batch-slots?ids=${ids.join(',')}&preview=true&days=7`);
+        })
+        .then((r) => (r ? r.json() : null))
+        .then((data) => {
+          if (cancelled || !data?.slots) return;
+          setSlotsMap((prev) => ({ ...prev, ...data.slots }));
+        })
+        .catch(() => {
+          if (cancelled) return;
+          // mark as empty so skeleton clears even on error
+          setSlotsMap((prev) => {
+            const patch = {};
+            unloaded.forEach((id) => { if (!(id in prev)) patch[id] = []; });
+            return { ...prev, ...patch };
+          });
+        });
+
+    for (let i = 0; i < unloaded.length; i += BATCH) {
+      fetchBatch(unloaded.slice(i, i + BATCH), i === 0 ? 0 : 300);
+    }
+
+    return () => { cancelled = true; };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [displayProviders]);
 
   const filteredProcedures = useMemo(() => {
     if (!specialtySlug) return dbProcedures;
@@ -329,7 +335,6 @@ function SearchV2Content() {
                     highlighted={highlightedId === provider.id}
                     onOpenModal={(p, slot) => { setModalProvider(p); setModalInitialSlot(slot ?? null); }}
                     slots={slotsMap[provider.id]}
-                    onVisible={requestSlots}
                   />
                 ))
               ) : isLoading ? (

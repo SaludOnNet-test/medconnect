@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { query, sql, DB_AVAILABLE } from '@/lib/db';
+import { getPool, DB_AVAILABLE } from '@/lib/db';
 import { generateSlots } from '@/data/mock';
 
 const SPANISH_HOLIDAYS = [
@@ -62,9 +62,10 @@ export async function GET(request) {
 
   if (DB_AVAILABLE) {
     try {
-      // One query for all clinics
+      // One raw query for all clinic IDs — IDs are validated integers so interpolation is safe
       const idList = ids.join(',');
-      const dbResult = await query(
+      const pool = await getPool();
+      const dbResult = await pool.request().query(
         `SELECT clinic_id, day_of_week, start_time, end_time
          FROM clinic_schedules
          WHERE clinic_id IN (${idList}) AND is_available = 1
