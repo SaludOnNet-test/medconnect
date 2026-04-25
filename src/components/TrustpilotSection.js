@@ -1,47 +1,61 @@
-// TrustpilotSection — static mock reviews with pain stories + success outcomes
+// TrustpilotSection — static mock reviews focused on insured patients
+// who couldn't get appointments through their insurer's traditional channels.
+
+const FEATURED = {
+  name: 'Lucía F.',
+  city: 'Valencia',
+  insurer: 'Adeslas',
+  fee: '9,99 €',
+  date: 'Febrero 2026',
+  text: 'Tengo Adeslas desde hace años, pero la app me daba cita para dentro de 6 semanas. Pagué 9,99 € de tarifa de prioridad y al día siguiente estaba en la consulta — con mi tarjeta de asegurada y sin pagar nada por la consulta. Por fin entiendo lo que hacéis.',
+};
 
 const REVIEWS = [
   {
     name: 'Carmen R.',
     city: 'Madrid',
+    insurer: 'Sanitas',
     date: 'Marzo 2026',
     stars: 5,
-    text: 'Llevaba 4 meses en lista de espera para traumatología en la Seguridad Social. Con Med Connect tuve cita en el Hospital HM Sanchinarro en 48 horas. Me operaron la semana siguiente. Un servicio que debería existir desde hace años.',
+    text: 'Llevaba semanas llamando a clínicas concertadas con Sanitas para traumatología — todas me daban a 4-5 semanas. Pagué 9,99 € de tarifa de prioridad y tuve cita en HM Sanchinarro en 48 horas. La consulta la cubrió mi seguro como siempre.',
   },
   {
     name: 'Dr. Javier M.',
     city: 'Barcelona',
     date: 'Abril 2026',
     stars: 5,
-    text: 'Uso Med Connect para derivar pacientes a especialistas fuera de mi red. El paciente recibe el enlace, confirma en minutos y me llega una notificación al instante. Ha cambiado completamente la forma en que gestiono las derivaciones.',
-  },
-  {
-    name: 'Lucía F.',
-    city: 'Valencia',
-    date: 'Febrero 2026',
-    stars: 5,
-    text: 'Pensé que sin seguro privado jamás podría permitirme ir a una clínica privada. Pagué solo 9,99€ de gestión y el seguro cubrió el resto. La cita fue al día siguiente. No puedo creer que esto sea real.',
+    text: 'Uso Med Connect para derivar pacientes que no consiguen cita prioritaria con sus aseguradoras. El paciente recibe el enlace, confirma en minutos y la cita queda gestionada con la clínica concertada. Ha cambiado cómo gestiono las derivaciones urgentes.',
   },
   {
     name: 'Miguel Á. T.',
     city: 'Sevilla',
+    insurer: 'DKV',
     date: 'Marzo 2026',
     stars: 5,
-    text: 'Mi hija necesitaba ginecología con cierta urgencia. En la sanidad pública: 3 meses de espera. Aquí: cita para el día siguiente en Clínica Teknon. El médico fue excelente. Seguiré usando Med Connect para toda la familia.',
+    text: 'Mi hija necesitaba ginecología con cierta urgencia. La app de DKV: 3 meses. Aquí: cita en Clínica Teknon para el día siguiente, pagué 25 € de prioridad. La consulta corrió por la póliza, como cualquier cita concertada.',
   },
   {
     name: 'Raquel P.',
     city: 'Bilbao',
+    insurer: 'AXA',
     date: 'Enero 2026',
     stars: 5,
-    text: 'Al principio tenía miedo de que fuera otro portal sin citas reales. Pero la cita existía, el médico llegó puntual y el proceso fue completamente transparente. La confirmación llegó en segundos. Total confianza.',
+    text: 'Al principio tenía miedo de que fuera otro portal sin citas reales o que mi seguro me complicara las cosas. Llegué a la clínica, entregué mi tarjeta de AXA, me atendieron sin un solo problema y solo había pagado los 9,99 € de la reserva. Total confianza.',
   },
   {
     name: 'Andrés G.',
     city: 'Madrid',
     date: 'Abril 2026',
     stars: 5,
-    text: 'Soy cardiólogo y recomiendo Med Connect a mis pacientes para seguimientos con otros especialistas. La plataforma es profesional, los centros son serios y el precio de gestión es más que razonable para el valor que aporta.',
+    text: 'Soy cardiólogo y recomiendo Med Connect a mis pacientes que no consiguen cita rápida con su aseguradora. La plataforma es profesional, los centros son los mismos del cuadro médico, y la tarifa de prioridad es razonable para el valor del tiempo.',
+  },
+  {
+    name: 'Elena V.',
+    city: 'Valencia',
+    insurer: 'Mapfre',
+    date: 'Marzo 2026',
+    stars: 5,
+    text: 'Necesitaba dermatología en menos de una semana. Con Mapfre la cita más cercana era a 4 semanas. Pagué 9,99 € por la prioridad y me atendieron al día siguiente con mi tarjeta. Sin doble pago, sin papeleo extra. Es exactamente lo que prometen.',
   },
 ];
 
@@ -82,6 +96,42 @@ export default function TrustpilotSection() {
           <p style={{ fontSize: '0.85rem', color: '#6b7280' }}>Basado en 214 reseñas verificadas</p>
         </div>
 
+        {/* Featured quote (insured patient who paid only the priority fee) */}
+        <div style={{
+          maxWidth: '760px',
+          margin: '0 auto 2.5rem',
+          padding: '2rem 2rem',
+          background: '#fff',
+          borderRadius: '16px',
+          borderLeft: '4px solid #00b67a',
+          boxShadow: '0 4px 18px rgba(0,0,0,0.06)',
+        }}>
+          <span style={{ fontSize: '2.5rem', color: '#00b67a', lineHeight: 1, display: 'block', marginBottom: '0.5rem' }}>"</span>
+          <p style={{
+            fontSize: '1.15rem',
+            color: '#111827',
+            lineHeight: '1.6',
+            fontStyle: 'italic',
+            marginBottom: '1.25rem',
+          }}>
+            {FEATURED.text}
+          </p>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', flexWrap: 'wrap' }}>
+            <strong style={{ color: '#111827', fontSize: '0.95rem' }}>{FEATURED.name}</strong>
+            <span style={{ color: '#6b7280', fontSize: '0.85rem' }}>· {FEATURED.city}</span>
+            <span style={{
+              background: '#f0faf5',
+              color: '#00805a',
+              padding: '2px 10px',
+              borderRadius: '999px',
+              fontSize: '0.75rem',
+              fontWeight: '600',
+            }}>
+              Asegurada con {FEATURED.insurer} · pagó {FEATURED.fee}
+            </span>
+          </div>
+        </div>
+
         {/* Reviews grid */}
         <div style={{
           display: 'grid',
@@ -110,7 +160,14 @@ export default function TrustpilotSection() {
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                 <div>
                   <p style={{ fontWeight: '700', fontSize: '0.85rem', color: '#111827', margin: 0 }}>{review.name}</p>
-                  <p style={{ fontSize: '0.75rem', color: '#9ca3af', margin: 0 }}>{review.city}</p>
+                  <p style={{ fontSize: '0.75rem', color: '#9ca3af', margin: 0 }}>
+                    {review.city}
+                    {review.insurer && (
+                      <span style={{ marginLeft: '6px', color: '#00805a', fontWeight: '600' }}>
+                        · {review.insurer}
+                      </span>
+                    )}
+                  </p>
                 </div>
                 <span style={{ fontSize: '0.75rem', color: '#9ca3af' }}>{review.date}</span>
               </div>

@@ -227,9 +227,9 @@ export function getConvenienceFee(slotDate) {
   // Day 3 to Day 30: 9.99€
   // Day 31+: 0.99€
   
-  if (diffDays <= 2) return { amount: 25, tier: 'urgent_green', label: 'Súper rápidos' };
-  if (diffDays <= 29) return { amount: 9.99, tier: 'soon_green', label: 'Cita con prioridad' };
-  return { amount: 0.99, tier: 'standard_black', label: 'Cita Planificada' };
+  if (diffDays <= 2) return { amount: 25, tier: 'urgent_green', label: 'Cita en menos de 48 h' };
+  if (diffDays <= 29) return { amount: 9.99, tier: 'soon_green', label: 'Cita esta semana' };
+  return { amount: 0.99, tier: 'standard_black', label: 'Cita planificada' };
 }
 
 export function getServicesForSpecialty(specialtyId) {

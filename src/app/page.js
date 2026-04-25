@@ -3,6 +3,8 @@ import Header from '@/components/Header';
 import Footer from '@/components/Footer';
 import SearchBarV2 from '@/components/SearchBarV2';
 import TrustpilotSection from '@/components/TrustpilotSection';
+import HowItWorks from '@/components/HowItWorks';
+import HomeFAQ from '@/components/HomeFAQ';
 import './home.css';
 
 const INSURERS = [
@@ -25,16 +27,19 @@ export default function HomePage() {
         <section className="home-hero">
           <div className="container">
             <div className="home-search-section">
-              <p className="home-tagline animate-fade-in-up">Citas Premium con Med Connect</p>
+              <p className="home-tagline animate-fade-in-up">Cita prioritaria con tu seguro médico</p>
               <h1 className="home-heading animate-fade-in-up" style={{ animationDelay: '0.05s' }}>
-                Tu cita médica privada,<br />sin esperas
+                Tu seguro cubre la consulta.<br />Nosotros, la reserva.
               </h1>
               <h2 className="home-subheading animate-fade-in-up" style={{ animationDelay: '0.1s' }}>
-                La clínica, hospital o médico que quieras, en el momento que desees.
+                <strong>Reserva prioritaria</strong> en clínicas concertadas con tu aseguradora cuando tu cuadro médico no te da cita a tiempo. Pagas solo la <strong>tarifa de prioridad</strong>.
               </h2>
               <div className="animate-fade-in-up" style={{ animationDelay: '0.15s', width: '100%' }}>
                 <SearchBarV2 />
               </div>
+              <p className="home-uninsured-line animate-fade-in-up" style={{ animationDelay: '0.2s' }}>
+                <strong><u>¿Sin seguro?</u></strong> También te conseguimos cita privada con todo incluido.
+              </p>
             </div>
           </div>
         </section>
@@ -43,33 +48,36 @@ export default function HomePage() {
         <section className="container">
           <div style={{ textAlign: 'center', marginBottom: 'var(--space-xl)', paddingTop: 'var(--space-2xl)' }}>
             <h2 style={{ fontSize: '1.8rem', color: 'var(--navy)', marginBottom: 'var(--space-sm)' }}>
-              La alternativa premium a las listas de espera
+              El atajo legítimo cuando tu seguro no te da cita
             </h2>
           </div>
           <div className="home-pillars">
             <div className="home-pillar">
               <span className="home-pillar-icon" style={{ borderRadius: '50%', background: 'var(--gold-light)', color: 'var(--gold)', width: '60px', height: '60px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '24px', margin: '0 auto var(--space-md)' }}>⚡</span>
-              <h3 className="home-pillar-title">Acceso prioritario inmediato</h3>
+              <h3 className="home-pillar-title">La reserva que tu seguro no encuentra</h3>
               <p className="home-pillar-desc">
-                Reserva cita con el especialista que necesitas en tu ciudad sin esperar semanas. Selecciona la fecha que te conviene y listo.
+                Tu cuadro médico está saturado y tu app del seguro te ofrece fechas a 3-6 semanas. Llevas días llamando a clínicas. Ese es exactamente el problema que resolvemos.
               </p>
             </div>
             <div className="home-pillar">
               <span className="home-pillar-icon" style={{ borderRadius: '50%', background: 'var(--gold-light)', color: 'var(--gold)', width: '60px', height: '60px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '24px', margin: '0 auto var(--space-md)' }}>🏥</span>
-              <h3 className="home-pillar-title">Los mejores centros de España</h3>
+              <h3 className="home-pillar-title">Concertados con tu aseguradora</h3>
               <p className="home-pillar-desc">
-                Red de hospitales y clínicas privadas verificados. Con o sin seguro médico, tú eliges el centro y la especialidad.
+                Conseguimos reservas prioritarias en clínicas y hospitales que ya tienen acuerdo con Sanitas, Adeslas, DKV, AXA, Mapfre, Asisa, Cigna y más. Acudes con tu tarjeta, te atienden bajo tu póliza.
               </p>
             </div>
             <div className="home-pillar">
-              <span className="home-pillar-icon" style={{ borderRadius: '50%', background: 'var(--gold-light)', color: 'var(--gold)', width: '60px', height: '60px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '24px', margin: '0 auto var(--space-md)' }}>🛡️</span>
-              <h3 className="home-pillar-title">Seguridad y transparencia total</h3>
+              <span className="home-pillar-icon" style={{ borderRadius: '50%', background: 'var(--gold-light)', color: 'var(--gold)', width: '60px', height: '60px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '24px', margin: '0 auto var(--space-md)' }}>💶</span>
+              <h3 className="home-pillar-title">Pagas la prioridad, no la consulta</h3>
               <p className="home-pillar-desc">
-                Precios claros desde el primer clic. Sin sorpresas, sin carencias y con gestión profesional de tu agenda de salud.
+                Tu seguro cubre la consulta como siempre. A nosotros nos pagas una <strong>tarifa de prioridad</strong> desde 0,99 €. Sin seguro, también: te decimos el total antes de pagar.
               </p>
             </div>
           </div>
         </section>
+
+        {/* ── How It Works (3 steps) ──────────────────────────────────── */}
+        <HowItWorks />
 
         {/* ── Trustpilot Reviews ──────────────────────────────────────── */}
         <TrustpilotSection />
@@ -77,29 +85,32 @@ export default function HomePage() {
         {/* ── SEO / Info Section ──────────────────────────────────────── */}
         <section className="container">
           <div className="home-seo-info" style={{ padding: 'var(--space-2xl) 0', borderTop: '1px solid var(--border)', borderBottom: '1px solid var(--border)', textAlign: 'center' }}>
-            <h2 style={{ fontSize: '2rem', marginBottom: 'var(--space-lg)' }}>Reserva en 60 segundos, sin listas de espera</h2>
+            <h2 style={{ fontSize: '2rem', marginBottom: 'var(--space-lg)' }}>Lo que tu seguro no te explica</h2>
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: 'var(--space-xl)', textAlign: 'left' }}>
               <div>
-                <h4 style={{ color: 'var(--gold)', marginBottom: 'var(--space-sm)' }}>Agendamiento Médico Digital</h4>
+                <h4 style={{ color: 'var(--gold)', marginBottom: 'var(--space-sm)' }}>¿Por qué pagar si ya tengo seguro?</h4>
                 <p style={{ color: 'var(--muted)', lineHeight: '1.8' }}>
-                  Med Connect es la solución definitiva para quienes buscan citas médicas privadas inmediatas en Madrid, Barcelona, Valencia y el resto de España. Olvídate de las demoras de la sanidad pública con nuestro sistema de prioridad total.
+                  Porque tu seguro te garantiza la consulta, pero no el cuándo. Cuando necesitas cita esta semana y tu cuadro médico te ofrece dentro de un mes, somos el atajo legítimo: clínicas que <strong>ya tienen acuerdo con tu aseguradora</strong>, con una reserva prioritaria reservada para ti.
                 </p>
               </div>
               <div>
-                <h4 style={{ color: 'var(--gold)', marginBottom: 'var(--space-sm)' }}>Atención 24/7 sin Listas de Espera</h4>
+                <h4 style={{ color: 'var(--gold)', marginBottom: 'var(--space-sm)' }}>Sigues siendo paciente de tu seguro</h4>
                 <p style={{ color: 'var(--muted)', lineHeight: '1.8' }}>
-                  Accede a videoconsulta ilimitada con médico de familia y resuelve tus dudas al instante a través de nuestro chat médico. Garantizamos una respuesta asistencial de excelencia, diseñada para integrarse en tu ritmo de vida.
+                  Llegas a la clínica con tu tarjeta de asegurado. Te atienden bajo tu póliza. La clínica factura la consulta a tu aseguradora, no a ti. Lo único nuevo es que la cita es para mañana, no para dentro de seis semanas.
                 </p>
               </div>
               <div>
-                <h4 style={{ color: 'var(--gold)', marginBottom: 'var(--space-sm)' }}>Especialistas y Hospitales Top</h4>
+                <h4 style={{ color: 'var(--gold)', marginBottom: 'var(--space-sm)' }}>¿Qué pagas exactamente?</h4>
                 <p style={{ color: 'var(--muted)', lineHeight: '1.8' }}>
-                  Nuestra red incluye los centros más prestigiosos para que puedas reservar tu especialista privado con la seguridad de una gestión profesional, transparente y sin carencias.
+                  Una <strong>tarifa de prioridad</strong>: desde 0,99 € si la cita es a 30+ días, 9,99 € si es esta semana, 25 € si es en menos de 48 horas. Nada más — el acto médico es entre tu aseguradora y la clínica.
                 </p>
               </div>
             </div>
           </div>
         </section>
+
+        {/* ── FAQ del modelo ──────────────────────────────────────────── */}
+        <HomeFAQ />
 
         {/* ── Account CTA ─────────────────────────────────────────────── */}
         <section className="container" style={{ paddingTop: 'var(--space-2xl)', paddingBottom: 'var(--space-2xl)' }}>
@@ -124,7 +135,7 @@ export default function HomePage() {
         {/* ── Trust bar ───────────────────────────────────────────────── */}
         <section className="container">
           <div className="home-trust">
-            <p className="home-trust-label">Aseguradoras compatibles</p>
+            <p className="home-trust-label">Trabajamos con clínicas concertadas con tu aseguradora</p>
             <div className="home-trust-logos">
               {INSURERS.map((ins) => (
                 <span
@@ -136,6 +147,9 @@ export default function HomePage() {
                 </span>
               ))}
             </div>
+            <p className="home-trust-note">
+              Si tu aseguradora aparece, las clínicas que te mostramos ya tienen concierto con ella. Tú no pagas la consulta.
+            </p>
           </div>
         </section>
 
