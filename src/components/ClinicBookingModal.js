@@ -1,5 +1,5 @@
 'use client';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import { trackEvent } from '@/lib/analytics';
 import './ClinicBookingModal.css';
@@ -18,12 +18,25 @@ function getDayLabel(dateStr) {
   };
 }
 
-export default function ClinicBookingModal({ provider, serviceId, basePrice = 0, isSinSeguro = false, initialSlot = null, onClose }) {
+export default function ClinicBookingModal({
+  provider,
+  serviceId,
+  isSinSeguro = false,
+  initialSlot = null,
+  initialProcedureSlug = '',
+  initialSpecialtySlug = '',
+  onClose,
+}) {
   const router = useRouter();
   const [selectedDate, setSelectedDate] = useState(initialSlot?.date ?? null);
   const [selectedSlot, setSelectedSlot] = useState(initialSlot ?? null);
   const [allSlots, setAllSlots] = useState([]);
   const [slotsLoading, setSlotsLoading] = useState(true);
+
+  // Procedure selection (mandatory for everyone — SON catalogue price comes from DB).
+  const [procedures, setProcedures] = useState([]);
+  const [proceduresLoading, setProceduresLoading] = useState(true);
+  const [procedureSlug, setProcedureSlug] = useState(initialProcedureSlug || '');
 
   // Lock body scroll + track clinic_viewed on mount
   useEffect(() => {
@@ -44,6 +57,33 @@ export default function ClinicBookingModal({ provider, serviceId, basePrice = 0,
       .finally(() => setSlotsLoading(false));
   }, [provider.id]);
 
+  // Fetch procedures for this clinic (filtered by specialty if available).
+  useEffect(() => {
+    setProceduresLoading(true);
+    const qs = initialSpecialtySlug ? `?specialtySlug=${encodeURIComponent(initialSpecialtySlug)}` : '';
+    fetch(`/api/clinics/${provider.id}/procedures${qs}`)
+      .then((r) => r.json())
+      .then((data) => {
+        const list = data.procedures || [];
+        setProcedures(list);
+        // If we have a preselected procedure slug, keep it; otherwise default to
+        // the first one so the user always lands on a valid pick.
+        if (!procedureSlug && list.length > 0) {
+          const preselect = initialProcedureSlug && list.find((p) => p.slug === initialProcedureSlug);
+          setProcedureSlug(preselect ? preselect.slug : list[0].slug);
+        }
+      })
+      .catch(() => setProcedures([]))
+      .finally(() => setProceduresLoading(false));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [provider.id, initialSpecialtySlug]);
+
+  const selectedProcedure = useMemo(
+    () => procedures.find((p) => p.slug === procedureSlug) || null,
+    [procedures, procedureSlug],
+  );
+  const procedurePrice = Number(selectedProcedure?.price ?? 0);
+
   // Unique dates (next 7)
   const dates = [...new Set(allSlots.map((s) => s.date))].slice(0, 7);
 
@@ -51,12 +91,12 @@ export default function ClinicBookingModal({ provider, serviceId, basePrice = 0,
     ? allSlots.filter((s) => s.date === selectedDate)
     : [];
 
+  const canBook = !!selectedSlot && !!procedureSlug;
+
   const handleBook = () => {
-    if (!selectedSlot) return;
+    if (!canBook) return;
     const fee = feeFromSlot(selectedSlot);
-    const totalFee = isSinSeguro
-      ? basePrice + fee.amount
-      : fee.amount;
+    const totalFee = isSinSeguro ? procedurePrice + fee.amount : fee.amount;
 
     const params = new URLSearchParams({
       provider: provider.id,
@@ -67,6 +107,9 @@ export default function ClinicBookingModal({ provider, serviceId, basePrice = 0,
       feeLabel: fee.label,
       tier: String(fee.tier),
       isSinSeguro: String(isSinSeguro),
+      procedureSlug,
+      procedureName: selectedProcedure?.name || '',
+      procedurePrice: String(procedurePrice),
       ...(serviceId ? { service: serviceId } : {}),
     });
     router.push(`/book?${params.toString()}`);
@@ -81,7 +124,7 @@ export default function ClinicBookingModal({ provider, serviceId, basePrice = 0,
   }, [onClose]);
 
   const selectedFee = selectedSlot
-    ? (() => { const f = feeFromSlot(selectedSlot); return isSinSeguro ? basePrice + f.amount : f.amount; })()
+    ? (() => { const f = feeFromSlot(selectedSlot); return isSinSeguro ? procedurePrice + f.amount : f.amount; })()
     : null;
 
   return (
@@ -100,6 +143,41 @@ export default function ClinicBookingModal({ provider, serviceId, basePrice = 0,
             </div>
           </div>
           <button className="cbm-close" onClick={onClose} aria-label="Cerrar">✕</button>
+        </div>
+
+        {/* Procedure picker (required for everyone) */}
+        <div className="cbm-section">
+          <h3 className="cbm-section-title">Acto médico</h3>
+          {proceduresLoading ? (
+            <p style={{ color: '#9ca3af', fontSize: '0.9rem' }}>Cargando catálogo...</p>
+          ) : procedures.length === 0 ? (
+            <p style={{ color: '#9ca3af', fontSize: '0.9rem' }}>
+              Esta clínica aún no tiene actos médicos en el catálogo. Contacta soporte si querés reservar igualmente.
+            </p>
+          ) : (
+            <select
+              className="cbm-procedure-select"
+              value={procedureSlug}
+              onChange={(e) => setProcedureSlug(e.target.value)}
+            >
+              {procedures.map((p) => (
+                <option key={p.slug} value={p.slug}>
+                  {p.name}{isSinSeguro && p.price != null ? ` — ${Number(p.price).toFixed(2)}€` : ''}
+                </option>
+              ))}
+            </select>
+          )}
+          {isSinSeguro && selectedProcedure && (
+            <p className="cbm-procedure-hint">
+              Pagas <strong>{procedurePrice.toFixed(2)}€</strong> por el acto + tarifa de prioridad.
+              Recibirás el voucher de SaludOnNet por email.
+            </p>
+          )}
+          {!isSinSeguro && (
+            <p className="cbm-procedure-hint">
+              La consulta la cubre tu seguro. Solo pagas la tarifa de prioridad.
+            </p>
+          )}
         </div>
 
         {/* Date picker */}
@@ -138,7 +216,7 @@ export default function ClinicBookingModal({ provider, serviceId, basePrice = 0,
               <div className="cbm-times">
                 {slotsForDate.map((slot, i) => {
                   const f = feeFromSlot(slot);
-                  const fee = isSinSeguro ? basePrice + f.amount : f.amount;
+                  const fee = isSinSeguro ? procedurePrice + f.amount : f.amount;
                   const isActive = selectedSlot?.time === slot.time;
                   return (
                     <button
@@ -164,13 +242,14 @@ export default function ClinicBookingModal({ provider, serviceId, basePrice = 0,
 
         {/* Footer CTA */}
         <div className="cbm-footer">
-          {selectedSlot ? (
+          {canBook ? (
             <div className="cbm-footer-selected">
               <div>
                 <p className="cbm-footer-label">Cita seleccionada</p>
                 <p className="cbm-footer-summary">
                   {new Date(selectedSlot.date + 'T00:00:00').toLocaleDateString('es-ES', { weekday: 'long', day: 'numeric', month: 'long' })}
                   {' · '}{selectedSlot.time}
+                  {selectedProcedure ? ` · ${selectedProcedure.name}` : ''}
                 </p>
               </div>
               <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
@@ -181,7 +260,9 @@ export default function ClinicBookingModal({ provider, serviceId, basePrice = 0,
               </div>
             </div>
           ) : (
-            <p className="cbm-footer-hint">Selecciona una fecha y horario para continuar</p>
+            <p className="cbm-footer-hint">
+              {!procedureSlug ? 'Selecciona el acto médico' : 'Selecciona una fecha y horario para continuar'}
+            </p>
           )}
         </div>
 

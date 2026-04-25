@@ -44,6 +44,13 @@ function SearchV2Content() {
   const [showMap, setShowMap]                 = useState(false);
   const [filtersOpen, setFiltersOpen]         = useState(false);
 
+  // Desktop (>900px) opens the map by default; mobile keeps it hidden.
+  useEffect(() => {
+    if (typeof window !== 'undefined' && window.matchMedia('(min-width: 901px)').matches) {
+      setShowMap(true);
+    }
+  }, []);
+
   // Real DB filter options
   const [dbSpecialties, setDbSpecialties] = useState([]);
   const [dbCities, setDbCities]           = useState([]);
@@ -450,9 +457,10 @@ function SearchV2Content() {
         <ClinicBookingModal
           provider={modalProvider}
           serviceId={serviceId}
-          basePrice={0}
           isSinSeguro={isSinSeguro}
           initialSlot={modalInitialSlot}
+          initialProcedureSlug={procedureSlug}
+          initialSpecialtySlug={specialtySlug}
           onClose={() => { setModalProvider(null); setModalInitialSlot(null); }}
         />
       )}

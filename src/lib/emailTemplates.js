@@ -117,11 +117,18 @@ export function bookingConfirmation({ patientName, providerName, providerAddress
         <p style="margin:0;font-size:13px;color:#5b4400;line-height:1.6;"><strong>Lo que cubre tu seguro:</strong> la consulta. La clínica la factura directamente a tu aseguradora.</p>
       </div>
       ` : `
-      <div style="background:#fffaeb;border:1px solid #f0d97a;border-radius:8px;padding:16px;margin-bottom:24px;">
+      <div style="background:#fffaeb;border:1px solid #f0d97a;border-radius:8px;padding:16px;margin-bottom:16px;">
         <p style="margin:0 0 8px;font-size:14px;color:#5b4400;font-weight:700;">Qué incluye tu pago de €${Number(totalPrice).toFixed(2)}</p>
         <p style="margin:0 0 6px;font-size:13px;color:#5b4400;line-height:1.6;"><strong>Consulta privada:</strong> tarifa oficial de la clínica (catálogo SaludOnNet).</p>
         <p style="margin:0;font-size:13px;color:#5b4400;line-height:1.6;"><strong>Tarifa de prioridad:</strong> nuestra gestión del hueco urgente.</p>
         <p style="margin:8px 0 0;font-size:13px;color:#5b4400;line-height:1.6;">No se vuelve a cobrar nada en la clínica.</p>
+      </div>
+      <div style="background:#ecfdf5;border:1px solid #6ee7b7;border-radius:8px;padding:16px;margin-bottom:24px;">
+        <p style="margin:0 0 8px;font-size:14px;color:#065f46;font-weight:700;">📧 Voucher de SaludOnNet en camino (≤24 h)</p>
+        <p style="margin:0;font-size:13px;color:#065f46;line-height:1.6;">
+          Te enviaremos un email <strong>aparte</strong> con el voucher (PDF + QR) que cubre el coste del acto médico.
+          Llévalo en el móvil o impreso a la clínica junto a tu DNI — la clínica cobrará el acto a SaludOnNet con ese voucher.
+        </p>
       </div>
       `}
       <p style="margin:0;font-size:13px;color:#6b7280;line-height:1.55;">
@@ -349,10 +356,13 @@ export function operationsBookingAlert({
   bookingId, caseId, clinicId, clinicPhone, patientName, patientEmail, patientPhone,
   providerName, slotDate, slotTime, amount, tier, paymentToClinic, specialty,
   hasInsurance, insuranceCompany, dashboardUrl,
+  procedureSlug, procedureName, servicePrice, platformFee,
 }) {
   const fmtDate = slotDate ? new Date(slotDate + 'T00:00:00').toLocaleDateString('es-ES', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' }) : slotDate;
   const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || 'https://medconnect-bay.vercel.app';
   const dash = dashboardUrl || `${baseUrl}/admin/ops/${caseId || ''}`;
+  const sinSeguro = hasInsurance === false;
+  const coverage = sinSeguro ? 'sin_seguro' : 'con_seguro';
 
   // Zendesk-importable header — keep keys stable, one per line
   const meta = [
@@ -367,8 +377,26 @@ export function operationsBookingAlert({
     `[PATIENT_PHONE:${patientPhone || ''}]`,
     `[CLINIC_PHONE:${clinicPhone || ''}]`,
     `[INSURANCE:${insuranceCompany || (hasInsurance ? 'sí' : 'sin seguro')}]`,
+    `[COVERAGE:${coverage}]`,
     `[SPECIALTY:${specialty || ''}]`,
+    `[PROCEDURE_SLUG:${procedureSlug || ''}]`,
+    `[PROCEDURE_NAME:${procedureName || ''}]`,
+    `[SERVICE_PRICE_EUR:${Number(servicePrice || 0).toFixed(2)}]`,
+    `[PLATFORM_FEE_EUR:${Number(platformFee || 0).toFixed(2)}]`,
+    `[VOUCHER_REQUIRED:${sinSeguro ? 'true' : 'false'}]`,
   ].join('\n');
+
+  const sinSeguroBlock = sinSeguro ? `
+    <div style="background:#fee2e2;border:2px solid #ef4444;border-radius:8px;padding:16px;margin-bottom:20px;">
+      <p style="margin:0 0 8px;font-size:15px;font-weight:800;color:#991b1b;">⚠️ ACCIÓN REQUERIDA — SIN SEGURO</p>
+      <ol style="margin:0 0 0 18px;padding:0;font-size:13px;color:#7f1d1d;line-height:1.7;">
+        <li>Comprar en SaludOnNet: <strong>${procedureName || procedureSlug || 'acto médico'}</strong> por <strong>€${Number(servicePrice || 0).toFixed(2)}</strong>.</li>
+        <li>Subir el voucher (PDF + URL + ref. de la orden SON) al admin: <a href="${dash}" style="color:#991b1b;font-weight:700;">${dash}</a></li>
+        <li>Al subirlo, el sistema enviará automáticamente el voucher al paciente por email.</li>
+      </ol>
+      <p style="margin:10px 0 0;font-size:12px;color:#7f1d1d;">SLA: subir el voucher en < 24 h desde el pago. Si no hay voucher en 24 h, el caso escala.</p>
+    </div>
+  ` : '';
 
   const callScript = `
 1. Saludo y presentación
@@ -409,6 +437,7 @@ export function operationsBookingAlert({
       Abrir el caso en el dashboard:
       <a href="${dash}" style="color:#1a3c5e;font-weight:700;">${dash}</a>
     </p>
+    ${sinSeguroBlock}
 
     <table width="100%" cellpadding="0" cellspacing="0" style="margin-bottom:24px;border:1px solid #e5e7eb;border-radius:8px;overflow:hidden;">
       <tr style="background:#f9fafb;"><th colspan="2" style="padding:12px 16px;text-align:left;font-size:13px;color:#6b7280;font-weight:600;text-transform:uppercase;">Resumen del caso</th></tr>
@@ -419,6 +448,9 @@ export function operationsBookingAlert({
       ${infoRow('Tel. paciente', patientPhone || '—')}
       ${infoRow('Aseguradora', insuranceCompany || (hasInsurance ? 'Sí' : 'Sin seguro'))}
       ${infoRow('Especialidad', specialty || '—')}
+      ${infoRow('Acto médico', procedureName || procedureSlug || '—')}
+      ${infoRow('Precio acto (SON)', `€${Number(servicePrice || 0).toFixed(2)}`)}
+      ${infoRow('Tarifa de prioridad', `€${Number(platformFee || 0).toFixed(2)}`)}
       ${infoRow('Centro', providerName)}
       ${infoRow('Tel. clínica', clinicPhone || '—')}
       ${infoRow('Fecha cita', fmtDate)}
@@ -560,4 +592,52 @@ export function patientRefunded({ patientName, providerName, slotDate, slotTime,
       <a href="https://medconnect.es" style="color:#1a3c5e;font-weight:700;">medconnect.es</a>.</p>
   `));
   return { subject: `Reembolso de €${Number(amount || 0).toFixed(2)} emitido — ${providerName}`, html };
+}
+
+// ─────────────────────────────────────────────
+// 13. Patient — voucher delivery (sin seguro). Sent when ops uploads the
+//     SaludOnNet voucher PDF/URL from the admin dashboard.
+// ─────────────────────────────────────────────
+export function voucherDelivery({
+  patientName, providerName, slotDate, slotTime, procedureName,
+  voucherUrl, sonOrderRef, servicePrice,
+}) {
+  const fmtDate = slotDate ? new Date(slotDate + 'T00:00:00').toLocaleDateString('es-ES', { weekday: 'long', day: 'numeric', month: 'long' }) : slotDate;
+  const html = baseWrapper(`
+    <tr><td style="background:#065f46;padding:24px;text-align:center;">
+      <div style="width:60px;height:60px;background:rgba(255,255,255,0.18);border-radius:50%;margin:0 auto 12px;display:flex;align-items:center;justify-content:center;font-size:28px;">🎟️</div>
+      <h2 style="margin:0;color:#ffffff;font-size:22px;font-weight:800;">Tu voucher de SaludOnNet está listo</h2>
+      ${sonOrderRef ? `<p style="margin:8px 0 0;color:rgba(255,255,255,0.85);font-size:13px;">Referencia SON: <strong>${sonOrderRef}</strong></p>` : ''}
+    </td></tr>
+    ${bodySection(`
+      <p style="margin:0 0 16px;font-size:15px;color:#374151;line-height:1.55;">Hola <strong>${patientName || ''}</strong>,</p>
+      <p style="margin:0 0 16px;font-size:15px;color:#374151;line-height:1.55;">
+        Te enviamos el voucher de <strong>SaludOnNet</strong> que cubre el coste de
+        ${procedureName ? `<strong>${procedureName}</strong>` : 'tu acto médico'}${servicePrice ? ` (€${Number(servicePrice).toFixed(2)})` : ''}
+        en ${providerName}${fmtDate ? ` el ${fmtDate}` : ''}${slotTime ? ` a las ${slotTime}` : ''}.
+      </p>
+      ${voucherUrl ? `
+      <div style="text-align:center;margin:20px 0 24px;">
+        <a href="${voucherUrl}" style="display:inline-block;background:#065f46;color:#ffffff;text-decoration:none;font-weight:700;padding:14px 28px;border-radius:8px;font-size:15px;">
+          Ver / descargar voucher
+        </a>
+      </div>` : ''}
+      <div style="background:#ecfdf5;border:1px solid #6ee7b7;border-radius:8px;padding:16px;margin-bottom:20px;">
+        <p style="margin:0 0 8px;font-size:14px;color:#065f46;font-weight:700;">📍 Cuando llegues a la clínica</p>
+        <ul style="margin:0;padding-left:20px;font-size:13px;color:#065f46;line-height:1.7;">
+          <li>Presenta tu <strong>DNI</strong>.</li>
+          <li>Muestra el voucher (en el móvil o impreso).</li>
+          <li>La clínica cobrará el acto a SaludOnNet con ese voucher — tú no pagas nada extra.</li>
+        </ul>
+      </div>
+      <p style="margin:0;font-size:13px;color:#6b7280;line-height:1.55;">
+        Si tenés cualquier duda, escribinos a
+        <a href="mailto:operaciones@medconnect.es" style="color:#1a3c5e;">operaciones@medconnect.es</a>.
+      </p>
+    `)}
+  `);
+  return {
+    subject: `🎟️ Tu voucher de SaludOnNet — ${providerName} ${slotDate || ''} ${slotTime || ''}`.trim(),
+    html,
+  };
 }

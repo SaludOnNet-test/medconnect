@@ -291,3 +291,27 @@
   text-align: center;
   margin: 0;
 }
+
+.cbm-procedure-select {
+  width: 100%;
+  border: 1.5px solid #e5e7eb;
+  border-radius: 10px;
+  padding: 10px 14px;
+  font-size: 0.95rem;
+  color: #1f2937;
+  background: #fff;
+  font-family: inherit;
+  cursor: pointer;
+}
+
+.cbm-procedure-select:focus {
+  outline: none;
+  border-color: #1a3c5e;
+}
+
+.cbm-procedure-hint {
+  margin: 8px 0 0;
+  font-size: 0.82rem;
+  color: #6b7280;
+  line-height: 1.5;
+}

@@ -20,8 +20,18 @@ function BookContent() {
   const feeLabel = searchParams.get('feeLabel') || '';
   const serviceId = searchParams.get('service') || '';
 
+  // Procedure (acto médico) — passed from search-v2 modal. Required for everyone.
+  // procedurePrice is the SON catalogue price snapshot at booking time; trust
+  // this as the price even though /api/bookings re-validates server-side (B9).
+  const procedureSlugParam = searchParams.get('procedureSlug') || '';
+  const procedureNameParam = searchParams.get('procedureName') || '';
+  const procedurePriceParam = Number(searchParams.get('procedurePrice') || 0);
+
   const service = services.find((s) => s.id === Number(serviceId));
-  const servicePrice = service?.basePrice || 0;
+  // Prefer the per-clinic procedure price from the URL; fall back to the legacy
+  // mock service basePrice only as a safety net.
+  const servicePrice = procedurePriceParam > 0 ? procedurePriceParam : (service?.basePrice || 0);
+  const serviceLabel = procedureNameParam || service?.name || '';
 
   const lockInId = searchParams.get('lockInId') || '';
   const stepParam = searchParams.get('step') || '';
@@ -198,11 +208,18 @@ function BookContent() {
           slotDate: slotDateToUse,
           slotTime: slotTimeToUse,
           amount: totalPrice,
-          status: 'confirmed',
+          // Sin seguro: status starts at awaiting_voucher (ops must upload SON
+          // voucher manually). Con seguro: confirmed straight away.
+          status: hasInsurance === true ? 'confirmed' : 'awaiting_voucher',
           cardLast4: last4,
           hasInsurance: hasInsurance === true,
           insuranceCompany: selectedInsurance || null,
           paymentIntentId: reference,
+          // New: procedure (acto médico) + price split snapshots.
+          procedureSlug: procedureSlugParam || null,
+          procedureName: serviceLabel || null,
+          servicePrice: hasInsurance === false ? Number(servicePrice) || 0 : 0,
+          platformFee: Number(activeFee) || 0,
         }),
       });
       const j = await r.json().catch(() => ({}));
@@ -250,6 +267,8 @@ function BookContent() {
       calendarUrl,
       hasInsurance,
       feeAmount: activeFee,
+      procedureName: serviceLabel || null,
+      servicePrice: hasInsurance === false ? Number(servicePrice) || 0 : 0,
     });
     sendEmail('paymentReceipt', {
       patientEmail,
@@ -278,6 +297,10 @@ function BookContent() {
       specialty: service?.name || null,
       hasInsurance: hasInsurance === true,
       insuranceCompany: selectedInsurance || null,
+      procedureSlug: procedureSlugParam || null,
+      procedureName: serviceLabel || null,
+      servicePrice: hasInsurance === false ? Number(servicePrice) || 0 : 0,
+      platformFee: Number(activeFee) || 0,
     });
 
     // Email: Derivador gets notified patient confirmed and paid
@@ -382,12 +405,23 @@ function BookContent() {
               )}
 
               {hasInsurance === false && (
-                <div className="book-info-box" style={{ marginTop: '1rem', textAlign: 'left' }}>
-                  <strong>Cuando llegues a la clínica</strong>
-                  <p style={{ marginTop: '0.5rem', marginBottom: 0, fontSize: '0.9rem', lineHeight: 1.6 }}>
-                    Trae tu DNI y este email de confirmación. Ya has pagado la <strong>consulta privada</strong> y la <strong>tarifa de prioridad</strong> — no se vuelve a cobrar nada en recepción.
-                  </p>
-                </div>
+                <>
+                  <div className="book-info-box book-info-box--green" style={{ marginTop: '1rem', textAlign: 'left' }}>
+                    <strong>📧 Voucher en camino (en menos de 24 h)</strong>
+                    <p style={{ marginTop: '0.5rem', marginBottom: 0, fontSize: '0.9rem', lineHeight: 1.6 }}>
+                      Te enviaremos un email separado de <strong>SaludOnNet</strong> con el voucher
+                      que cubre el coste del acto médico. Llévalo en el móvil o impreso a la clínica
+                      junto a tu DNI — la clínica cobrará el acto a SaludOnNet con ese voucher.
+                    </p>
+                  </div>
+                  <div className="book-info-box" style={{ marginTop: '1rem', textAlign: 'left' }}>
+                    <strong>Cuando llegues a la clínica</strong>
+                    <p style={{ marginTop: '0.5rem', marginBottom: 0, fontSize: '0.9rem', lineHeight: 1.6 }}>
+                      Presenta tu DNI + el voucher de SaludOnNet. La consulta y la tarifa de prioridad
+                      ya están pagadas — no se vuelve a cobrar nada en recepción.
+                    </p>
+                  </div>
+                </>
               )}
 
               <div className="book-confirmation-ref" style={{ marginTop: '1.5rem' }}>
@@ -443,7 +477,7 @@ function BookContent() {
             <div className="book-summary-details">
               <span>📅 <strong>{formattedDate}</strong></span>
               <span>🕐 <strong>{time}</strong></span>
-              {service && <span>🩺 <strong>{service.name}</strong></span>}
+              {serviceLabel && <span>🩺 <strong>{serviceLabel}</strong></span>}
             </div>
           </div>
 
@@ -636,9 +670,9 @@ function BookContent() {
                 <p className="book-step-label" style={{ marginBottom: 'var(--space-md)' }}>Resumen del pago</p>
 
                 {/* Medical service line — ALWAYS visible to make clear what insurance covers */}
-                {service && (
+                {serviceLabel && (
                   <div className="book-price-row">
-                    <span className="book-price-label">🩺 Consulta de {service.name}</span>
+                    <span className="book-price-label">🩺 {serviceLabel}</span>
                     <span className="book-price-amount">
                       {hasInsurance === true
                         ? <span style={{ color: '#00805a', fontWeight: 600 }}>Cubierto por tu seguro</span>
@@ -670,9 +704,14 @@ function BookContent() {
                 )}
 
                 {hasInsurance === false && (
-                  <p style={{ marginTop: 'var(--space-md)', fontSize: '0.8rem', color: 'var(--muted)', lineHeight: 1.6 }}>
-                    ⓘ Sin seguro pagas dos cosas en una: la <strong>consulta privada</strong> (tarifa oficial de la clínica, según el catálogo SaludOnNet) y la <strong>tarifa de prioridad</strong> por conseguirte el hueco urgente. Ese es el total — no se vuelve a cobrar en la clínica.
-                  </p>
+                  <>
+                    <p style={{ marginTop: 'var(--space-md)', fontSize: '0.8rem', color: 'var(--muted)', lineHeight: 1.6 }}>
+                      ⓘ Sin seguro pagas dos cosas en una: la <strong>consulta privada</strong> (tarifa oficial de la clínica, según el catálogo SaludOnNet) y la <strong>tarifa de prioridad</strong> por conseguirte el hueco urgente. Ese es el total — no se vuelve a cobrar en la clínica.
+                    </p>
+                    <p style={{ marginTop: 'var(--space-sm)', fontSize: '0.78rem', color: 'var(--muted)', lineHeight: 1.6 }}>
+                      🛡️ <strong>Cancelación 100% reembolsable:</strong> si la clínica no puede atenderte el día/hora reservados, te devolvemos el importe completo (acto + tarifa).
+                    </p>
+                  </>
                 )}
               </div>
             )}

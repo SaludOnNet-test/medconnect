@@ -12,6 +12,7 @@ import {
   patientAlternativeSlot,
   patientFinalConfirmation,
   patientRefunded,
+  voucherDelivery,
 } from '@/lib/emailTemplates';
 
 const TEMPLATES = {
@@ -27,6 +28,7 @@ const TEMPLATES = {
   patientAlternativeSlot,
   patientFinalConfirmation,
   patientRefunded,
+  voucherDelivery,
 };
 
 export async function POST(request) {

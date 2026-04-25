@@ -47,13 +47,16 @@ export async function createCaseForBooking(booking) {
   if (!DB_AVAILABLE) return null;
   const token = crypto.randomBytes(24).toString('hex');
 
-  // Derive payment_to_clinic and tier from amount paid (matches PRICING_TIERS)
+  // Tier is derived from the platform fee (slot price), NOT from the total
+  // amount. For sin-seguro bookings the total includes the SON catalogue price
+  // for the procedure, which would skew the tier classification.
   const amount = Number(booking.amount || 0);
+  const tierBasis = Number(booking.platformFee ?? booking.amount ?? 0);
   let tier = 4;
   let paymentToClinic = 2;
-  if (amount >= 25)      { tier = 1; paymentToClinic = 15; }
-  else if (amount >= 15) { tier = 2; paymentToClinic = 10; }
-  else if (amount >= 7)  { tier = 3; paymentToClinic = 5; }
+  if (tierBasis >= 25)      { tier = 1; paymentToClinic = 15; }
+  else if (tierBasis >= 15) { tier = 2; paymentToClinic = 10; }
+  else if (tierBasis >= 7)  { tier = 3; paymentToClinic = 5; }
 
   const insert = await query(
     `INSERT INTO operations_cases
@@ -110,9 +113,19 @@ export async function getCase(id) {
     `SELECT c.*,
        b.patient_name, b.patient_email, b.patient_phone, b.patient_address,
        b.has_insurance, b.insurance_company, b.specialty,
-       b.payment_intent_id
+       b.payment_intent_id,
+       b.procedure_slug, b.procedure_name, b.service_price, b.platform_fee,
+       v.id           AS voucher_id,
+       v.status       AS voucher_status,
+       v.voucher_url,
+       v.voucher_pdf_path,
+       v.son_order_ref,
+       v.uploaded_by  AS voucher_uploaded_by,
+       v.uploaded_at  AS voucher_uploaded_at,
+       v.sent_to_patient_at AS voucher_sent_at
      FROM operations_cases c
      LEFT JOIN bookings b ON b.id = c.booking_id
+     LEFT JOIN vouchers v ON v.booking_id = c.booking_id
      WHERE c.id = @id`,
     { id: { type: sql.Int, value: Number(id) } }
   );

@@ -20,6 +20,10 @@ function toBooking(row) {
     cardLast4: row.card_last4,
     hasInsurance: !!row.has_insurance,
     insuranceCompany: row.insurance_company,
+    procedureSlug: row.procedure_slug || null,
+    procedureName: row.procedure_name || null,
+    servicePrice: row.service_price != null ? Number(row.service_price) : null,
+    platformFee: row.platform_fee != null ? Number(row.platform_fee) : null,
     notes: row.notes,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
@@ -94,11 +98,47 @@ export async function POST(request) {
     hasInsurance,
     insuranceCompany,
     paymentIntentId,
+    procedureSlug,
+    procedureName,
+    servicePrice,
+    platformFee,
   } = body;
 
   if (!id || !patientEmail) {
     return NextResponse.json({ error: 'id and patientEmail are required' }, { status: 400 });
   }
+
+  // B9 — server-side amount validation. For sin-seguro bookings we re-fetch the
+  // SON catalogue price for the (clinic, procedure) pair and verify it matches
+  // what the client charged. Prevents query-string price tampering.
+  if (hasInsurance === false && procedureSlug && providerId) {
+    try {
+      const pool = await getPool();
+      const priceResult = await pool.request()
+        .input('clinic_id', sql.Int, providerId)
+        .input('procedure_slug', sql.NVarChar(100), procedureSlug)
+        .query(`
+          SELECT TOP 1 price FROM clinic_procedures
+          WHERE clinic_id = @clinic_id AND procedure_slug = @procedure_slug
+        `);
+      const dbPrice = priceResult.recordset[0]?.price;
+      const expected = Number(dbPrice ?? 0) + Number(platformFee || 0);
+      if (dbPrice != null && Math.abs(Number(amount) - expected) > 0.01) {
+        console.warn(`[POST /api/bookings] amount mismatch for ${id}: charged=${amount} expected=${expected.toFixed(2)} (procedure=${procedureSlug})`);
+        return NextResponse.json(
+          { error: 'amount_mismatch', expected, charged: Number(amount) },
+          { status: 400 },
+        );
+      }
+    } catch (validErr) {
+      console.error('[POST /api/bookings] price validation failed', validErr);
+      // Continue — don't block bookings on validation infra failures, but the
+      // warn above flags it for ops review.
+    }
+  }
+
+  // B2 — sin seguro starts at awaiting_voucher (ops must upload SON voucher).
+  const finalStatus = status || (hasInsurance === true ? 'confirmed' : 'awaiting_voucher');
 
   try {
     const pool = await getPool();
@@ -115,27 +155,49 @@ export async function POST(request) {
       .input('slot_date', sql.NVarChar(20), slotDate || null)
       .input('slot_time', sql.NVarChar(10), slotTime || null)
       .input('amount', sql.Decimal(10, 2), amount || null)
-      .input('status', sql.NVarChar(30), status || 'confirmed')
+      .input('status', sql.NVarChar(30), finalStatus)
       .input('card_last4', sql.NVarChar(4), cardLast4 || null)
       .input('has_insurance', sql.Bit, hasInsurance ? 1 : 0)
       .input('insurance_company', sql.NVarChar(100), insuranceCompany || null)
       .input('payment_intent_id', sql.NVarChar(80), paymentIntentId || id || null)
+      .input('procedure_slug', sql.NVarChar(100), procedureSlug || null)
+      .input('procedure_name', sql.NVarChar(255), procedureName || null)
+      .input('service_price', sql.Decimal(10, 2), servicePrice != null ? Number(servicePrice) : null)
+      .input('platform_fee', sql.Decimal(10, 2), platformFee != null ? Number(platformFee) : null)
       .query(`
         INSERT INTO bookings
           (id, referral_id, patient_name, patient_email, patient_phone, patient_address,
            provider_id, provider_name, specialty, slot_date, slot_time,
-           amount, status, card_last4, has_insurance, insurance_company, payment_intent_id)
+           amount, status, card_last4, has_insurance, insurance_company, payment_intent_id,
+           procedure_slug, procedure_name, service_price, platform_fee)
         VALUES
           (@id, @referral_id, @patient_name, @patient_email, @patient_phone, @patient_address,
            @provider_id, @provider_name, @specialty, @slot_date, @slot_time,
-           @amount, @status, @card_last4, @has_insurance, @insurance_company, @payment_intent_id)
+           @amount, @status, @card_last4, @has_insurance, @insurance_company, @payment_intent_id,
+           @procedure_slug, @procedure_name, @service_price, @platform_fee)
       `);
+
+    // For sin-seguro bookings, open a voucher row in awaiting_voucher state so
+    // ops can pick it up from the dashboard.
+    if (hasInsurance === false) {
+      try {
+        await pool.request()
+          .input('booking_id', sql.NVarChar(50), id)
+          .query(`
+            IF NOT EXISTS (SELECT 1 FROM vouchers WHERE booking_id = @booking_id)
+            INSERT INTO vouchers (booking_id, status) VALUES (@booking_id, 'awaiting_voucher')
+          `);
+      } catch (voucherErr) {
+        console.error('[POST /api/bookings] voucher row creation failed', voucherErr);
+      }
+    }
 
     // Open an operations case for this booking (best-effort, do not break booking creation)
     let opsCase = null;
     try {
       opsCase = await createCaseForBooking({
         id, providerId, providerName, slotDate, slotTime, amount,
+        platformFee: platformFee != null ? Number(platformFee) : null,
       });
     } catch (caseErr) {
       console.error('[POST /api/bookings] case creation failed', caseErr);
