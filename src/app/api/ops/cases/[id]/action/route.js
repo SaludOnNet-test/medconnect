@@ -18,6 +18,8 @@ async function notifyConfirmation(c) {
     providerName: c.original_clinic_name,
     slotDate: c.original_slot_date,
     slotTime: c.original_slot_time,
+    address: c.patient_address || null,
+    hasInsurance: !!c.has_insurance,
   });
   await sendEmail({ to: c.patient_email, subject: tpl.subject, html: tpl.html });
 }

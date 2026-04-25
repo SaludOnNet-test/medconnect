@@ -123,7 +123,9 @@ export async function getCaseByToken(token) {
   if (!DB_AVAILABLE) return null;
   const result = await query(
     `SELECT c.*,
-       b.patient_name, b.patient_email
+       b.patient_name, b.patient_email, b.patient_address,
+       b.has_insurance, b.insurance_company,
+       b.payment_intent_id
      FROM operations_cases c
      LEFT JOIN bookings b ON b.id = c.booking_id
      WHERE c.patient_response_token = @token`,

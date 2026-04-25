@@ -76,39 +76,45 @@ export function lockInInvitation({ patientEmail, professionalEmail, clinicName, 
 }
 
 // ─────────────────────────────────────────────
-// 2. Booking Confirmation (after payment)
+// 2. Booking received — payment OK, clinic confirmation pending
 // ─────────────────────────────────────────────
-export function bookingConfirmation({ patientName, providerName, providerAddress, slotDate, slotTime, totalPrice, reference, calendarUrl, hasInsurance, feeAmount }) {
+export function bookingConfirmation({ patientName, providerName, providerAddress, slotDate, slotTime, totalPrice, reference, hasInsurance, feeAmount }) {
   const formattedDate = slotDate ? new Date(slotDate + 'T00:00:00').toLocaleDateString('es-ES', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' }) : slotDate;
   const insured = hasInsurance === true;
   const feeForLine = feeAmount ?? totalPrice;
 
   const html = baseWrapper(`
-    <tr><td style="background:#10b981;padding:24px;text-align:center;">
-      <div style="width:60px;height:60px;background:rgba(255,255,255,0.2);border-radius:50%;margin:0 auto 12px;display:flex;align-items:center;justify-content:center;font-size:28px;">✓</div>
-      <h2 style="margin:0;color:#ffffff;font-size:22px;font-weight:800;">¡Reserva prioritaria confirmada!</h2>
+    <tr><td style="background:#1a3c5e;padding:24px;text-align:center;">
+      <div style="width:60px;height:60px;background:rgba(255,255,255,0.18);border-radius:50%;margin:0 auto 12px;display:flex;align-items:center;justify-content:center;font-size:28px;">⏱</div>
+      <h2 style="margin:0;color:#ffffff;font-size:22px;font-weight:800;">Pago recibido — gestionando tu cita</h2>
       <p style="margin:8px 0 0;color:rgba(255,255,255,0.85);font-size:14px;">Referencia: <strong>${reference}</strong></p>
     </td></tr>
     ${bodySection(`
-      <p style="margin:0 0 24px;font-size:15px;color:#374151;">Hola <strong>${patientName}</strong>,<br>${insured
-        ? 'Hemos confirmado tu reserva prioritaria. Acude con tu tarjeta de asegurado — la consulta corre por tu póliza.'
-        : 'Tu cita ha sido confirmada y el pago procesado correctamente.'}</p>
+      <p style="margin:0 0 16px;font-size:15px;color:#374151;line-height:1.55;">Hola <strong>${patientName}</strong>,</p>
+      <p style="margin:0 0 16px;font-size:15px;color:#374151;line-height:1.55;">
+        Recibimos tu pago. Ahora <strong>llamamos a la clínica</strong> para confirmar el hueco
+        que reservaste. Te avisamos por email en cuanto lo tengamos confirmado (en menos de 6 horas hábiles).
+      </p>
+      <div style="background:#fffbeb;border:1px solid #fde68a;border-radius:8px;padding:14px 16px;margin-bottom:20px;">
+        <p style="margin:0;font-size:13px;color:#78350f;line-height:1.55;">
+          <strong>Importante:</strong> hasta que la clínica confirme, esta cita aún no está garantizada.
+          Si la clínica no puede atenderte ese día/hora, te ofreceremos una alternativa o te
+          devolveremos el dinero automáticamente.
+        </p>
+      </div>
       <table width="100%" cellpadding="0" cellspacing="0" style="margin-bottom:24px;border:1px solid #e5e7eb;border-radius:8px;overflow:hidden;">
-        <tr style="background:#f9fafb;"><th colspan="2" style="padding:12px 16px;text-align:left;font-size:13px;color:#6b7280;font-weight:600;text-transform:uppercase;letter-spacing:0.05em;">Tu cita</th></tr>
+        <tr style="background:#f9fafb;"><th colspan="2" style="padding:12px 16px;text-align:left;font-size:13px;color:#6b7280;font-weight:600;text-transform:uppercase;letter-spacing:0.05em;">Hueco que reservaste</th></tr>
         ${infoRow('Centro médico', providerName)}
         ${providerAddress ? infoRow('Dirección', providerAddress) : ''}
         ${infoRow('Fecha', formattedDate)}
         ${infoRow('Hora', slotTime)}
-        ${totalPrice ? infoRow('Total pagado', `€${Number(totalPrice).toFixed(2)}`) : ''}
+        ${totalPrice ? infoRow('Importe pagado', `€${Number(totalPrice).toFixed(2)}`) : ''}
       </table>
       ${insured ? `
       <div style="background:#fffaeb;border:1px solid #f0d97a;border-radius:8px;padding:16px;margin-bottom:24px;">
         <p style="margin:0 0 8px;font-size:14px;color:#5b4400;font-weight:700;">Qué has pagado y qué cubre tu seguro</p>
         <p style="margin:0 0 6px;font-size:13px;color:#5b4400;line-height:1.6;"><strong>Tu pago de hoy:</strong> €${Number(feeForLine).toFixed(2)} (tarifa de prioridad por la reserva).</p>
         <p style="margin:0;font-size:13px;color:#5b4400;line-height:1.6;"><strong>Lo que cubre tu seguro:</strong> la consulta. La clínica la factura directamente a tu aseguradora.</p>
-      </div>
-      <div style="background:#eff6ff;border:1px solid #bfdbfe;border-radius:8px;padding:14px 16px;margin-bottom:24px;">
-        <p style="margin:0;font-size:13px;color:#1e3a8a;line-height:1.6;">Si tu aseguradora te pregunta: esta cita NO es una consulta privada paralela. Es una cita en una clínica de tu cuadro médico, gestionada con prioridad.</p>
       </div>
       ` : `
       <div style="background:#fffaeb;border:1px solid #f0d97a;border-radius:8px;padding:16px;margin-bottom:24px;">
@@ -118,20 +124,15 @@ export function bookingConfirmation({ patientName, providerName, providerAddress
         <p style="margin:8px 0 0;font-size:13px;color:#5b4400;line-height:1.6;">No se vuelve a cobrar nada en la clínica.</p>
       </div>
       `}
-      <div style="background:#f0fdf4;border:1px solid #bbf7d0;border-radius:8px;padding:16px;margin-bottom:24px;">
-        <p style="margin:0;font-size:14px;color:#15803d;font-weight:600;">📋 Recuerda llevar el día de la cita:</p>
-        <ul style="margin:8px 0 0;padding-left:20px;font-size:14px;color:#166534;">
-          <li>DNI o pasaporte</li>
-          <li>${insured ? '<strong>Tarjeta de asegurado</strong> (imprescindible — la consulta la cubre tu póliza)' : 'Tarjeta sanitaria (si aplica)'}</li>
-          <li>Este email de confirmación</li>
-        </ul>
-      </div>
-      ${calendarUrl ? `<div style="text-align:center;margin:24px 0;">${ctaButton(calendarUrl, '📅 Añadir al calendario', '#1a3c5e', '#ffffff')}</div>` : ''}
+      <p style="margin:0;font-size:13px;color:#6b7280;line-height:1.55;">
+        En cuanto la clínica confirme, te enviaremos un email final con los datos para que acudas
+        (qué llevar, dirección, etc.).
+      </p>
     `)}
   `);
 
   return {
-    subject: `¡Reserva prioritaria confirmada! Referencia ${reference}`,
+    subject: `Pago recibido — confirmando tu cita con ${providerName}`,
     html,
   };
 }
@@ -503,21 +504,41 @@ export function patientAlternativeSlot({
 // ─────────────────────────────────────────────
 // 11. Patient — final confirmation (clinic accepted original slot)
 // ─────────────────────────────────────────────
-export function patientFinalConfirmation({ patientName, providerName, slotDate, slotTime, address }) {
+export function patientFinalConfirmation({ patientName, providerName, slotDate, slotTime, address, hasInsurance }) {
   const fmtDate = slotDate ? new Date(slotDate + 'T00:00:00').toLocaleDateString('es-ES', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' }) : slotDate;
-  const html = baseWrapper(bodySection(`
-    <h2 style="margin:0 0 12px;font-size:22px;font-weight:800;color:#1a3c5e;">¡Cita confirmada con la clínica! ✓</h2>
-    <p style="margin:0 0 16px;font-size:15px;color:#374151;line-height:1.5;">
-      Hola ${patientName || ''}, hemos hablado con <strong>${providerName}</strong> y te confirman tu cita:
-    </p>
-    <div style="background:#f0fdf4;border:1px solid #bbf7d0;border-radius:10px;padding:18px;margin-bottom:20px;">
-      <p style="margin:0;font-size:18px;font-weight:800;color:#14532d;">${providerName}</p>
-      <p style="margin:4px 0 0;font-size:16px;color:#166534;">${fmtDate} · ${slotTime}</p>
-      ${address ? `<p style="margin:4px 0 0;font-size:14px;color:#475569;">${address}</p>` : ''}
-    </div>
-    <p style="margin:0 0 12px;font-size:14px;color:#374151;">Recuerda llevar tu DNI y tarjeta de seguro.</p>
-  `));
-  return { subject: `Cita confirmada — ${providerName} (${slotDate} ${slotTime})`, html };
+  const insured = hasInsurance === true;
+  const html = baseWrapper(`
+    <tr><td style="background:#10b981;padding:24px;text-align:center;">
+      <div style="width:60px;height:60px;background:rgba(255,255,255,0.2);border-radius:50%;margin:0 auto 12px;display:flex;align-items:center;justify-content:center;font-size:28px;">✓</div>
+      <h2 style="margin:0;color:#ffffff;font-size:22px;font-weight:800;">¡Cita confirmada con la clínica!</h2>
+      <p style="margin:8px 0 0;color:rgba(255,255,255,0.85);font-size:14px;">Ya está todo cerrado — te esperan.</p>
+    </td></tr>
+    ${bodySection(`
+      <p style="margin:0 0 16px;font-size:15px;color:#374151;line-height:1.55;">
+        Hola ${patientName || ''}, hemos hablado con <strong>${providerName}</strong> y nos confirman tu cita.
+        Esto ya es definitivo: el doctor te atenderá en la fecha y hora que reservaste.
+      </p>
+      <div style="background:#f0fdf4;border:1px solid #bbf7d0;border-radius:10px;padding:18px;margin-bottom:20px;">
+        <p style="margin:0 0 4px;font-size:13px;font-weight:700;color:#15803d;text-transform:uppercase;letter-spacing:0.05em;">Tu cita</p>
+        <p style="margin:0;font-size:18px;font-weight:800;color:#14532d;">${providerName}</p>
+        <p style="margin:4px 0 0;font-size:16px;color:#166534;">${fmtDate} · ${slotTime}</p>
+        ${address ? `<p style="margin:6px 0 0;font-size:14px;color:#475569;">📍 ${address}</p>` : ''}
+      </div>
+      <div style="background:#fffbeb;border:1px solid #fde68a;border-radius:8px;padding:14px 16px;margin-bottom:20px;">
+        <p style="margin:0 0 6px;font-size:14px;font-weight:700;color:#78350f;">Recuerda llevar:</p>
+        <ul style="margin:0;padding-left:20px;font-size:13px;color:#78350f;line-height:1.55;">
+          <li>DNI o pasaporte</li>
+          ${insured ? '<li><strong>Tarjeta de tu aseguradora</strong> — la consulta corre por tu póliza</li>' : '<li>Tarjeta sanitaria si la tienes</li>'}
+          <li>Este email (o tu referencia de reserva)</li>
+        </ul>
+      </div>
+      <p style="margin:0;font-size:13px;color:#6b7280;line-height:1.55;">
+        Si necesitas cancelar o algo cambia, escríbenos a
+        <a href="mailto:operaciones@medconnect.es" style="color:#1a3c5e;">operaciones@medconnect.es</a>.
+      </p>
+    `)}
+  `);
+  return { subject: `✓ Cita confirmada — ${providerName} (${slotDate} ${slotTime})`, html };
 }
 
 // ─────────────────────────────────────────────

@@ -34,6 +34,7 @@ export async function GET(request) {
         providerName: c.alternative_clinic_name || c.original_clinic_name,
         slotDate: c.alternative_slot_date || c.original_slot_date,
         slotTime: c.alternative_slot_time || c.original_slot_time,
+        hasInsurance: !!c.has_insurance,
       });
       await sendEmail({ to: c.patient_email, subject: tpl.subject, html: tpl.html });
     }
