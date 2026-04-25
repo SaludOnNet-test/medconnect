@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { query, sql, DB_AVAILABLE } from '@/lib/db';
-import { generateSlotsForClinic, SLOT_RULES } from '@/lib/slot-validation';
+import { generateSlotsForClinic, PRICING_TIERS } from '@/lib/slot-validation';
 
 export async function GET(request, { params }) {
   const { id } = await params;
@@ -9,11 +9,7 @@ export async function GET(request, { params }) {
     return NextResponse.json({ slots: [], source: 'error', error: 'Invalid clinic ID' }, { status: 400 });
   }
 
-  const { searchParams } = new URL(request.url);
-  const days = Math.min(parseInt(searchParams.get('days') || String(SLOT_RULES.DEFAULT_DAYS_AHEAD), 10), 90);
-
   let schedules = [];
-
   if (DB_AVAILABLE) {
     try {
       const result = await query(
@@ -29,12 +25,14 @@ export async function GET(request, { params }) {
     }
   }
 
-  const { slots, rule } = generateSlotsForClinic(clinicId, schedules, { daysAhead: days });
+  const { slots, rule, earliestSellable } = generateSlotsForClinic(clinicId, schedules);
 
   return NextResponse.json({
     slots,
     source: rule === 'doctoralia' ? 'db' : 'fallback',
     rule,
+    earliestSellable,
+    pricingTiers: PRICING_TIERS,
     clinicId,
   });
 }

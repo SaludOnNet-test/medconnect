@@ -156,6 +156,13 @@
   margin-bottom: 0.5rem;
 }
 
+.cv2-slots-coverage {
+  text-transform: none;
+  letter-spacing: 0;
+  color: #00805a;
+  font-weight: 600;
+}
+
 .cv2-slots-row {
   display: flex;
   flex-wrap: wrap;
@@ -179,6 +186,23 @@
   border-color: #1a3c5e;
   background: #f0f4f8;
 }
+
+/* Tier colors — urgency-based pricing */
+.cv2-slot-chip.tier-1 { border-color: #dc2626; background: #fef2f2; }
+.cv2-slot-chip.tier-1:hover { border-color: #b91c1c; background: #fee2e2; }
+.cv2-slot-chip.tier-1 .cv2-slot-fee { color: #b91c1c; }
+
+.cv2-slot-chip.tier-2 { border-color: #ea580c; background: #fff7ed; }
+.cv2-slot-chip.tier-2:hover { border-color: #c2410c; background: #ffedd5; }
+.cv2-slot-chip.tier-2 .cv2-slot-fee { color: #c2410c; }
+
+.cv2-slot-chip.tier-3 { border-color: #ca8a04; background: #fefce8; }
+.cv2-slot-chip.tier-3:hover { border-color: #a16207; background: #fef9c3; }
+.cv2-slot-chip.tier-3 .cv2-slot-fee { color: #a16207; }
+
+.cv2-slot-chip.tier-4 { border-color: #16a34a; background: #f0fdf4; }
+.cv2-slot-chip.tier-4:hover { border-color: #15803d; background: #dcfce7; }
+.cv2-slot-chip.tier-4 .cv2-slot-fee { color: #15803d; }
 
 .cv2-slot-date {
   font-size: 0.8rem;
@@ -257,5 +281,10 @@
     align-items: flex-start;
     flex-direction: row;
     gap: 6px;
+  }
+
+  /* Show only the first 2 slot chips; keep the "Ver todos los horarios" CTA. */
+  .cv2-slots-row > .cv2-slot-chip:nth-child(3):not(.cv2-slot-chip--more) {
+    display: none;
   }
 }

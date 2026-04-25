@@ -1,342 +1,141 @@
-# Reglas de Generación de Slots - MedConnect
+# Reglas de Generación de Slots — MedConnect MVP
 
-**Última actualización:** 2026-04-25  
-**Estado:** FINAL - Regla inamovible
+**Última actualización:** 2026-04-25
+**Estado:** FINAL (post-brainstorming Francisco × Claude). Cambios requieren aprobación escrita.
 
 ---
 
 ## VISIÓN GENERAL
 
-El sistema de MedConnect SIEMPRE inventa/genera slots (citas disponibles) para cada clínica. Sin embargo, la regla de generación varía según si la clínica tiene datos de Doctoralia o no:
+Cada clínica del marketplace publica **8 slots = 2 slots × 4 tiers de precio**. Los tiers reflejan urgencia: cuanto más cerca la fecha, mayor el precio. La sensación de escasez se construye a nivel de tier (solo 2 plazas a €29 esta semana), no a nivel total.
 
-- **Clínicas CON Doctoralia:** Slots restringidos a días/horarios importados ± 15 min
-- **Clínicas SIN Doctoralia:** Slots genéricos en próximos 5 días hábiles
-
-Los datos de Doctoralia se importan UNA SOLA VEZ en tabla `clinic_schedules`. A partir de ahí, se usan como referencia para validar slots generados, no como fuente única.
+Los datos de Doctoralia se importan **una sola vez** en `clinic_schedules`. Las clínicas con datos respetan días/horarios reales (±15 min); las que no los tienen reciben slots inventados dentro de horario laborable.
 
 ---
 
-## REGLA 1: Clínicas CON Datos Importados de Doctoralia
+## TIERS Y PRICING
 
-**Condición:** Clínica tiene ≥1 registro en `clinic_schedules` (source='doctoralia')
+| Tier | Días desde search | Etiqueta UI | Precio público | Pago a clínica | Margen € | Margen % |
+|------|-------------------|-------------|----------------|----------------|----------|----------|
+| 1 | 0–7 | "Esta semana" | **€29,00** | €15 | €14,00 | 48,3% |
+| 2 | 8–14 | "Próxima semana" | **€19,00** | €10 | €9,00 | 47,4% |
+| 3 | 15–30 | "En 2–4 semanas" | **€9,99** | €5 | €4,99 | 49,9% |
+| 4 | 31–45 | "Más adelante" | **€4,99** | €2 | €2,99 | 59,9% |
 
-**Generación de Slots:**
+> **Margen mínimo MVP:** 45% (relajado del 50% original). Tiers 1/2/3 quedan justo debajo del 50%; aceptado para validación inicial.
 
-```
-Para cada día en ventana de 45 días adelante:
-  1. Calcular day_of_week (0=Lunes, 1=Martes, ..., 4=Viernes)
-  2. Buscar registros en clinic_schedules para ese day_of_week
-  3. SI EXISTE registro Doctoralia para ese day:
-     → Generar slots cada 15 minutos
-     → Rango: start_time a end_time (±15 min permitido)
-     → Intervalos: 00, 15, 30, 45 minutos
-  4. SI NO EXISTE registro Doctoralia para ese day:
-     → NO generar slots (día bloqueado)
-  5. SIEMPRE excluir sábados (day=5), domingos (day=6), festivos españoles
-```
-
-**Ejemplo Práctico:**
-
-```
-Clínica ID: 123
-Doctoralia data:
-  - Monday (day=0): 09:00-13:00 (427 mins)
-  - Tuesday (day=1): 09:00-14:00 (300 mins)
-  - No Wednesday data
-  - Thursday (day=3): 10:00-12:30 (150 mins)
-  - Friday (day=4): 09:00-13:00
-
-Generación de slots:
-  Monday:    09:00, 09:15, 09:30, 09:45, 10:00, ..., 12:45 ✓
-  Tuesday:   09:00, 09:15, 09:30, ..., 13:45 ✓
-  Wednesday: (vacío - no hay Doctoralia)
-  Thursday:  10:00, 10:15, 10:30, 10:45, 11:00, 11:15, 11:30, 11:45, 12:15, 12:30 ✓
-  Friday:    09:00, 09:15, 09:30, ..., 12:45 ✓
-  Saturday:  (nunca)
-  Sunday:    (nunca)
-```
-
-**Validación:**
-
-```javascript
-function validateSlotAgainstDoctoralia(clinicId, date, time) {
-  const dayOfWeek = date.getDay() - 1; // 0=Monday
-  
-  // Excluir weekends
-  if (dayOfWeek < 0 || dayOfWeek > 4) return false;
-  
-  // Excluir festivos españoles
-  if (isSpanishHoliday(date)) return false;
-  
-  // Buscar schedule
-  const schedule = await db.query(
-    `SELECT start_time, end_time FROM clinic_schedules 
-     WHERE clinic_id=? AND day_of_week=? AND source='doctoralia'`,
-    [clinicId, dayOfWeek]
-  );
-  
-  if (!schedule) return false; // Sin schedule = sin slots
-  
-  // Validar rango ±15 min
-  const startMinutes = timeToMinutes(schedule.start_time);
-  const endMinutes = timeToMinutes(schedule.end_time);
-  const slotMinutes = timeToMinutes(time);
-  
-  // Permitir ±15 min
-  return slotMinutes >= (startMinutes - 15) && slotMinutes <= (endMinutes + 15);
-}
-```
-
-**Performance:**
-
-- Querybase: 1 query por slot generado (costoso)
-- **Optimización:** Precachear schedules al inicio de sesión
-- Cache TTL: 1 hora
+> **Pago a clínica** = importe que SaludOnNet paga a la clínica encima de la tarifa que ya recibe del seguro del paciente (Sanitas, etc.). Operativamente: cuando se vende un slot, el equipo llama a la clínica y le ofrece "atender a este paciente con su Sanitas + €X extra de nuestra parte".
 
 ---
 
-## REGLA 2: Clínicas SIN Datos Importados de Doctoralia
+## REGLA DE BUFFER MÍNIMO
 
-**Condición:** Clínica tiene 0 registros en `clinic_schedules`
+Ningún slot puede caer antes de **`now + 6 horas hábiles`** donde "hora hábil" = lun–vie 09:00–18:00, excluyendo festivos españoles.
 
-**Generación de Slots:**
+**Ejemplo:** search a las 16:00 del viernes
+- 16:00–18:00 viernes = 2 h hábiles
+- Lun 09:00–18:00 = 9 h hábiles
+- Total acumulado a las 11:00 lunes = 11 h hábiles → **primer slot vendible: lunes 11:00**
 
-```
-Parámetros:
-  - Cantidad: 2-4 slots por semana
-  - Ventana: SOLO próximos 5 días hábiles desde hoy
-  - Horarios: 2 mañana (08:00-13:00), 2 tarde (14:00-19:00)
-  - Días: Lunes a Viernes SOLAMENTE (day 0-4)
-  - Excluir: Sábados, domingos, festivos españoles
+Implementación: `applyBusinessHourBuffer(now, hours)` en `src/lib/slot-validation.js`.
 
-Algoritmo:
-  1. Hoy = datetime.now()
-  2. Calcular próximos 5 días hábiles (L-V, no festivos)
-  3. Distribuir 4 slots entre esos 5 días
-     - Slot 1: Día 1, mañana (aleatorio entre 08:00-13:00)
-     - Slot 2: Día 2, tarde (aleatorio entre 14:00-19:00)
-     - Slot 3: Día 3 ó 4, mañana
-     - Slot 4: Día 4 ó 5, tarde
-  4. Intervalos de 30 minutos (09:00, 09:30, 10:00, etc.)
-  5. Retornar 4 slots
-```
+---
 
-**Ejemplo:**
+## DISTRIBUCIÓN DE LOS 2 SLOTS POR TIER
 
-```
-Hoy: Lunes 25 de abril de 2026
-Próximos 5 días hábiles: L25, M26, W27, R28, V29
+Para cada tier:
+- 1 slot en franja **mañana** (08:00–13:00)
+- 1 slot en franja **tarde** (14:00–19:00)
+- En **2 días distintos** cuando sea posible
+- Solo lun–vie, no festivos
+- Días dentro del rango del tier (ej. tier 1 → días 0–7 desde hoy)
 
-Slots generados:
-  - Lunes 25 de abril, 10:15 (mañana) ✓
-  - Martes 26 de abril, 15:30 (tarde) ✓
-  - Jueves 28 de abril, 11:00 (mañana) ✓
-  - Viernes 29 de abril, 16:45 (tarde) ✓
+La elección del día y la hora dentro de cada franja es **determinística** por `(clinicId, tier, salt)` → si el paciente refresca el mismo día ve los mismos slots. Cada 24h (medianoche) cambia el seed del día.
 
-Excluidos:
-  - Sábados y domingos
-  - Festivos españoles (Semana Santa, 1 de mayo, etc.)
-  - Más allá de 5 días hábiles
-```
+---
 
-**Código:**
+## REGLA 1 — Clínicas CON datos Doctoralia
 
-```javascript
-function generateFallbackSlots(clinicId) {
-  const slots = [];
-  const today = new Date();
-  const businessDays = getNextBusinessDays(today, 5);
-  
-  // Generar 4 slots distribuidos
-  const distribution = [
-    { day: 0, period: 'morning' },   // Día 1, mañana
-    { day: 1, period: 'afternoon' }, // Día 2, tarde
-    { day: 3, period: 'morning' },   // Día 4, mañana
-    { day: 4, period: 'afternoon' }  // Día 5, tarde
-  ];
-  
-  for (const { day, period } of distribution) {
-    const date = businessDays[day];
-    const time = generateRandomTime(period); // 08:00-13:00 o 14:00-19:00
-    slots.push({ date, time, available: true });
-  }
-  
-  return slots;
-}
+Filtrar la generación a los registros de `clinic_schedules` (source='doctoralia'):
+- Solo días de semana presentes en la tabla.
+- Horarios `start_time`–`end_time` con tolerancia ±15 min.
+- Cada slot debe caer en intervalos de 15 min (`08:00, 08:15, ..., 12:45, ...`).
 
-function getNextBusinessDays(fromDate, count) {
-  const days = [];
-  const current = new Date(fromDate);
-  
-  while (days.length < count) {
-    const dow = current.getDay();
-    
-    // Lunes (1) a Viernes (5)
-    if (dow >= 1 && dow <= 5) {
-      // No es festivo español
-      if (!isSpanishHoliday(current)) {
-        days.push(new Date(current));
-      }
+Si para un tier no se puede colocar 1 mañana + 1 tarde dentro del rango, se devuelven solo los que sí caben (puede ser 1 ó 0).
+
+---
+
+## REGLA 2 — Clínicas SIN datos Doctoralia
+
+Generación libre dentro de horario laborable:
+- Mañana: 08:00–13:00
+- Tarde: 14:00–19:00
+- Intervalos de 15 min
+- Lun–vie, no festivos
+
+Siempre se llenan los 8 slots porque no hay restricción horaria fuente.
+
+---
+
+## RESPUESTA DEL API
+
+**`GET /api/clinics/:id/available-slots`**
+
+```json
+{
+  "slots": [
+    {
+      "date": "2026-04-29",
+      "time": "11:15",
+      "available": true,
+      "tier": 1,
+      "tierName": "urgencia",
+      "tierLabel": "Esta semana",
+      "price": 29.00,
+      "paymentToClinic": 15,
+      "period": "morning"
     }
-    
-    current.setDate(current.getDate() + 1);
-  }
-  
-  return days;
+    // ... hasta 8 slots
+  ],
+  "source": "db" | "fallback",
+  "rule": "doctoralia" | "fallback",
+  "earliestSellable": "2026-04-27T15:00:00.000Z",
+  "pricingTiers": [...],
+  "clinicId": 6
 }
 ```
 
----
-
-## REGLA 3: Importación y Almacenamiento de Doctoralia
-
-**Fuente:** Excel `doctoralia_medicos-6.xlsx`  
-**Script:** `/scripts/import_doctoralia_schedules.py`  
-**Tabla:** `clinic_schedules`  
-**Campos:**
-- `clinic_id`: ID de clínica
-- `day_of_week`: 0=Lunes, 1=Martes, ..., 4=Viernes
-- `start_time`: HH:MM (ej: "09:00")
-- `end_time`: HH:MM (ej: "13:00")
-- `source`: 'doctoralia'
-- `created_at`: timestamp
-
-**Proceso:**
-
-```
-1. Leer Excel doctoralia_medicos-6.xlsx
-2. Fuzzy-match (similaridad ≥ 0.70) entre:
-   - clinic_name + province (Excel) → clinic_id (BD MedConnect)
-3. Para cada match:
-   - Extraer horarios lunes-viernes
-   - Normalizar formato HH:MM
-   - Upsert en clinic_schedules
-4. Marcar source='doctoralia' para identificar
-
-Frecuencia: Bajo demanda (no hay job recurrente)
-Última ejecución: 2026-04-XX
-```
+**`GET /api/clinics/batch-slots?ids=1,2,3&preview=true`**
+En modo `preview=true` devuelve **el slot más temprano de cada tier (1 por tier × 4 tiers max)** por clínica. Sirve para los chips en las tarjetas de búsqueda.
 
 ---
 
-## REGLA 4: Festivos Españoles
+## DETERMINISMO Y ESCASEZ
 
-**Hardcodeados TEMPORALMENTE** (deben cargarse de BD):
-
-```python
-SPANISH_HOLIDAYS = [
-    # Semana Santa 2026
-    '2026-04-02', '2026-04-03', '2026-04-06',
-    # Fiestas de mayo
-    '2026-05-01',
-    # Vacaciones verano
-    # '2026-08-15', # Asunción
-    # Navidad
-    '2026-12-06', '2026-12-08', '2026-12-25',
-    # Año nuevo
-    '2027-01-01'
-]
-```
-
-**TODO:** Crear tabla `spanish_holidays` y cargar desde BD.
+- **Mismo día → mismos slots** (paciente refresca, ve lo mismo, no se siente "manipulado").
+- **24h después → set rotado** (impresión "se vendieron, hay nuevos").
+- **Slot reservado → invalidado** para otros usuarios hasta confirmación/rechazo de la clínica (esto NO está en esta fase; pendiente para "lock-in" del checkout).
 
 ---
 
-## REGLA 5: Rango de Tiempo
+## ARCHIVOS DE IMPLEMENTACIÓN
 
-**Ventana de generación:** 45 días adelante  
-**Motivo:** Balance entre:
-- Suficientemente largo para mostrar disponibilidad
-- Suficientemente corto para ser relevante (no ofertar citas en 6 meses)
-
-**Ajustable:** En variables de entorno o settings.
-
----
-
-## CASOS DE USO
-
-### Caso 1: Usuario busca clínica con Doctoralia
-
-```
-Usuario: "Traumatología en Madrid, próxima semana"
-  → Clínica tiene datos Doctoralia
-  → Slots mostrados SOLO en días/horarios importados
-  → Ejemplo: "Lunes 10:00, Martes 14:30, Viernes 11:00"
-  → Validación: RGLA 1
-```
-
-### Caso 2: Usuario busca clínica sin Doctoralia
-
-```
-Usuario: "Odontología en Barcelona"
-  → Clínica SIN datos Doctoralia
-  → Slots generados aleatoriamente próximos 5 días
-  → Ejemplo: "Martes 11:00, Miércoles 15:30, Viernes 10:00"
-  → Validación: REGLA 2
-  → UX Note: Mostrar "Disponibilidad estimada" (no garantizada)
-```
-
-### Caso 3: Relleno de BD
-
-```
-Se importan 2,960 clínicas del Excel SON.
-  → ~357 tienen Doctoralia (REGLA 1)
-  → ~2,603 sin Doctoralia (REGLA 2)
-  → Frontend elige regla automáticamente según BD
-```
+| Archivo | Responsabilidad |
+|---------|-----------------|
+| [src/lib/slot-validation.js](../src/lib/slot-validation.js) | Lógica completa: tiers, buffer, generación. |
+| [src/app/api/clinics/[id]/available-slots/route.js](../src/app/api/clinics/[id]/available-slots/route.js) | Endpoint principal. |
+| [src/app/api/clinics/batch-slots/route.js](../src/app/api/clinics/batch-slots/route.js) | Endpoint para previews en tarjetas. |
+| [src/components/SlotCalendar.js](../src/components/SlotCalendar.js) | Renderiza slots agrupados por fecha con precio/tier del slot. |
+| [src/components/ClinicCardV2.js](../src/components/ClinicCardV2.js) | Muestra "desde €X,XX" + chips coloreados por tier. |
+| [src/components/ClinicBookingModal.js](../src/components/ClinicBookingModal.js) | Modal de reserva, lee `slot.price` directamente del API. |
 
 ---
 
-## IMPLEMENTACIÓN
+## FUERA DE SCOPE (PRÓXIMA SESIÓN)
 
-### Archivos a crear/modificar
-
-| Archivo | Acción | Prioridad |
-|---------|--------|-----------|
-| `/src/lib/slot-validation.js` | Crear | 🔴 |
-| `/src/lib/spanish-holidays.js` | Crear | 🟡 |
-| `/src/app/api/clinics/[id]/available-slots/route.js` | Modificar | 🔴 |
-| `/src/app/api/clinics/batch-slots/route.js` | Modificar | 🔴 |
-| `/src/data/mock.js` | Rewrite | 🔴 |
-
-### Endpoints afectados
-
-- `GET /api/clinics/[id]/available-slots` → Validar REGLA 1/2
-- `GET /api/clinics/batch-slots` → Validar REGLA 1/2
-- `GET /api/clinics/filters` → No cambios
-
-### Testing
-
-```bash
-# Test REGLA 1 (Doctoralia)
-curl "http://localhost:3000/api/clinics/123/available-slots"
-# Esperar: Slots SOLO en días con Doctoralia
-
-# Test REGLA 2 (Sin Doctoralia)
-curl "http://localhost:3000/api/clinics/999/available-slots"
-# Esperar: 4 slots próximos 5 días hábiles
-
-# Test validación ±15 min
-# Clínica con Doctoralia 09:00-13:00
-# Slots válidos: 08:45, 09:00, 09:15, ..., 13:15
-```
-
----
-
-## AUTORIZACIÓN Y CAMBIOS FUTUROS
-
-**Esta regla es INAMOVIBLE.** Cualquier cambio requiere:
-1. Aprobación escrita de Francisco Pizarro
-2. Actualización de este documento
-3. Tests que validen la nueva regla
-
-**Cambios posibles futuros:**
-- Aumentar ventana de 45 a 60 días
-- Usar 3 slots en lugar de 4 para sin-Doctoralia
-- Cargar festivos españoles de BD (no hardcodeados)
-
----
-
-**Reporte:** 2026-04-25  
-**Validado:** Sí  
-**Estado:** Listo para implementación
+- Lock/reserva del slot durante checkout (race conditions)
+- Reembolso si la clínica rechaza
+- Pricing variable por especialidad
+- A/B testing de precios
+- Notificaciones email a la clínica con detalle del paciente
+- Dashboard de operaciones para "llamar a la clínica"

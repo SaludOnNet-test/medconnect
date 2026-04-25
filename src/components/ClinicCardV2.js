@@ -1,5 +1,4 @@
 'use client';
-import { getConvenienceFee } from '@/data/mock';
 import './ClinicCardV2.css';
 
 function getInitials(name) {
@@ -81,19 +80,35 @@ export default function ClinicCardV2({
         </div>
       ) : nextSlots.length > 0 ? (
         <div className="cv2-slots">
-          <span className="cv2-slots-label">Próximas citas:</span>
+          <span className="cv2-slots-label">
+            Próximas citas
+            {(() => {
+              const priced = nextSlots.filter((s) => s.tier && Number(s.price) > 0);
+              if (priced.length === 0) return null;
+              const min = priced.reduce((m, s) => Math.min(m, Number(s.price)), Infinity);
+              return <> · tarifa de prioridad <strong>desde {min.toFixed(2)}€</strong></>;
+            })()}
+            {!isSinSeguro && (
+              <span className="cv2-slots-coverage"> · tu seguro cubre la consulta</span>
+            )}
+            :
+          </span>
           <div className="cv2-slots-row">
             {nextSlots.map((slot, i) => {
-              const convFee = getConvenienceFee(slot.date);
-              const fee = isSinSeguro ? basePrice + convFee.amount : convFee.amount;
+              const hasTier = slot.tier && Number(slot.price) > 0;
+              const slotPrice = Number(slot.price ?? 0);
+              const fee = isSinSeguro ? basePrice + slotPrice : slotPrice;
               return (
                 <button
                   key={i}
-                  className="cv2-slot-chip"
+                  className={`cv2-slot-chip tier-${slot.tier ?? 0}`}
                   onClick={() => onOpenModal && onOpenModal(provider, slot)}
+                  title={slot.tierLabel || ''}
                 >
                   <span className="cv2-slot-date">{formatSlotDate(slot.date)} · {slot.time}</span>
-                  <span className="cv2-slot-fee">{fee > 0 ? `${fee.toFixed(2)}€` : 'Gratis'}</span>
+                  {hasTier && (
+                    <span className="cv2-slot-fee">{fee.toFixed(2)}€</span>
+                  )}
                 </button>
               );
             })}

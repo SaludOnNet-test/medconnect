@@ -1,9 +1,13 @@
 'use client';
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { getConvenienceFee } from '@/data/mock';
 import { trackEvent } from '@/lib/analytics';
 import './ClinicBookingModal.css';
+
+function feeFromSlot(slot) {
+  if (!slot) return { amount: 0, label: '', tier: 0 };
+  return { amount: Number(slot.price ?? 0), label: slot.tierLabel ?? '', tier: slot.tier ?? 0 };
+}
 
 function getDayLabel(dateStr) {
   const d = new Date(dateStr + 'T00:00:00');
@@ -49,10 +53,10 @@ export default function ClinicBookingModal({ provider, serviceId, basePrice = 0,
 
   const handleBook = () => {
     if (!selectedSlot) return;
-    const convFee = getConvenienceFee(selectedSlot.date);
+    const fee = feeFromSlot(selectedSlot);
     const totalFee = isSinSeguro
-      ? basePrice + convFee.amount
-      : convFee.amount;
+      ? basePrice + fee.amount
+      : fee.amount;
 
     const params = new URLSearchParams({
       provider: provider.id,
@@ -60,7 +64,8 @@ export default function ClinicBookingModal({ provider, serviceId, basePrice = 0,
       date: selectedSlot.date,
       time: selectedSlot.time,
       fee: totalFee,
-      feeLabel: convFee.label,
+      feeLabel: fee.label,
+      tier: String(fee.tier),
       isSinSeguro: String(isSinSeguro),
       ...(serviceId ? { service: serviceId } : {}),
     });
@@ -76,7 +81,7 @@ export default function ClinicBookingModal({ provider, serviceId, basePrice = 0,
   }, [onClose]);
 
   const selectedFee = selectedSlot
-    ? (() => { const f = getConvenienceFee(selectedSlot.date); return isSinSeguro ? basePrice + f.amount : f.amount; })()
+    ? (() => { const f = feeFromSlot(selectedSlot); return isSinSeguro ? basePrice + f.amount : f.amount; })()
     : null;
 
   return (
@@ -132,22 +137,21 @@ export default function ClinicBookingModal({ provider, serviceId, basePrice = 0,
             {slotsForDate.length > 0 ? (
               <div className="cbm-times">
                 {slotsForDate.map((slot, i) => {
-                  const slotConvFee = getConvenienceFee(slot.date);
-                  const fee = isSinSeguro
-                    ? basePrice + slotConvFee.amount
-                    : slotConvFee.amount;
+                  const f = feeFromSlot(slot);
+                  const fee = isSinSeguro ? basePrice + f.amount : f.amount;
                   const isActive = selectedSlot?.time === slot.time;
                   return (
                     <button
                       key={i}
-                      className={`cbm-time-btn ${isActive ? 'cbm-time-btn--active' : ''}`}
+                      className={`cbm-time-btn cbm-time-btn--tier-${f.tier} ${isActive ? 'cbm-time-btn--active' : ''}`}
                       onClick={() => {
                         setSelectedSlot(slot);
-                        trackEvent('slot_selected', { provider_id: provider.id, date: slot.date, time: slot.time });
+                        trackEvent('slot_selected', { provider_id: provider.id, date: slot.date, time: slot.time, tier: f.tier });
                       }}
+                      title={f.label || ''}
                     >
                       <span className="cbm-time">{slot.time}</span>
-                      <span className="cbm-time-fee">{fee > 0 ? `${fee.toFixed(2)}€` : 'Gratis'}</span>
+                      {f.amount > 0 && <span className="cbm-time-fee">{fee.toFixed(2)}€</span>}
                     </button>
                   );
                 })}

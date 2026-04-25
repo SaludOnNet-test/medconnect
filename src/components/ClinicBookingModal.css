@@ -196,6 +196,16 @@
   background: #fefce8;
 }
 
+/* Tier colors — urgency-based pricing */
+.cbm-time-btn--tier-1 { border-color: #dc2626; background: #fef2f2; }
+.cbm-time-btn--tier-1 .cbm-time-fee { color: #b91c1c; }
+.cbm-time-btn--tier-2 { border-color: #ea580c; background: #fff7ed; }
+.cbm-time-btn--tier-2 .cbm-time-fee { color: #c2410c; }
+.cbm-time-btn--tier-3 { border-color: #ca8a04; background: #fefce8; }
+.cbm-time-btn--tier-3 .cbm-time-fee { color: #a16207; }
+.cbm-time-btn--tier-4 { border-color: #16a34a; background: #f0fdf4; }
+.cbm-time-btn--tier-4 .cbm-time-fee { color: #15803d; }
+
 .cbm-time-btn--active {
   background: #0d5e42;
   border-color: #0d5e42;

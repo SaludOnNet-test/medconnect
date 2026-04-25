@@ -1,11 +1,15 @@
 'use client';
 import React, { useState, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
-import { getConvenienceFee } from '@/data/mock';
 import './SlotCalendar.css';
 
 const DAY_NAMES = ['Dom', 'Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb'];
 const VISIBLE_DAYS = 10;
+
+function feeFromSlot(slot) {
+  if (!slot) return { amount: 0, label: '', tier: 0 };
+  return { amount: Number(slot.price ?? 0), label: slot.tierLabel ?? '', tier: slot.tier ?? 0 };
+}
 
 export default function SlotCalendar({ slots, onSelectSlot, isSinSeguro = false, basePrice = 0, provider, serviceId }) {
   const router = useRouter();
@@ -13,7 +17,6 @@ export default function SlotCalendar({ slots, onSelectSlot, isSinSeguro = false,
   const [selectedDate, setSelectedDate] = useState(null);
   const [selectedTime, setSelectedTime] = useState(null);
 
-  // Group slots by date
   const slotsByDate = useMemo(() => {
     const grouped = {};
     slots.forEach((s) => {
@@ -24,7 +27,6 @@ export default function SlotCalendar({ slots, onSelectSlot, isSinSeguro = false,
   }, [slots]);
 
   const dates = Object.keys(slotsByDate).sort();
-  // Let's show 10 days at a time (2 rows of 5)
   const visibleDates = dates.slice(startIndex, startIndex + VISIBLE_DAYS);
 
   const handleDayClick = (date) => {
@@ -34,13 +36,15 @@ export default function SlotCalendar({ slots, onSelectSlot, isSinSeguro = false,
 
   const handleTimeClick = (date, time) => {
     setSelectedTime(time);
-    const fee = getConvenienceFee(date);
-    onSelectSlot?.({ date, time, fee });
+    const slot = (slotsByDate[date] || []).find((s) => s.time === time);
+    const fee = feeFromSlot(slot);
+    onSelectSlot?.({ date, time, fee, slot });
   };
 
   const handleStickyBook = () => {
     if (!selectedDate || !selectedTime || !provider) return;
-    const fee = getConvenienceFee(selectedDate);
+    const slot = (slotsByDate[selectedDate] || []).find((s) => s.time === selectedTime);
+    const fee = feeFromSlot(slot);
     const totalFee = isSinSeguro ? (basePrice + fee.amount) : fee.amount;
     const params = new URLSearchParams({
       provider: provider.id,
@@ -49,13 +53,16 @@ export default function SlotCalendar({ slots, onSelectSlot, isSinSeguro = false,
       time: selectedTime,
       fee: totalFee,
       feeLabel: fee.label,
+      tier: fee.tier,
       isSinSeguro: isSinSeguro,
       ...(serviceId ? { service: serviceId } : {}),
     });
     router.push(`/book?${params.toString()}`);
   };
 
-  const selectedFee = selectedDate ? getConvenienceFee(selectedDate) : null;
+  const selectedFee = selectedDate
+    ? feeFromSlot((slotsByDate[selectedDate] || [])[0])
+    : null;
   const selectedDayLabel = selectedDate
     ? new Date(selectedDate + 'T00:00:00').toLocaleDateString('es-ES', { weekday: 'short', day: 'numeric', month: 'short' })
     : null;
@@ -74,7 +81,7 @@ export default function SlotCalendar({ slots, onSelectSlot, isSinSeguro = false,
             ←
           </button>
           <button
-            onClick={() => setStartIndex(Math.min(dates.length - VISIBLE_DAYS, startIndex + 5))}
+            onClick={() => setStartIndex(Math.min(Math.max(0, dates.length - VISIBLE_DAYS), startIndex + 5))}
             disabled={startIndex + VISIBLE_DAYS >= dates.length}
             aria-label="Siguiente"
           >
@@ -84,14 +91,14 @@ export default function SlotCalendar({ slots, onSelectSlot, isSinSeguro = false,
       </div>
 
       <div className="slot-days-grid">
-        {visibleDates.map((date, index) => {
+        {visibleDates.map((date) => {
           const d = new Date(date + 'T00:00:00');
-          const feeObj = getConvenienceFee(date);
+          const dayFirstSlot = (slotsByDate[date] || [])[0];
+          const feeObj = feeFromSlot(dayFirstSlot);
           const isSelected = selectedDate === date;
-          
-          // If Sin Seguro, total price is base price + urgency fee
+
           const totalAmount = isSinSeguro ? (basePrice + feeObj.amount) : feeObj.amount;
-          
+
           const dayCell = (
             <div
               key={date}
@@ -100,7 +107,7 @@ export default function SlotCalendar({ slots, onSelectSlot, isSinSeguro = false,
             >
               <span className="slot-day-name">{DAY_NAMES[d.getDay()]}</span>
               <span className="slot-day-number">{d.getDate()}</span>
-              
+
               <div className="slot-day-pricing">
                 {isSinSeguro ? (
                   <div className="slot-price-split">
@@ -118,7 +125,6 @@ export default function SlotCalendar({ slots, onSelectSlot, isSinSeguro = false,
             </div>
           );
 
-          // The accordion panel that appears below the clicked day
           const expandedPanel = isSelected ? (
             <div key={`${date}-expanded`} className="slot-times-accordion">
               {slotsByDate[selectedDate]?.length > 0 ? (
@@ -147,7 +153,6 @@ export default function SlotCalendar({ slots, onSelectSlot, isSinSeguro = false,
       </div>
     </div>
 
-    {/* Mobile sticky booking bar — shows when a date is selected */}
     {selectedDate && provider && (
       <div className="slot-sticky-bar">
         <div className="slot-sticky-info">
