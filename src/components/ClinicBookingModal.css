@@ -17,15 +17,16 @@
 }
 
 .cbm-modal {
-  background: #fff;
+  background: var(--bone-100);
   width: 100%;
   max-width: 640px;
   max-height: 90vh;
-  border-radius: 20px 20px 0 0;
+  border-radius: var(--radius-xl) var(--radius-xl) 0 0;
   display: flex;
   flex-direction: column;
   animation: cbm-slide-up 0.2s ease;
   overflow: hidden;
+  box-shadow: var(--shadow-3);
 }
 
 @keyframes cbm-slide-up {
@@ -48,65 +49,74 @@
   display: flex;
   justify-content: space-between;
   align-items: flex-start;
-  padding: 1.5rem 1.5rem 1rem;
-  border-bottom: 1px solid #f3f4f6;
+  padding: var(--space-5) var(--space-5) var(--space-3);
+  border-bottom: 1px solid var(--border);
   flex-shrink: 0;
 }
 
 .cbm-title {
-  font-size: 1.15rem;
-  font-weight: 700;
-  color: #1a3c5e;
-  margin: 0 0 4px;
+  font-family: var(--font-display);
+  font-size: var(--text-2xl);
+  font-weight: 500;
+  letter-spacing: var(--tracking-snug);
+  color: var(--fg);
+  margin: 0 0 var(--space-1);
+  line-height: var(--leading-snug);
 }
 
 .cbm-subtitle {
-  font-size: 0.82rem;
-  color: #6b7280;
-  margin: 0 0 4px;
+  font-family: var(--font-body);
+  font-size: var(--text-sm);
+  color: var(--fg-muted);
+  margin: 0 0 var(--space-1);
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
 }
 
 .cbm-rating {
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: var(--space-1);
+  font-family: var(--font-body);
 }
 
 .cbm-close {
-  background: #f3f4f6;
+  background: var(--bone-200);
   border: none;
   border-radius: 50%;
-  width: 32px;
-  height: 32px;
-  font-size: 1rem;
+  width: 36px;
+  height: 36px;
   cursor: pointer;
   display: flex;
   align-items: center;
   justify-content: center;
-  color: #6b7280;
+  color: var(--fg-muted);
   flex-shrink: 0;
-  transition: background 0.15s;
+  transition: background var(--duration-micro) var(--ease),
+              color var(--duration-micro) var(--ease);
 }
 
 .cbm-close:hover {
-  background: #e5e7eb;
-  color: #1f2937;
+  background: var(--bone-300);
+  color: var(--fg);
 }
 
 /* ── Sections ─────────────────────────────────────────────────────────── */
 .cbm-section {
-  padding: 1.25rem 1.5rem;
+  padding: var(--space-4) var(--space-5);
   overflow-y: auto;
   flex-shrink: 0;
 }
 
 .cbm-section-title {
-  font-size: 0.8rem;
-  font-weight: 700;
+  font-family: var(--font-body);
+  font-size: var(--text-2xs);
+  font-weight: 600;
   text-transform: uppercase;
-  letter-spacing: 0.08em;
-  color: #9ca3af;
-  margin: 0 0 0.75rem;
+  letter-spacing: var(--tracking-eyebrow);
+  color: var(--fg-muted);
+  margin: 0 0 var(--space-3);
 }
 
 /* ── Date buttons ─────────────────────────────────────────────────────── */
@@ -125,25 +135,28 @@
   flex-direction: column;
   align-items: center;
   padding: 10px 14px;
-  border: 1.5px solid #e5e7eb;
-  border-radius: 12px;
-  background: #fff;
+  border: 1.5px solid var(--border-strong);
+  border-radius: var(--radius-md);
+  background: var(--bone-50);
   cursor: pointer;
-  transition: all 0.15s;
+  transition: border-color var(--duration-micro) var(--ease),
+              background var(--duration-micro) var(--ease),
+              color var(--duration-micro) var(--ease);
   min-width: 60px;
   flex-shrink: 0;
-  font-family: inherit;
+  font-family: var(--font-body);
+  color: var(--fg);
 }
 
 .cbm-date-btn:hover {
-  border-color: #1a3c5e;
-  background: #f0f4f8;
+  border-color: var(--ink-1000);
+  background: var(--bone-200);
 }
 
 .cbm-date-btn--active {
-  background: #1a3c5e;
-  border-color: #1a3c5e;
-  color: #fff;
+  background: var(--ink-1000);
+  border-color: var(--ink-1000);
+  color: var(--bone-100);
 }
 
 .cbm-date-weekday {
@@ -154,14 +167,15 @@
 }
 
 .cbm-date-num {
-  font-size: 1.3rem;
-  font-weight: 700;
+  font-family: var(--font-display);
+  font-size: var(--text-xl);
+  font-weight: 500;
   line-height: 1;
   margin: 2px 0;
 }
 
 .cbm-date-month {
-  font-size: 0.7rem;
+  font-size: var(--text-2xs);
   text-transform: capitalize;
   opacity: 0.7;
 }
@@ -170,9 +184,10 @@
    variation across days before clicking. */
 .cbm-date-price {
   display: block;
-  font-size: 0.68rem;
-  font-weight: 700;
-  color: #1a3c5e;
+  font-family: var(--font-mono);
+  font-size: var(--text-2xs);
+  font-weight: 600;
+  color: var(--accent-press);
   margin-top: 4px;
   line-height: 1.2;
 }
@@ -198,12 +213,14 @@
   flex-direction: column;
   align-items: center;
   padding: 10px 8px;
-  border: 1.5px solid #e5e7eb;
-  border-radius: 10px;
-  background: #fff;
+  border: 1.5px solid var(--border-strong);
+  border-radius: var(--radius-md);
+  background: var(--bone-50);
   cursor: pointer;
-  transition: all 0.15s;
-  font-family: inherit;
+  transition: border-color var(--duration-micro) var(--ease),
+              background var(--duration-micro) var(--ease);
+  font-family: var(--font-body);
+  color: var(--fg);
 }
 
 .cbm-time-btn:hover {

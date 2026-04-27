@@ -3,6 +3,7 @@ import { useState, useMemo, useEffect, useCallback, useRef, Suspense } from 'rea
 import { useSearchParams } from 'next/navigation';
 import dynamic from 'next/dynamic';
 import Header from '@/components/Header';
+import Icon from '@/components/icons/Icon';
 import ClinicCardV2 from '@/components/ClinicCardV2';
 import ClinicBookingModal from '@/components/ClinicBookingModal';
 import { insuranceCompanies } from '@/data/mock';
@@ -229,19 +230,9 @@ function SearchV2Content() {
         </div>
 
         {/* Insurance disclaimer banner */}
-        <div className="container" style={{ paddingTop: '0.75rem', paddingBottom: '0.5rem' }}>
-          <div style={{
-            background: '#fffaeb',
-            border: '1px solid #f0d97a',
-            borderRadius: '10px',
-            padding: '0.75rem 1rem',
-            fontSize: '0.85rem',
-            color: '#5b4400',
-            display: 'flex',
-            alignItems: 'center',
-            gap: '0.5rem',
-          }}>
-            <span aria-hidden style={{ fontSize: '1rem' }}>ℹ️</span>
+        <div className="container sv2-disclaimer-row">
+          <div className="sv2-disclaimer">
+            <Icon name="info" size={16} className="sv2-disclaimer-icon" />
             <span>
               Los precios mostrados son la <strong>tarifa de prioridad</strong> (lo que pagas por la reserva).
               Si tienes seguro, la consulta la cubre tu póliza.
