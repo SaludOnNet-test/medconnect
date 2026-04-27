@@ -563,6 +563,263 @@ img {
   }
 }
 
+/* ── Marketing page sections (used by /como-funciona, /aseguradoras, /faq,
+       /para-clinicas, /derivadores, /contacto). All built on the brand
+       Bone surface step. ── */
+.info-section {
+  background: var(--bone-100);
+  padding: var(--space-9) 0;
+  border-top: 1px solid var(--border);
+}
+
+.info-section--alt {
+  background: var(--bone-200);
+}
+
+.info-section-inner,
+.info-section .container {
+  max-width: var(--container);
+}
+
+.info-section-title {
+  font-family: var(--font-display);
+  font-size: var(--text-4xl);
+  font-weight: 500;
+  line-height: 1.08;
+  letter-spacing: var(--tracking-tight);
+  margin: var(--space-3) 0 var(--space-6);
+  max-width: 760px;
+  text-wrap: balance;
+}
+
+.info-section-title em {
+  font-style: italic;
+}
+
+.info-section-lede {
+  font-family: var(--font-body);
+  font-size: var(--text-lg);
+  line-height: var(--leading-normal);
+  color: var(--fg-muted);
+  margin: 0 0 var(--space-7);
+  max-width: 640px;
+}
+
+.info-section-note {
+  margin-top: var(--space-4);
+  font-family: var(--font-body);
+  font-size: var(--text-sm);
+  color: var(--fg-muted);
+  text-align: center;
+}
+
+/* ── Reality rows (numbered list with mono index) ── */
+.reality-list {
+  border-top: 1px solid var(--border-strong);
+}
+
+.reality-row {
+  display: grid;
+  grid-template-columns: 80px 1fr;
+  gap: var(--space-6);
+  padding: var(--space-6) 0;
+  border-bottom: 1px solid var(--border-strong);
+}
+
+.reality-n {
+  font-family: var(--font-mono);
+  font-size: var(--text-sm);
+  color: var(--accent);
+  font-weight: 600;
+  letter-spacing: 0.06em;
+}
+
+.reality-title {
+  font-family: var(--font-display);
+  font-size: var(--text-2xl);
+  font-weight: 500;
+  line-height: 1.2;
+  letter-spacing: var(--tracking-snug);
+  margin: 0 0 var(--space-2);
+  text-wrap: balance;
+}
+
+.reality-body {
+  font-family: var(--font-body);
+  font-size: var(--text-md);
+  line-height: var(--leading-loose);
+  color: var(--fg-muted);
+  margin: 0;
+  max-width: 660px;
+}
+
+@media (max-width: 640px) {
+  .reality-row {
+    grid-template-columns: 1fr;
+    gap: var(--space-2);
+    padding: var(--space-5) 0;
+  }
+  .reality-title {
+    font-size: var(--text-xl);
+  }
+}
+
+/* ── Insurer cards (used in /aseguradoras) ── */
+.insurers-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: var(--space-4);
+}
+
+.insurer-card {
+  background: var(--bone-50);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  padding: var(--space-5);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  min-height: 160px;
+}
+
+.insurer-card-logo {
+  height: 28px;
+  display: flex;
+  align-items: center;
+}
+
+.insurer-card-logo-img {
+  height: 22px;
+  width: auto;
+  opacity: 0.85;
+}
+
+.insurer-card-name {
+  font-family: var(--font-display);
+  font-size: var(--text-xl);
+  font-weight: 600;
+  letter-spacing: var(--tracking-snug);
+  color: var(--fg);
+}
+
+.insurer-card-clinics {
+  font-family: var(--font-mono);
+  font-size: var(--text-sm);
+  color: var(--fg-muted);
+  margin-top: auto;
+}
+
+.insurer-card-meta {
+  font-family: var(--font-body);
+  font-size: var(--text-xs);
+  color: var(--fg-subtle);
+}
+
+@media (max-width: 900px) {
+  .insurers-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+@media (max-width: 540px) {
+  .insurers-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* Stats grid (used by various marketing sections) */
+.stats-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: var(--space-6);
+}
+
+.stats-grid > * {
+  border-top: 1px solid var(--border-strong);
+  padding-top: var(--space-4);
+}
+
+@media (max-width: 640px) {
+  .stats-grid {
+    grid-template-columns: 1fr;
+    gap: var(--space-5);
+  }
+}
+
+/* ── FAQ container ── */
+.faq-container {
+  max-width: 880px;
+}
+
+/* ── CTA section (Ink dark) ── */
+.cta-section {
+  background: var(--bg-inverse);
+  color: var(--fg-on-inverse);
+  position: relative;
+  overflow: hidden;
+  padding: var(--space-9) 0;
+}
+
+.cta-noise {
+  position: absolute;
+  inset: 0;
+  opacity: 0.04;
+  pointer-events: none;
+  background-image: url('/brand/noise.svg');
+  background-size: 160px 160px;
+}
+
+.cta-inner {
+  position: relative;
+  text-align: center;
+}
+
+.cta-title {
+  font-family: var(--font-display);
+  font-size: var(--text-5xl);
+  font-weight: 500;
+  line-height: 1.05;
+  letter-spacing: var(--tracking-tight);
+  margin: var(--space-3) 0;
+  text-wrap: balance;
+  color: var(--fg-on-inverse);
+}
+
+.cta-title em {
+  font-style: italic;
+  color: var(--brass-400);
+  font-variation-settings: "opsz" 96, "ital" 1;
+}
+
+.cta-lede {
+  font-family: var(--font-body);
+  font-size: var(--text-lg);
+  line-height: var(--leading-normal);
+  color: var(--fg-on-inverse-muted);
+  margin: 0 auto var(--space-6);
+  max-width: 580px;
+}
+
+.cta-actions {
+  display: inline-flex;
+  gap: var(--space-3);
+  flex-wrap: wrap;
+  justify-content: center;
+}
+
+@media (max-width: 640px) {
+  .info-section,
+  .cta-section {
+    padding: var(--space-7) 0;
+  }
+  .info-section-title {
+    font-size: var(--text-3xl);
+  }
+  .cta-title {
+    font-size: var(--text-3xl);
+  }
+}
+
 /* Legal pages (legal, cookies, privacidad) — shared brand 2026 type scale. */
 .legal-page {
   max-width: var(--container-narrow);
