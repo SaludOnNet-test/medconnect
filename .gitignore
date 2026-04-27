@@ -46,3 +46,6 @@ next-env.d.ts
 
 # Excel files (local data)
 *.xlsx
+
+# Local Lighthouse baseline reports (kept local for comparison)
+.lighthouse-baseline/
