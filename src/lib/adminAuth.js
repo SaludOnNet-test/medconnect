@@ -3,6 +3,7 @@
 // Stored client-side in localStorage; verified server-side on each /api/ops or /api/admin call.
 
 import crypto from 'crypto';
+import { NextResponse } from 'next/server';
 import { query, sql, DB_AVAILABLE } from '@/lib/db';
 
 const SESSION_SECRET = process.env.SESSION_SECRET || process.env.DB_SETUP_SECRET || 'dev-session-secret';
@@ -86,6 +87,56 @@ export function requireAuth(request) {
   const auth = request.headers.get('authorization') || '';
   const token = auth.startsWith('Bearer ') ? auth.slice(7) : null;
   return verifyToken(token);
+}
+
+/**
+ * Pure role-membership check. Use this after `requireAuth` so the call site
+ * can return 401 (no/expired token) and 403 (valid token, wrong role) with
+ * the right HTTP semantics — the admin UI's adminFetch only auto-relogins
+ * on 401.
+ *
+ * Roles in use today (admin_users.role):
+ *   - 'admin' — full power (create/manage admins, role changes)
+ *   - 'ops'   — handle ops cases, upload vouchers, action bookings
+ *
+ * Pattern at call site:
+ *   const session = requireAuth(request);
+ *   if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+ *   if (!hasRole(session, ['admin', 'ops'])) {
+ *     return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+ *   }
+ *
+ * Defense-in-depth: even when a route only logically targets admins, prefer
+ * `hasRole(session, ['admin'])` over a bare `session.role === 'admin'` check
+ * so that future role additions (e.g. 'viewer') don't accidentally inherit
+ * permissions they shouldn't.
+ */
+export function hasRole(session, allowedRoles) {
+  if (!session) return false;
+  if (!Array.isArray(allowedRoles) || allowedRoles.length === 0) return true;
+  return allowedRoles.includes(session.role);
+}
+
+/**
+ * One-call shorthand when you want the 401 distinction baked in. Returns the
+ * session object for the success path, or a NextResponse with the right
+ * status for the failure path. Call sites can early-return:
+ *
+ *   const r = requireRole(request, ['admin', 'ops']);
+ *   if (r instanceof Response) return r;
+ *   const session = r;
+ *
+ * Avoids two boilerplate lines per route while preserving 401 vs 403.
+ */
+export function requireRole(request, allowedRoles) {
+  const session = requireAuth(request);
+  if (!session) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  }
+  if (!hasRole(session, allowedRoles)) {
+    return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+  }
+  return session;
 }
 
 export { hashPassword };

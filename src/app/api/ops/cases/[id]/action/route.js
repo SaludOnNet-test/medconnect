@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import Stripe from 'stripe';
 import { getCase, updateCase, appendCallLog, CASE_STATUS } from '@/lib/opsCases';
-import { requireAuth } from '@/lib/adminAuth';
+import { requireRole } from '@/lib/adminAuth';
 import { sendEmail } from '@/lib/email';
 import {
   patientFinalConfirmation,
@@ -81,8 +81,9 @@ async function issueRefund(c, reason) {
 }
 
 export async function POST(request, { params }) {
-  const session = requireAuth(request);
-  if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  const rr = requireRole(request, ['admin', 'ops']);
+  if (rr instanceof Response) return rr;
+  const session = rr;
 
   const { id } = await params;
   const body = await request.json();

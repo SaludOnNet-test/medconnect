@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { getPool, query, sql, DB_AVAILABLE } from '@/lib/db';
-import { requireAuth } from '@/lib/adminAuth';
+import { requireRole } from '@/lib/adminAuth';
 import { sendEmail } from '@/lib/email';
 import { voucherDelivery } from '@/lib/emailTemplates';
 
@@ -15,8 +15,9 @@ import { voucherDelivery } from '@/lib/emailTemplates';
  * - resend=true: just re-sends the email using the stored fields.
  */
 export async function POST(request) {
-  const session = requireAuth(request);
-  if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  const rr = requireRole(request, ['admin', 'ops']);
+  if (rr instanceof Response) return rr;
+  const session = rr;
   if (!DB_AVAILABLE) return NextResponse.json({ error: 'DB not configured' }, { status: 503 });
 
   let body;
