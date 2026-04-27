@@ -651,3 +651,125 @@ export function voucherDelivery({
     html,
   };
 }
+
+// ─────────────────────────────────────────────
+// 14. Ops alert — new clinic alta request submitted by a pro user.
+//     Sent to operaciones@medconnect.es (or OPERATIONS_EMAIL env override).
+// ─────────────────────────────────────────────
+export function clinicAltaRequestOps({
+  requestId, requestedByEmail, requestedByName, clinicName, city, province,
+  address, telephone, contactEmail, specialties, aseguradoras, notes,
+}) {
+  const reviewUrl = `${BASE_URL}/admin/clinic-alta`;
+  const html = baseWrapper(bodySection(`
+    <h2 style="margin:0 0 8px;font-size:22px;font-weight:800;color:#1a3c5e;">Nueva solicitud de alta de clínica</h2>
+    <p style="margin:0 0 24px;font-size:15px;color:#6b7280;">
+      <strong>${requestedByName || requestedByEmail}</strong> quiere dar de alta su clínica en Med Connect.
+      Revisa los datos y aprueba o rechaza desde el panel de operaciones.
+    </p>
+    <table width="100%" cellpadding="0" cellspacing="0" style="margin-bottom:24px;border:1px solid #e5e7eb;border-radius:8px;overflow:hidden;">
+      <tr style="background:#f9fafb;"><th colspan="2" style="padding:12px 16px;text-align:left;font-size:13px;color:#6b7280;font-weight:600;text-transform:uppercase;letter-spacing:0.05em;">Solicitud #${requestId}</th></tr>
+      ${infoRow('Solicitante', `${requestedByName || ''} &lt;${requestedByEmail}&gt;`)}
+      ${infoRow('Clínica', clinicName)}
+      ${city ? infoRow('Ciudad', city) : ''}
+      ${province ? infoRow('Provincia', province) : ''}
+      ${address ? infoRow('Dirección', address) : ''}
+      ${telephone ? infoRow('Teléfono', telephone) : ''}
+      ${contactEmail ? infoRow('Email de contacto', contactEmail) : ''}
+      ${specialties ? infoRow('Especialidades', specialties) : ''}
+      ${aseguradoras ? infoRow('Aseguradoras', aseguradoras) : ''}
+      ${notes ? infoRow('Notas', notes) : ''}
+    </table>
+    <div style="text-align:center;margin:28px 0;">
+      ${ctaButton(reviewUrl, 'Revisar en el panel', '#c9a84c', '#1a3c5e')}
+    </div>
+  `));
+  return {
+    subject: `🏥 Alta clínica pendiente — ${clinicName}`,
+    html,
+  };
+}
+
+// ─────────────────────────────────────────────
+// 15. Pro user — confirmation of clinic alta request received.
+// ─────────────────────────────────────────────
+export function clinicAltaRequestReceived({ requestedByName, clinicName }) {
+  const html = baseWrapper(bodySection(`
+    <h2 style="margin:0 0 8px;font-size:22px;font-weight:800;color:#1a3c5e;">Hemos recibido tu solicitud</h2>
+    <p style="margin:0 0 16px;font-size:15px;color:#374151;line-height:1.55;">
+      Hola <strong>${requestedByName || ''}</strong>,
+    </p>
+    <p style="margin:0 0 16px;font-size:15px;color:#374151;line-height:1.55;">
+      Tu solicitud de alta para <strong>${clinicName}</strong> está en revisión.
+      Nuestro equipo de operaciones la revisará y te avisará por email en cuanto
+      esté aprobada — normalmente en menos de <strong>48 horas hábiles</strong>.
+    </p>
+    <p style="margin:0 0 16px;font-size:15px;color:#374151;line-height:1.55;">
+      Mientras tanto puedes seguir derivando pacientes a otras clínicas de la red
+      desde tu panel profesional.
+    </p>
+    <p style="margin:0;font-size:13px;color:#6b7280;line-height:1.55;">
+      Si tenés cualquier duda escribinos a
+      <a href="mailto:operaciones@medconnect.es" style="color:#1a3c5e;">operaciones@medconnect.es</a>.
+    </p>
+  `));
+  return {
+    subject: `Solicitud de alta recibida — ${clinicName}`,
+    html,
+  };
+}
+
+// ─────────────────────────────────────────────
+// 16. Pro user — alta approved (clinic now active).
+// ─────────────────────────────────────────────
+export function clinicAltaApproved({ requestedByName, clinicName, clinicCity }) {
+  const dashboardUrl = `${BASE_URL}/pro/dashboard`;
+  const html = baseWrapper(bodySection(`
+    <h2 style="margin:0 0 8px;font-size:22px;font-weight:800;color:#1a3c5e;">¡Tu clínica está activa!</h2>
+    <p style="margin:0 0 16px;font-size:15px;color:#374151;line-height:1.55;">
+      Hola <strong>${requestedByName || ''}</strong>,
+    </p>
+    <p style="margin:0 0 16px;font-size:15px;color:#374151;line-height:1.55;">
+      <strong>${clinicName}</strong>${clinicCity ? ` (${clinicCity})` : ''} ya está dada de alta en
+      Med Connect. Ya puedes crear derivaciones internas hacia tu propia clínica
+      desde el panel profesional.
+    </p>
+    <div style="text-align:center;margin:28px 0;">
+      ${ctaButton(dashboardUrl, 'Ir al panel profesional', '#c9a84c', '#1a3c5e')}
+    </div>
+  `));
+  return {
+    subject: `Tu clínica ya está activa en Med Connect — ${clinicName}`,
+    html,
+  };
+}
+
+// ─────────────────────────────────────────────
+// 17. Pro user — alta rejected with ops notes.
+// ─────────────────────────────────────────────
+export function clinicAltaRejected({ requestedByName, clinicName, opsNotes }) {
+  const html = baseWrapper(bodySection(`
+    <h2 style="margin:0 0 8px;font-size:22px;font-weight:800;color:#1a3c5e;">No hemos podido completar tu alta</h2>
+    <p style="margin:0 0 16px;font-size:15px;color:#374151;line-height:1.55;">
+      Hola <strong>${requestedByName || ''}</strong>,
+    </p>
+    <p style="margin:0 0 16px;font-size:15px;color:#374151;line-height:1.55;">
+      Hemos revisado tu solicitud para <strong>${clinicName}</strong> y, por ahora,
+      no podemos darla de alta automáticamente.
+    </p>
+    ${opsNotes ? `
+    <div style="background:#fff8e6;border:1px solid #f59e0b;border-radius:8px;padding:16px;margin-bottom:20px;">
+      <p style="margin:0 0 8px;font-size:13px;color:#92400e;font-weight:700;">Motivo</p>
+      <p style="margin:0;font-size:14px;color:#92400e;line-height:1.5;">${opsNotes}</p>
+    </div>` : ''}
+    <p style="margin:0;font-size:14px;color:#374151;line-height:1.55;">
+      Si crees que es un error o quieres aportar más información, contesta a
+      <a href="mailto:operaciones@medconnect.es" style="color:#1a3c5e;">operaciones@medconnect.es</a>
+      y te ayudaremos a completar el alta.
+    </p>
+  `));
+  return {
+    subject: `Tu solicitud de alta — ${clinicName}`,
+    html,
+  };
+}

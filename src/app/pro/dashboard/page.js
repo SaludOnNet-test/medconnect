@@ -52,6 +52,10 @@ export default function ProDashboard() {
   // when the user isn't yet attached (alta pendiente). The ReferralModal
   // uses this to gate "interna" derivation.
   const [myClinic, setMyClinic] = useState(null);
+  // The wider onboarding state — drives the banner that nudges unattached
+  // pros to /pro/onboarding. 'active' once myClinic resolves; 'pending' /
+  // 'rejected' / 'none' otherwise.
+  const [altaStatus, setAltaStatus] = useState(null);
   const handleClerkUser = useCallback((data) => setClerkUser(data), []);
   const [isMounted, setIsMounted] = useState(false);
   useEffect(() => setIsMounted(true), []);
@@ -120,6 +124,7 @@ export default function ProDashboard() {
         } else {
           setMyClinic(null);
         }
+        setAltaStatus(data?.altaStatus || 'none');
       } catch { /* ignore */ }
     })();
     return () => { cancelled = true; };
@@ -312,6 +317,41 @@ export default function ProDashboard() {
               <button className="btn btn-navy btn-sm" onClick={() => alert('WIP: Abrir modal de subida de documentos')}>
                 Verificar cuenta ahora
               </button>
+            </div>
+          )}
+
+          {/* Onboarding nudge — only shown once /api/pro/me has resolved
+              and the user isn't yet mapped to a clinic. Each altaStatus
+              gets a distinct copy so the user knows where they are in the
+              flow. */}
+          {altaStatus && altaStatus !== 'active' && (
+            <div className="pro-alert animate-fade-in-up" style={{ marginTop: '0.5rem' }}>
+              <div className="pro-alert-text">
+                {altaStatus === 'none' && (
+                  <>
+                    <strong>🏥 Vincula tu clínica a Med Connect</strong>
+                    Solo necesitamos saber a qué clínica perteneces para activar las
+                    derivaciones internas. Tarda menos de 2 minutos.
+                  </>
+                )}
+                {altaStatus === 'pending' && (
+                  <>
+                    <strong>⏳ Tu solicitud de alta está en revisión</strong>
+                    Nuestro equipo de operaciones la revisará en menos de 48 h hábiles.
+                    Mientras tanto las derivaciones externas siguen funcionando.
+                  </>
+                )}
+                {altaStatus === 'rejected' && (
+                  <>
+                    <strong>⚠️ No pudimos completar tu alta</strong>
+                    Revisa el email que enviamos o vuelve a enviar la solicitud
+                    desde el panel de onboarding.
+                  </>
+                )}
+              </div>
+              <Link href="/pro/onboarding" className="btn btn-primary btn-sm">
+                {altaStatus === 'pending' ? 'Ver estado' : 'Ir al onboarding'}
+              </Link>
             </div>
           )}
 
