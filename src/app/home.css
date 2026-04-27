@@ -8,7 +8,10 @@
   color: var(--fg-on-inverse);
   position: relative;
   overflow: hidden;
-  padding: var(--space-9) 0;
+  /* Tighter padding (was --space-9 96px). The whole hero — eyebrow, h1,
+     lede, search box — must fit above-the-fold on a 1280×800 desktop and
+     a 390×844 phone without scrolling. */
+  padding: var(--space-7) 0 var(--space-6);
 }
 
 .home-hero-noise {
@@ -30,13 +33,16 @@
 
 .home-heading {
   font-family: var(--font-display);
-  font-size: var(--text-6xl);
+  /* Was --text-6xl (84px) — too big to fit above the fold + the search
+     bar on a typical 800px-tall desktop viewport. Use clamp so it scales
+     from 36px on small phones up to 64px on wide desktops. */
+  font-size: clamp(var(--text-3xl), 5.2vw, var(--text-5xl));
   font-weight: 500;
-  line-height: 1.02;
+  line-height: 1.04;
   letter-spacing: -0.025em;
-  font-variation-settings: "opsz" 144;
+  font-variation-settings: "opsz" 96;
   text-wrap: balance;
-  max-width: 920px;
+  max-width: 880px;
   color: var(--fg-on-inverse);
 }
 
@@ -61,7 +67,9 @@
 }
 
 .home-search-wrap {
-  margin-top: var(--space-6);
+  /* Tightened from --space-6 (32px) to --space-4 (16px) — gives the
+     search box more room above the fold on short viewports. */
+  margin-top: var(--space-4);
   width: 100%;
 }
 
@@ -220,6 +228,38 @@
   margin: 0;
 }
 
+/* ── Home FAQ section (uses brand Accordion) ─────────────────────── */
+.home-faq-section {
+  background: var(--bone-200);
+  padding: var(--space-9) 0;
+  border-top: 1px solid var(--border);
+  border-bottom: 1px solid var(--border);
+}
+
+.home-faq-title {
+  font-family: var(--font-display);
+  font-size: var(--text-4xl);
+  font-weight: 500;
+  line-height: 1.05;
+  letter-spacing: var(--tracking-tight);
+  margin: var(--space-3) 0 var(--space-7);
+  max-width: 760px;
+  text-wrap: balance;
+}
+
+.home-faq-title em {
+  font-style: italic;
+}
+
+@media (max-width: 640px) {
+  .home-faq-section {
+    padding: var(--space-7) 0;
+  }
+  .home-faq-title {
+    font-size: var(--text-3xl);
+  }
+}
+
 /* ── Final CTA ───────────────────────────────────────────────────── */
 .home-cta {
   background: var(--bg-inverse);
@@ -286,10 +326,19 @@
 
 @media (max-width: 640px) {
   .home-hero {
-    padding: var(--space-7) 0;
+    /* Mobile target: hero (eyebrow + h1 + lede + search box) fits in
+       ~640px viewport-height phones above the fold. The clamp on
+       .home-heading already shrinks the headline; tighten padding too. */
+    padding: var(--space-5) 0 var(--space-4);
   }
-  .home-heading {
-    font-size: var(--text-4xl);
+  .home-hero-inner > * + * {
+    margin-top: var(--space-3);
+  }
+  .home-search-wrap {
+    margin-top: var(--space-3);
+  }
+  .home-uninsured-line {
+    margin-top: var(--space-2);
   }
   .home-lede {
     font-size: var(--text-md);

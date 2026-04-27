@@ -22,10 +22,12 @@ import './Header.css';
  */
 
 const NAV = [
+  { href: '/',              label: 'Inicio' },
   { href: '/como-funciona', label: 'Cómo funciona' },
   { href: '/aseguradoras',  label: 'Aseguradoras' },
   { href: '/para-clinicas', label: 'Para clínicas' },
   { href: '/derivadores',   label: 'Derivar paciente' },
+  { href: '/faq',           label: 'FAQ' },
 ];
 
 export default function Header() {
@@ -58,8 +60,8 @@ export default function Header() {
           <Image
             src="/brand/logo-medconnect.svg"
             alt="Med Connect"
-            width={170}
-            height={26}
+            width={210}
+            height={32}
             priority
             className="header-logo-img"
           />

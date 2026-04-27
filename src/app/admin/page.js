@@ -51,9 +51,9 @@ export default function AdminDashboard() {
       { id: 1, patient: 'María García', patientEmail: 'garcia@example.com', doctor: 'Dr. López', clinic: 'Hospital HM Sanchinarro', specialty: 'Traumatología', city: 'Madrid', date: '2026-04-08', time: '10:00', status: 'confirmed', amount: 25.00 },
       { id: 2, patient: 'Juan Pérez', patientEmail: 'perez@example.com', doctor: 'Dr. Martínez', clinic: 'Clínica Teknon', specialty: 'Cardiología', city: 'Barcelona', date: '2026-04-09', time: '14:30', status: 'confirmed', amount: 9.99 },
       { id: 3, patient: 'Ana Rodríguez', patientEmail: 'rodriguez@example.com', doctor: 'Dr. García', clinic: 'Hospital Quirónsalud Valencia', specialty: 'Dermatología', city: 'Valencia', date: '2026-04-11', time: '11:15', status: 'pending', amount: 9.99 },
-      { id: 4, patient: 'Carlos López', patientEmail: 'lopez@example.com', doctor: 'Dr. López', clinic: 'Hospital HM Sanchinarro', specialty: 'Traumatología', city: 'Madrid', date: '2026-04-14', time: '16:00', status: 'pending', amount: 0.99 },
+      { id: 4, patient: 'Carlos López', patientEmail: 'lopez@example.com', doctor: 'Dr. López', clinic: 'Hospital HM Sanchinarro', specialty: 'Traumatología', city: 'Madrid', date: '2026-04-14', time: '16:00', status: 'pending', amount: 4.99 },
       { id: 5, patient: 'Elena Sánchez', patientEmail: 'sanchez@example.com', doctor: 'Dr. Martínez', clinic: 'Clínica Teknon', specialty: 'Cardiología', city: 'Barcelona', date: '2026-04-05', time: '09:30', status: 'completed', amount: 9.99 },
-      { id: 6, patient: 'David Fernández', patientEmail: '', doctor: 'Dr. Rodríguez', clinic: 'Hospital Vithas Sevilla', specialty: 'Digestivo', city: 'Sevilla', date: '2026-04-03', time: '13:00', status: 'cancelled', amount: 25.00 },
+      { id: 6, patient: 'David Fernández', patientEmail: '', doctor: 'Dr. Rodríguez', clinic: 'Hospital Vithas Sevilla', specialty: 'Digestivo', city: 'Sevilla', date: '2026-04-03', time: '13:00', status: 'cancelled', amount: 29.00 },
     ];
 
     fetch('/api/bookings')
