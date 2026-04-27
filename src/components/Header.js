@@ -22,12 +22,11 @@ import './Header.css';
  */
 
 const NAV = [
-  { href: '/',              label: 'Inicio' },
-  { href: '/como-funciona', label: 'Cómo funciona' },
-  { href: '/aseguradoras',  label: 'Aseguradoras' },
-  { href: '/para-clinicas', label: 'Para clínicas' },
-  { href: '/derivadores',   label: 'Derivar paciente' },
-  { href: '/faq',           label: 'FAQ' },
+  { href: '/',                          label: 'Inicio' },
+  { href: '/como-funciona',             label: 'Cómo funciona' },
+  { href: '/aseguradoras',              label: 'Aseguradoras' },
+  { href: '/para-clinicas-o-medicos',   label: 'Para clínicas o médicos' },
+  { href: '/faq',                       label: 'FAQ' },
 ];
 
 export default function Header() {

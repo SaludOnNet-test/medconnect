@@ -19,8 +19,8 @@ const COLUMNS = [
   {
     title: 'Profesionales',
     links: [
-      ['Para clínicas', '/para-clinicas'],
-      ['Derivar paciente', '/derivadores'],
+      ['Vender huecos', '/para-clinicas-o-medicos#vender-huecos'],
+      ['Derivar pacientes', '/para-clinicas-o-medicos#derivar-pacientes'],
     ],
   },
   {

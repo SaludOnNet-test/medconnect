@@ -596,6 +596,22 @@ img {
   font-style: italic;
 }
 
+.info-subsection-title {
+  font-family: var(--font-display);
+  font-size: var(--text-2xl);
+  font-weight: 500;
+  line-height: var(--leading-snug);
+  letter-spacing: var(--tracking-snug);
+  font-variation-settings: "opsz" 48;
+  margin: var(--space-7) 0 var(--space-5);
+  color: var(--fg);
+  text-wrap: balance;
+}
+
+.info-subsection-title:first-child {
+  margin-top: 0;
+}
+
 .info-section-lede {
   font-family: var(--font-body);
   font-size: var(--text-lg);
