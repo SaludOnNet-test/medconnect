@@ -87,6 +87,19 @@ export default function ClinicBookingModal({
   // Unique dates (next 7)
   const dates = [...new Set(allSlots.map((s) => s.date))].slice(0, 7);
 
+  // Cheapest total fee per date — surfaced on the date buttons so users see
+  // price variation across days before picking one.
+  const priceByDate = useMemo(() => {
+    const map = {};
+    for (const s of allSlots) {
+      const slotPrice = Number(s.price ?? 0);
+      if (slotPrice === 0) continue; // skip free / zero-priced slots
+      const total = isSinSeguro ? procedurePrice + slotPrice : slotPrice;
+      if (map[s.date] == null || total < map[s.date]) map[s.date] = total;
+    }
+    return map;
+  }, [allSlots, isSinSeguro, procedurePrice]);
+
   const slotsForDate = selectedDate
     ? allSlots.filter((s) => s.date === selectedDate)
     : [];
@@ -201,6 +214,9 @@ export default function ClinicBookingModal({
                   <span className="cbm-date-weekday">{weekday}</span>
                   <span className="cbm-date-num">{day}</span>
                   <span className="cbm-date-month">{month}</span>
+                  {priceByDate[date] != null && (
+                    <span className="cbm-date-price">desde {priceByDate[date].toFixed(2)}€</span>
+                  )}
                 </button>
               );
             })}

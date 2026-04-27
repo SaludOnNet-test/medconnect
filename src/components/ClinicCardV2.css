@@ -187,22 +187,29 @@
   background: #f0f4f8;
 }
 
-/* Tier colors — urgency-based pricing */
-.cv2-slot-chip.tier-1 { border-color: #dc2626; background: #fef2f2; }
-.cv2-slot-chip.tier-1:hover { border-color: #b91c1c; background: #fee2e2; }
-.cv2-slot-chip.tier-1 .cv2-slot-fee { color: #b91c1c; }
+/* Tier colors — urgency-based pricing.
+   Palette: gold (premium) for the most urgent tier; brand blue family for
+   the rest. Avoids the negative connotation of red/orange/yellow. */
 
-.cv2-slot-chip.tier-2 { border-color: #ea580c; background: #fff7ed; }
-.cv2-slot-chip.tier-2:hover { border-color: #c2410c; background: #ffedd5; }
-.cv2-slot-chip.tier-2 .cv2-slot-fee { color: #c2410c; }
+/* Tier 1 — Esta semana (€29, premium urgent) */
+.cv2-slot-chip.tier-1 { border-color: #c9a84c; background: #fefcf3; }
+.cv2-slot-chip.tier-1:hover { border-color: #a88a30; background: #fdf6dd; }
+.cv2-slot-chip.tier-1 .cv2-slot-fee { color: #8a6914; }
 
-.cv2-slot-chip.tier-3 { border-color: #ca8a04; background: #fefce8; }
-.cv2-slot-chip.tier-3:hover { border-color: #a16207; background: #fef9c3; }
-.cv2-slot-chip.tier-3 .cv2-slot-fee { color: #a16207; }
+/* Tier 2 — Próxima semana (€19, brand navy) */
+.cv2-slot-chip.tier-2 { border-color: #1a3c5e; background: #e6edf4; }
+.cv2-slot-chip.tier-2:hover { border-color: #122c45; background: #d4e0eb; }
+.cv2-slot-chip.tier-2 .cv2-slot-fee { color: #1a3c5e; }
 
-.cv2-slot-chip.tier-4 { border-color: #16a34a; background: #f0fdf4; }
-.cv2-slot-chip.tier-4:hover { border-color: #15803d; background: #dcfce7; }
-.cv2-slot-chip.tier-4 .cv2-slot-fee { color: #15803d; }
+/* Tier 3 — En 2-4 semanas (€9.99, medium blue) */
+.cv2-slot-chip.tier-3 { border-color: #3a6ea5; background: #eef3f8; }
+.cv2-slot-chip.tier-3:hover { border-color: #2c5680; background: #dde7f1; }
+.cv2-slot-chip.tier-3 .cv2-slot-fee { color: #3a6ea5; }
+
+/* Tier 4 — Más adelante (€4.99, light blue) */
+.cv2-slot-chip.tier-4 { border-color: #7ba7d1; background: #f3f7fb; }
+.cv2-slot-chip.tier-4:hover { border-color: #5d8db8; background: #e6eff7; }
+.cv2-slot-chip.tier-4 .cv2-slot-fee { color: #3a6ea5; }
 
 .cv2-slot-date {
   font-size: 0.8rem;

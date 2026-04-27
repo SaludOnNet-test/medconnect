@@ -166,9 +166,24 @@
   opacity: 0.7;
 }
 
+/* "desde €X" preview shown under the day/month so users can compare price
+   variation across days before clicking. */
+.cbm-date-price {
+  display: block;
+  font-size: 0.68rem;
+  font-weight: 700;
+  color: #1a3c5e;
+  margin-top: 4px;
+  line-height: 1.2;
+}
+
 .cbm-date-btn--active .cbm-date-weekday,
 .cbm-date-btn--active .cbm-date-month {
   opacity: 0.85;
+}
+
+.cbm-date-btn--active .cbm-date-price {
+  color: #fff;
 }
 
 /* ── Time buttons ─────────────────────────────────────────────────────── */
@@ -196,19 +211,28 @@
   background: #fefce8;
 }
 
-/* Tier colors — urgency-based pricing */
-.cbm-time-btn--tier-1 { border-color: #dc2626; background: #fef2f2; }
-.cbm-time-btn--tier-1 .cbm-time-fee { color: #b91c1c; }
-.cbm-time-btn--tier-2 { border-color: #ea580c; background: #fff7ed; }
-.cbm-time-btn--tier-2 .cbm-time-fee { color: #c2410c; }
-.cbm-time-btn--tier-3 { border-color: #ca8a04; background: #fefce8; }
-.cbm-time-btn--tier-3 .cbm-time-fee { color: #a16207; }
-.cbm-time-btn--tier-4 { border-color: #16a34a; background: #f0fdf4; }
-.cbm-time-btn--tier-4 .cbm-time-fee { color: #15803d; }
+/* Tier colors — urgency-based pricing.
+   Palette: gold (premium) for the most urgent tier; brand blue family for
+   the rest. Avoids the negative connotation of red/orange/yellow. */
+.cbm-time-btn--tier-1 { border-color: #c9a84c; background: #fefcf3; }
+.cbm-time-btn--tier-1:hover { border-color: #a88a30; background: #fdf6dd; }
+.cbm-time-btn--tier-1 .cbm-time-fee { color: #8a6914; }
+
+.cbm-time-btn--tier-2 { border-color: #1a3c5e; background: #e6edf4; }
+.cbm-time-btn--tier-2:hover { border-color: #122c45; background: #d4e0eb; }
+.cbm-time-btn--tier-2 .cbm-time-fee { color: #1a3c5e; }
+
+.cbm-time-btn--tier-3 { border-color: #3a6ea5; background: #eef3f8; }
+.cbm-time-btn--tier-3:hover { border-color: #2c5680; background: #dde7f1; }
+.cbm-time-btn--tier-3 .cbm-time-fee { color: #3a6ea5; }
+
+.cbm-time-btn--tier-4 { border-color: #7ba7d1; background: #f3f7fb; }
+.cbm-time-btn--tier-4:hover { border-color: #5d8db8; background: #e6eff7; }
+.cbm-time-btn--tier-4 .cbm-time-fee { color: #3a6ea5; }
 
 .cbm-time-btn--active {
-  background: #0d5e42;
-  border-color: #0d5e42;
+  background: #1a3c5e;
+  border-color: #1a3c5e;
   color: #fff;
 }
 
@@ -232,7 +256,8 @@
 /* ── Footer ───────────────────────────────────────────────────────────── */
 .cbm-footer {
   border-top: 1px solid #f3f4f6;
-  padding: 1rem 1.5rem;
+  /* More breathing room at the bottom + iPhone home-indicator safe area. */
+  padding: 1.25rem 1.5rem calc(1.25rem + env(safe-area-inset-bottom, 0px));
   flex-shrink: 0;
   background: #fafafa;
 }

@@ -5,7 +5,10 @@ import dynamic from 'next/dynamic';
 import Header from '@/components/Header';
 import ClinicCardV2 from '@/components/ClinicCardV2';
 import ClinicBookingModal from '@/components/ClinicBookingModal';
-import { providers, insuranceCompanies } from '@/data/mock';
+import { insuranceCompanies } from '@/data/mock';
+// First-paint fallback: real (possibly stale) clinics snapshotted from DB.
+// Regenerate with `python scripts/snapshot_clinics_for_search.py`.
+import clinicsSnapshot from '@/data/clinics-snapshot.json';
 import './search-v2.css';
 
 const ClinicMap = dynamic(() => import('@/components/ClinicMap'), { ssr: false });
@@ -13,21 +16,7 @@ const ClinicMap = dynamic(() => import('@/components/ClinicMap'), { ssr: false }
 const PAGE_SIZE_INITIAL = 20;
 const PAGE_SIZE_MORE = 10;
 
-function clientDeterministicSlots(id) {
-  const slots = [];
-  const baseHour = 9 + (id % 4);
-  const d = new Date();
-  d.setDate(d.getDate() + 1);
-  while (slots.length < 3) {
-    const dow = d.getDay();
-    if (dow >= 1 && dow <= 5) {
-      const dateStr = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
-      slots.push({ date: dateStr, time: `${String(baseHour + slots.length).padStart(2, '0')}:00`, available: true });
-    }
-    d.setDate(d.getDate() + 1);
-  }
-  return slots;
-}
+const SNAPSHOT_CLINICS = clinicsSnapshot.clinics || [];
 
 function SearchV2Content() {
   const searchParams = useSearchParams();
@@ -170,7 +159,9 @@ function SearchV2Content() {
     return () => observerRef.current?.disconnect();
   }, [loadMore]);
 
-  const baseProviders = dbClinics ?? providers;
+  // Real DB result if loaded; otherwise fall back to a real (possibly stale)
+  // snapshot so the first paint shows actual clinics, not the legacy mock.
+  const baseProviders = dbClinics ?? SNAPSHOT_CLINICS;
 
   const displayProviders = useMemo(() => {
     let list = [...baseProviders];
@@ -184,22 +175,15 @@ function SearchV2Content() {
     return list;
   }, [baseProviders, insuranceFilter, sortBy]);
 
-  // Load slots for every card whenever the list changes
+  // Load real slots for every card whenever the list changes.
+  // We no longer pre-fill with deterministic fakes — cards show the
+  // shimmer skeleton (built into ClinicCardV2 when slots === undefined)
+  // until the real /api/clinics/batch-slots response arrives.
   useEffect(() => {
     if (displayProviders.length === 0) return;
     const unloaded = displayProviders.filter((p) => !(p.id in slotsMap));
     if (unloaded.length === 0) return;
 
-    // Fill immediately with deterministic slots so cards never show skeleton
-    setSlotsMap((prev) => {
-      const patch = {};
-      for (const p of unloaded) {
-        if (!(p.id in prev)) patch[p.id] = clientDeterministicSlots(p.id);
-      }
-      return { ...prev, ...patch };
-    });
-
-    // Then fetch real slots from DB to override (batches of 10)
     const BATCH = 10;
     let cancelled = false;
     const ids = unloaded.map((p) => p.id);
