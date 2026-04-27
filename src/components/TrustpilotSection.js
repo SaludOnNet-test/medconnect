@@ -32,7 +32,7 @@ const REVIEWS = [
     insurer: 'DKV',
     date: 'Marzo 2026',
     stars: 5,
-    text: 'Mi hija necesitaba ginecología con cierta urgencia. La app de DKV: 3 meses. Aquí: cita en Clínica Teknon para el día siguiente, pagué 25 € de prioridad. La consulta corrió por la póliza, como cualquier cita concertada.',
+    text: 'Mi hija necesitaba ginecología con cierta urgencia. La app de DKV: 3 meses. Aquí: cita en Clínica Teknon para el día siguiente, pagué 29 € de prioridad. La consulta corrió por la póliza, como cualquier cita concertada.',
   },
   {
     name: 'Raquel P.',
