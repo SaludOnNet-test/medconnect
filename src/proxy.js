@@ -19,10 +19,20 @@ export async function proxy(request) {
     if (isProRoute(req)) {
       const { userId, sessionClaims } = await auth();
       const role = sessionClaims?.publicMetadata?.role;
-      if (!userId || (role !== 'professional' && role !== 'admin')) {
+
+      // Not signed in → send to /sign-in with a return URL.
+      if (!userId) {
         const url = new URL('/sign-in', req.url);
         url.searchParams.set('redirect_url', req.url);
         return NextResponse.redirect(url);
+      }
+
+      // Signed in but no professional/admin role yet → send to the pending-
+      // approval page so the user understands WHY they can't get in, instead
+      // of bouncing back to /sign-in (which looks broken). Ops promotes them
+      // via POST /api/admin/professionals/grant.
+      if (role !== 'professional' && role !== 'admin') {
+        return NextResponse.redirect(new URL('/pro/pending-approval', req.url));
       }
     }
   })(request);

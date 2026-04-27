@@ -48,6 +48,7 @@ export default function ProDashboard() {
   const [newEmailValue, setNewEmailValue] = useState('');
   const [timerOverrides, setTimerOverrides] = useState({}); // { [referralId]: isoString }
   const [referrals, setReferrals] = useState([]);
+  const [serverCommissions, setServerCommissions] = useState(null);
   const [clerkUser, setClerkUser] = useState(null);
   const handleClerkUser = useCallback((data) => setClerkUser(data), []);
   const [isMounted, setIsMounted] = useState(false);
@@ -80,6 +81,23 @@ export default function ProDashboard() {
       }
     }
     loadReferrals();
+  }, [professionalEmail]);
+
+  // F3 — load authoritative commission stats from the server. Falls through
+  // silently when the API isn't reachable; the local `stats` block computed
+  // from `referrals` is still used as a fallback.
+  useEffect(() => {
+    if (!professionalEmail) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await fetch(`/api/pro/commissions?email=${encodeURIComponent(professionalEmail)}`);
+        if (!res.ok) return;
+        const data = await res.json();
+        if (!cancelled) setServerCommissions(data);
+      } catch { /* ignore — fallback to local stats */ }
+    })();
+    return () => { cancelled = true; };
   }, [professionalEmail]);
 
   const handleCreateReferral = async ({ provider, slot, patientEmail }) => {
@@ -218,11 +236,18 @@ export default function ProDashboard() {
     externa: getExternaReferrals(),
   };
 
+  // Prefer authoritative server numbers when available (matches the central
+  // commission rate from PRO_COMMISSION_PER_REFERRAL). Fall back to the
+  // in-memory referrals list otherwise so the page is still useful offline.
+  const localExitosas = referrals.filter((r) => r.state === REFERRAL_STATES.CONFIRMED).length;
   const stats = {
-    acumuladas: referrals
-      .filter((r) => r.state === REFERRAL_STATES.CONFIRMED)
-      .reduce((sum, r) => sum + r.fee, 0),
-    exitosas: referrals.filter((r) => r.state === REFERRAL_STATES.CONFIRMED).length,
+    acumuladas: serverCommissions
+      ? Number(serverCommissions.totalEarned || 0)
+      : referrals
+          .filter((r) => r.state === REFERRAL_STATES.CONFIRMED)
+          .reduce((sum, r) => sum + (r.fee || 0), 0),
+    last30: serverCommissions ? Number(serverCommissions.last30dEarned || 0) : null,
+    exitosas: serverCommissions?.byState?.confirmed ?? localExitosas,
     pendientes: getPendingReferrals().length,
   };
 
@@ -267,18 +292,29 @@ export default function ProDashboard() {
 
           <div className="pro-stats">
             <div className="pro-stat-card animate-fade-in-up" style={{ animationDelay: '0.1s' }}>
-              <div className="pro-stat-label">Comisiones Acumuladas</div>
+              <div className="pro-stat-label">Comisiones acumuladas</div>
               <div className="pro-stat-value highlight">{stats.acumuladas.toFixed(2)}€</div>
             </div>
+            {stats.last30 != null && (
+              <div className="pro-stat-card animate-fade-in-up" style={{ animationDelay: '0.15s' }}>
+                <div className="pro-stat-label">Últimos 30 días</div>
+                <div className="pro-stat-value">{stats.last30.toFixed(2)}€</div>
+              </div>
+            )}
             <div className="pro-stat-card animate-fade-in-up" style={{ animationDelay: '0.2s' }}>
-              <div className="pro-stat-label">Derivaciones Exitosas</div>
+              <div className="pro-stat-label">Derivaciones exitosas</div>
               <div className="pro-stat-value">{stats.exitosas}</div>
             </div>
             <div className="pro-stat-card animate-fade-in-up" style={{ animationDelay: '0.3s' }}>
-              <div className="pro-stat-label">En curso (Pendientes)</div>
+              <div className="pro-stat-label">En curso (pendientes)</div>
               <div className="pro-stat-value">{stats.pendientes}</div>
             </div>
           </div>
+          {serverCommissions && (
+            <p style={{ fontSize: '0.78rem', color: '#8892A4', margin: '0.5rem 0 1.25rem', textAlign: 'right' }}>
+              Tarifa actual: {serverCommissions.commissionPerReferral?.toFixed(2)}€ por derivación confirmada.
+            </p>
+          )}
 
           {/* Tabs Navigation */}
           <div className="pro-tabs animate-fade-in-up" style={{ animationDelay: '0.4s' }}>
