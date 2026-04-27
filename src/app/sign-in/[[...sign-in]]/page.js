@@ -2,6 +2,9 @@
 
 import { SignIn } from '@clerk/nextjs';
 import { useEffect, useRef, useState } from 'react';
+import AuthLayout from '@/components/brand/AuthLayout';
+import Card from '@/components/brand/Card';
+import { brandClerkAppearance } from '@/lib/clerkAppearance';
 
 const hasClerkKeys = !!(process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY);
 
@@ -25,28 +28,30 @@ function SignInWithFallback() {
   if (stuck) {
     const host = typeof window !== 'undefined' ? window.location.host : '';
     return (
-      <div style={{ padding: '2rem', background: '#fff3cd', border: '1px solid #ffc107', borderRadius: '8px', maxWidth: '520px', margin: '4rem auto', textAlign: 'left' }}>
-        <h2 style={{ margin: '0 0 0.75rem', color: '#856404' }}>El login no se pudo cargar</h2>
-        <p style={{ margin: '0 0 0.75rem', color: '#856404', fontSize: '0.95rem', lineHeight: 1.6 }}>
+      <Card surface="50">
+        <h2 style={{ fontFamily: 'var(--font-display)', fontSize: 'var(--text-xl)', margin: 0 }}>
+          El login no se pudo cargar
+        </h2>
+        <p style={{ margin: 0, color: 'var(--fg-muted)', fontSize: 'var(--text-sm)', lineHeight: 'var(--leading-normal)' }}>
           El proveedor de autenticación (Clerk) no respondió en este dominio (<code>{host}</code>).
         </p>
-        <p style={{ margin: '0 0 0.75rem', color: '#856404', fontSize: '0.9rem', lineHeight: 1.6 }}>
-          <strong>Causa probable:</strong> este host no está autorizado en la configuración de Clerk. Soluciones:
+        <p style={{ margin: 0, color: 'var(--fg-muted)', fontSize: 'var(--text-sm)', lineHeight: 'var(--leading-normal)' }}>
+          <strong>Causa probable:</strong> este host no está autorizado en Clerk. Soluciones:
         </p>
-        <ul style={{ margin: '0 0 1rem 1.25rem', color: '#856404', fontSize: '0.9rem', lineHeight: 1.6 }}>
-          <li>Accede desde <a href="https://www.medconnect.es/sign-in" style={{ color: '#856404' }}>www.medconnect.es</a> (dominio principal autorizado).</li>
-          <li>Si eres administrador: añade <code>{host}</code> a los <em>Allowed origins</em> en el dashboard de Clerk y recarga.</li>
+        <ul style={{ margin: 0, paddingLeft: 'var(--space-4)', color: 'var(--fg-muted)', fontSize: 'var(--text-sm)', lineHeight: 'var(--leading-loose)' }}>
+          <li>Accede desde <a href="https://www.medconnect.es/sign-in">www.medconnect.es</a> (dominio principal autorizado).</li>
+          <li>Si eres administrador: añade <code>{host}</code> a los <em>Allowed origins</em> en el dashboard de Clerk.</li>
         </ul>
-        <p style={{ margin: 0, fontSize: '0.85rem', color: '#6c757d' }}>
-          ¿Necesitas ayuda? Escribe a <a href="mailto:hola@medconnect.es" style={{ color: '#6c757d' }}>hola@medconnect.es</a>.
+        <p style={{ margin: 0, fontSize: 'var(--text-xs)', color: 'var(--fg-subtle)' }}>
+          ¿Necesitas ayuda? Escribe a <a href="mailto:hola@medconnect.es">hola@medconnect.es</a>.
         </p>
-      </div>
+      </Card>
     );
   }
 
   return (
     <div ref={wrapperRef}>
-      <SignIn />
+      <SignIn appearance={brandClerkAppearance} />
     </div>
   );
 }
@@ -54,23 +59,25 @@ function SignInWithFallback() {
 export default function SignInPage() {
   if (!hasClerkKeys) {
     return (
-      <main style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '60vh', flexDirection: 'column', gap: '1rem', padding: '2rem' }}>
-        <div style={{ padding: '2rem', background: '#fff3cd', border: '1px solid #ffc107', borderRadius: '8px', maxWidth: '400px', textAlign: 'center' }}>
-          <h2 style={{ margin: '0 0 0.5rem', color: '#856404' }}>Auth no configurada</h2>
-          <p style={{ margin: 0, color: '#856404', fontSize: '0.9rem' }}>
+      <AuthLayout mode="sign-in">
+        <Card surface="50">
+          <h2 style={{ fontFamily: 'var(--font-display)', fontSize: 'var(--text-xl)', margin: 0 }}>
+            Auth no configurada
+          </h2>
+          <p style={{ margin: 0, color: 'var(--fg-muted)', fontSize: 'var(--text-sm)', lineHeight: 'var(--leading-normal)' }}>
             Añade <code>NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY</code> y <code>CLERK_SECRET_KEY</code> en <code>.env.local</code> para activar el login.
           </p>
-          <p style={{ margin: '1rem 0 0', fontSize: '0.85rem', color: '#6c757d' }}>
-            Demo: usa <a href="/pro/login" style={{ color: '#856404' }}>/pro/login</a> o <a href="/admin/login" style={{ color: '#856404' }}>/admin/login</a> con Admin / ADMIN
+          <p style={{ margin: 0, fontSize: 'var(--text-xs)', color: 'var(--fg-subtle)' }}>
+            Demo: usa <a href="/pro/login">/pro/login</a> o <a href="/admin/login">/admin/login</a> con Admin / ADMIN.
           </p>
-        </div>
-      </main>
+        </Card>
+      </AuthLayout>
     );
   }
 
   return (
-    <main className="auth-shell">
+    <AuthLayout mode="sign-in">
       <SignInWithFallback />
-    </main>
+    </AuthLayout>
   );
 }
