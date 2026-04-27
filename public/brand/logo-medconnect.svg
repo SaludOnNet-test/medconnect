@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 220 48" role="img" aria-label="Med Connect">
+  
+  <g transform="translate(2,8)">
+    <path d="M2 26 C 2 10, 14 2, 24 2 C 34 2, 44 10, 44 22" fill="none" stroke="#0E1A2B" stroke-width="3" stroke-linecap="round"></path>
+    <circle cx="44" cy="22" r="4.5" fill="#C9A24B"></circle>
+  </g>
+  
+  <g transform="translate(60,33)" fill="#0E1A2B" font-family="Fraunces, Tiempos Headline, Georgia, serif" font-size="26" font-weight="500" letter-spacing="-0.4">
+    <text>Med <tspan font-style="italic">Connect</tspan></text>
+  </g>
+</svg>

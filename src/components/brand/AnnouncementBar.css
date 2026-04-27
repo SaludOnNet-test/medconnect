@@ -1,0 +1,67 @@
+.brand-announce {
+  background: var(--ink-900);
+  color: var(--bone-200);
+  position: sticky;
+  top: 0;
+  z-index: 11;
+  font-family: var(--font-body);
+  font-size: var(--text-sm);
+}
+
+.brand-announce__inner {
+  max-width: var(--container-wide);
+  margin: 0 auto;
+  padding: 10px var(--gutter-desktop);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-4);
+}
+
+.brand-announce__link {
+  color: inherit;
+  text-decoration: none;
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.brand-announce__link:hover {
+  color: var(--brass-400);
+}
+
+.brand-announce__phone {
+  color: inherit;
+  text-decoration: none;
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.brand-announce__phone-icon {
+  color: var(--brass-400);
+}
+
+.brand-announce__phone-text strong {
+  color: var(--bone-100);
+  font-weight: 600;
+}
+
+@media (max-width: 640px) {
+  .brand-announce__inner {
+    padding: 8px var(--gutter-mobile);
+    font-size: var(--text-xs);
+    gap: var(--space-2);
+  }
+
+  /* On small phones, hide the prefix text — keep only "Llámanos NUMBER" */
+  .brand-announce__phone-text {
+    display: none;
+  }
+
+  .brand-announce__phone::after {
+    content: 'Llámanos';
+    color: var(--bone-100);
+    font-weight: 600;
+  }
+}

@@ -118,7 +118,13 @@ export async function POST(request) {
       emailResult = { ok: false, error: e.message };
     }
 
-    if (!alreadySent) {
+    // Only mark "sent" when the transport actually succeeded. Without this,
+    // a transient Resend failure (sandbox mode, throttling, downtime) would
+    // silently bury the email — alreadySent would be true on the next attempt
+    // and the function would skip retrying. Ops would have to manually pass
+    // resend=true to recover. Found during the H8 smoke test on 2026-04-27
+    // while Resend was returning 403s for unverified medconnect.es.
+    if (!alreadySent && emailResult?.ok) {
       await pool.request()
         .input('id', sql.NVarChar(50), bookingId)
         .query(`UPDATE vouchers SET sent_to_patient_at = SYSDATETIMEOFFSET() WHERE booking_id = @id`);
