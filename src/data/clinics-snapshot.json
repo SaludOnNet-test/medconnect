@@ -1,6 +1,6 @@
 {
   "_meta": {
-    "generatedAt": "2026-04-27T08:04:22+00:00",
+    "generatedAt": "2026-04-27T10:28:20+00:00",
     "count": 50,
     "source": "scripts/snapshot_clinics_for_search.py",
     "note": "First-paint fallback for /search-v2. Real but possibly stale; re-run the script to refresh."
