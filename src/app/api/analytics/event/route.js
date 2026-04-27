@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { getPool, DB_AVAILABLE } from '@/lib/db';
+import { limits } from '@/lib/rateLimit';
 
 export const dynamic = 'force-dynamic';
 
@@ -7,10 +8,18 @@ export const dynamic = 'force-dynamic';
  * POST /api/analytics/event
  * Records a funnel event to Azure SQL analytics_events table.
  * Fire-and-forget from the client — always returns 200 so the UI is never blocked.
+ *
+ * Rate-limited at 100 events/min/IP. Excess returns 200 (silently drop) so a
+ * single misbehaving client can't melt the analytics_events table but the user
+ * never sees an error from telemetry.
  */
 export async function POST(request) {
   // If DB not configured, silently succeed (don't block the user)
   if (!DB_AVAILABLE) return NextResponse.json({ ok: true });
+
+  // Silent rate-limit: drop excess events but still 200 the client.
+  const r = limits.analyticsEvent.check(request);
+  if (!r.ok) return NextResponse.json({ ok: true, dropped: true }, { headers: r.headers });
 
   try {
     const body = await request.json();

@@ -1,8 +1,19 @@
 import { NextResponse } from 'next/server';
 import { authenticate, makeToken } from '@/lib/adminAuth';
+import { limits } from '@/lib/rateLimit';
 
 export async function POST(request) {
   try {
+    // Brute-force shield: 10 login attempts/min/IP. Generous for legit ops
+    // (mistyped password, retry) but blocks credential-stuffing.
+    const r = limits.adminLogin.check(request);
+    if (!r.ok) {
+      return NextResponse.json(
+        { error: 'rate_limited', retryAfterSec: r.retryAfterSec },
+        { status: 429, headers: r.headers },
+      );
+    }
+
     const { username, password } = await request.json();
     if (!username || !password) {
       return NextResponse.json({ error: 'Missing credentials' }, { status: 400 });
