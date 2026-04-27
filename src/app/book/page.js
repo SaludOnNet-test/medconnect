@@ -38,10 +38,20 @@ function BookContent() {
   const lockInId = searchParams.get('lockInId') || '';
   const stepParam = searchParams.get('step') || '';
 
+  // Forwarded from search-v2 → ClinicBookingModal: the user already declared
+  // their coverage situation by picking a filter, so pre-select the toggle
+  // and (if they chose an insurer) the dropdown — saves a redundant click.
+  const isSinSeguroParam = searchParams.get('isSinSeguro') === 'true';
+  const insuranceParam = searchParams.get('insurance') || '';
+
   const [step, setStep] = useState('form'); // 'form' | 'payment' | 'success'
   const [paymentRef, setPaymentRef] = useState('');
   const [lockInData, setLockInData] = useState(null);
-  const [hasInsurance, setHasInsurance] = useState(null);
+  // Pre-select hasInsurance: false when sin-seguro filter was used,
+  // true when an insurer was picked, null otherwise (user still chooses).
+  const [hasInsurance, setHasInsurance] = useState(
+    isSinSeguroParam ? false : (insuranceParam ? true : null)
+  );
 
   // Track book_started on mount
   useEffect(() => {
@@ -78,7 +88,7 @@ function BookContent() {
 
     loadLockIn();
   }, [stepParam, lockInId]);
-  const [selectedInsurance, setSelectedInsurance] = useState('');
+  const [selectedInsurance, setSelectedInsurance] = useState(insuranceParam || '');
   
   // Referral states
   const [isReferral, setIsReferral] = useState(false);

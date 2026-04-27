@@ -27,6 +27,10 @@ export default function ClinicBookingModal({
   initialSlot = null,
   initialProcedureSlug = '',
   initialSpecialtySlug = '',
+  // Prop carrying the insurance the user selected in search-v2 (if any).
+  // Forwarded to /book so the form can pre-select the insurance toggle +
+  // dropdown without forcing the user to click again.
+  initialInsurance = '',
   onClose,
 }) {
   const router = useRouter();
@@ -126,6 +130,9 @@ export default function ClinicBookingModal({
       procedureName: selectedProcedure?.name || '',
       procedurePrice: String(procedurePrice),
       ...(serviceId ? { service: serviceId } : {}),
+      // Pass the insurer the user selected in search filters so /book can
+      // pre-select the toggle + dropdown.
+      ...(initialInsurance && !isSinSeguro ? { insurance: initialInsurance } : {}),
     });
     router.push(`/book?${params.toString()}`);
     onClose();
