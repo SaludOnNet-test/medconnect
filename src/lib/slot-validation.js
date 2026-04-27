@@ -13,7 +13,7 @@ export const SPANISH_HOLIDAYS = [
 export const PRICING_TIERS = [
   { tier: 1, name: 'urgencia',     label: 'Esta semana',         dayMin: 0,  dayMax: 7,  price: 29.00, paymentToClinic: 15 },
   { tier: 2, name: 'sweet_spot',   label: 'Próxima semana',      dayMin: 8,  dayMax: 14, price: 19.00, paymentToClinic: 10 },
-  { tier: 3, name: 'anticipo',     label: 'En 2–4 semanas',      dayMin: 15, dayMax: 30, price:  9.99, paymentToClinic:  5 },
+  { tier: 3, name: 'anticipo',     label: 'Este mes',            dayMin: 15, dayMax: 30, price:  9.99, paymentToClinic:  5 },
   { tier: 4, name: 'lead_capture', label: 'Más adelante',        dayMin: 31, dayMax: 45, price:  4.99, paymentToClinic:  2 },
 ];
 

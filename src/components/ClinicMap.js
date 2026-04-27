@@ -1,10 +1,27 @@
 'use client';
 import { useEffect, useRef } from 'react';
 
-export default function ClinicMap({ providers, highlightedId, onPinClick, city }) {
+/**
+ * ClinicMap — Leaflet wrapper used in /search-v2.
+ *
+ * Props:
+ *   - providers: clinics with .lat / .lng to drop pins for.
+ *   - highlightedId: optional id to render with the accent pin colour.
+ *   - onPinClick(provider): pin click handler.
+ *   - city: optional city name used as the initial centre.
+ *   - onBoundsChange({ south, west, north, east }): fired AFTER a
+ *     user-initiated pan or zoom (not on programmatic fitBounds during
+ *     first paint). Lets the parent refetch clinics by bbox.
+ */
+export default function ClinicMap({ providers, highlightedId, onPinClick, city, onBoundsChange }) {
   const containerRef = useRef(null);
   const mapRef       = useRef(null);
   const markersRef   = useRef([]);
+  const userInteractedRef = useRef(false);
+  // Keep the latest onBoundsChange in a ref so we don't have to re-bind
+  // the moveend listener when the parent re-renders with a new closure.
+  const onBoundsChangeRef = useRef(onBoundsChange);
+  useEffect(() => { onBoundsChangeRef.current = onBoundsChange; }, [onBoundsChange]);
 
   const CITY_CENTERS = {
     'Madrid':    [40.4168, -3.7038],
@@ -34,6 +51,33 @@ export default function ClinicMap({ providers, highlightedId, onPinClick, city }
           attribution: '© OpenStreetMap contributors',
           maxZoom: 18,
         }).addTo(mapRef.current);
+
+        // Track when the user (vs. programmatic fitBounds) drives the
+        // viewport. moveend fires on both — we only want to bubble it
+        // up after a real interaction so the first paint doesn't loop
+        // (load → fitBounds → moveend → refetch → fitBounds again).
+        const flagInteraction = () => { userInteractedRef.current = true; };
+        mapRef.current.on('dragstart', flagInteraction);
+        mapRef.current.on('zoomstart', flagInteraction);
+
+        let moveTimer = null;
+        mapRef.current.on('moveend', () => {
+          if (!userInteractedRef.current) return;
+          // Debounce — gestures fire many moveend events as the
+          // user pans, no point in flooding the API.
+          if (moveTimer) clearTimeout(moveTimer);
+          moveTimer = setTimeout(() => {
+            const cb = onBoundsChangeRef.current;
+            if (!cb || !mapRef.current) return;
+            const b = mapRef.current.getBounds();
+            cb({
+              south: b.getSouth(),
+              west:  b.getWest(),
+              north: b.getNorth(),
+              east:  b.getEast(),
+            });
+          }, 350);
+        });
       }
 
       // Clear old markers
@@ -66,12 +110,16 @@ export default function ClinicMap({ providers, highlightedId, onPinClick, city }
         markersRef.current.push(marker);
       });
 
-      // Fit bounds if we have markers
-      if (clinicsWithCoords.length > 1) {
-        const bounds = L.latLngBounds(clinicsWithCoords.map((p) => [p.lat, p.lng]));
-        mapRef.current.fitBounds(bounds, { padding: [40, 40], maxZoom: 14 });
-      } else if (clinicsWithCoords.length === 1) {
-        mapRef.current.setView([clinicsWithCoords[0].lat, clinicsWithCoords[0].lng], 14);
+      // Only fit bounds while the user hasn't moved the map themselves —
+      // afterwards we respect their viewport so new pins appear in place
+      // instead of yanking them back to the bbox of the result set.
+      if (!userInteractedRef.current) {
+        if (clinicsWithCoords.length > 1) {
+          const bounds = L.latLngBounds(clinicsWithCoords.map((p) => [p.lat, p.lng]));
+          mapRef.current.fitBounds(bounds, { padding: [40, 40], maxZoom: 14 });
+        } else if (clinicsWithCoords.length === 1) {
+          mapRef.current.setView([clinicsWithCoords[0].lat, clinicsWithCoords[0].lng], 14);
+        }
       }
     });
 

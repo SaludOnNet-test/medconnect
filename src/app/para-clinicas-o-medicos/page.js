@@ -209,7 +209,7 @@ export default function ParaClinicasOMedicosPage() {
           </p>
           <div style={{ marginTop: 'var(--space-5)', display: 'flex', gap: 'var(--space-3)', flexWrap: 'wrap' }}>
             <Button href="#alta" variant="primary" size="lg">Solicitar alta</Button>
-            <Button href="mailto:hola@medconnect.es" variant="ghost" size="lg">Hablar con ventas</Button>
+            <Button href="/contacto?reason=ventas" variant="ghost" size="lg">Hablar con ventas</Button>
           </div>
         </div>
       </section>

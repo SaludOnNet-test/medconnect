@@ -197,28 +197,55 @@
 }
 
 /* Tier colors — urgency-based pricing.
-   Palette: gold (premium) for the most urgent tier; brand blue family for
-   the rest. Avoids the negative connotation of red/orange/yellow. */
+   Brand palette: Brass for the urgent tier (premium signal, the standout
+   the user is paying more for), then a descending Ink / Clinical scale
+   for less urgent tiers. All tokens come from globals.css so the strip
+   stays in sync if the brand palette ever shifts. */
 
-/* Tier 1 — Esta semana (€29, premium urgent) */
-.cv2-slot-chip.tier-1 { border-color: #c9a84c; background: #fefcf3; }
-.cv2-slot-chip.tier-1:hover { border-color: #a88a30; background: #fdf6dd; }
-.cv2-slot-chip.tier-1 .cv2-slot-fee { color: #8a6914; }
+/* Tier 1 — Esta semana (29 €, urgente / Brass) */
+.cv2-slot-chip.tier-1 {
+  border-color: var(--brass-500);
+  background: var(--brass-100);
+}
+.cv2-slot-chip.tier-1:hover {
+  border-color: var(--brass-600);
+  background: var(--brass-200);
+}
+.cv2-slot-chip.tier-1 .cv2-slot-fee { color: var(--brass-700); }
 
-/* Tier 2 — Próxima semana (€19, brand navy) */
-.cv2-slot-chip.tier-2 { border-color: #1a3c5e; background: #e6edf4; }
-.cv2-slot-chip.tier-2:hover { border-color: #122c45; background: #d4e0eb; }
-.cv2-slot-chip.tier-2 .cv2-slot-fee { color: #1a3c5e; }
+/* Tier 2 — Próxima semana (19 €, Ink) */
+.cv2-slot-chip.tier-2 {
+  border-color: var(--ink-1000);
+  background: var(--bone-200);
+}
+.cv2-slot-chip.tier-2:hover {
+  border-color: var(--ink-1000);
+  background: var(--bone-300);
+}
+.cv2-slot-chip.tier-2 .cv2-slot-fee { color: var(--ink-1000); }
 
-/* Tier 3 — En 2-4 semanas (€9.99, medium blue) */
-.cv2-slot-chip.tier-3 { border-color: #3a6ea5; background: #eef3f8; }
-.cv2-slot-chip.tier-3:hover { border-color: #2c5680; background: #dde7f1; }
-.cv2-slot-chip.tier-3 .cv2-slot-fee { color: #3a6ea5; }
+/* Tier 3 — Este mes (9,99 €, Clinical blue) */
+.cv2-slot-chip.tier-3 {
+  border-color: var(--clinical-500);
+  background: var(--clinical-100);
+}
+.cv2-slot-chip.tier-3:hover {
+  border-color: var(--clinical-700, var(--clinical-500));
+  background: var(--clinical-300);
+}
+.cv2-slot-chip.tier-3 .cv2-slot-fee { color: var(--clinical-700, var(--clinical-500)); }
 
-/* Tier 4 — Más adelante (€4.99, light blue) */
-.cv2-slot-chip.tier-4 { border-color: #7ba7d1; background: #f3f7fb; }
-.cv2-slot-chip.tier-4:hover { border-color: #5d8db8; background: #e6eff7; }
-.cv2-slot-chip.tier-4 .cv2-slot-fee { color: #3a6ea5; }
+/* Tier 4 — Más adelante (4,99 €, soft Bone — the cheapest tier reads
+   quietly so it doesn't compete with the premium chips) */
+.cv2-slot-chip.tier-4 {
+  border-color: var(--border-strong);
+  background: var(--bone-100);
+}
+.cv2-slot-chip.tier-4:hover {
+  border-color: var(--ink-500);
+  background: var(--bone-200);
+}
+.cv2-slot-chip.tier-4 .cv2-slot-fee { color: var(--fg-muted); }
 
 .cv2-slot-date {
   font-family: var(--font-body);

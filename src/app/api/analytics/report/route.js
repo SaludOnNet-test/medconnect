@@ -101,7 +101,7 @@ export async function GET(request) {
       max_tokens: 1024,
       messages: [{
         role: 'user',
-        content: `You are a UX/conversion analyst for Med Connect, a Spanish private healthcare appointment booking platform. Patients search for specialists, browse clinics on a Doctoralia-style page, select time slots, and pay a priority fee (4,99 € – 29 € depending on urgency: 4,99 € for 30+ days out, 9,99 € same week, 19 € within 7 days, 29 € under 48 h).
+        content: `You are a UX/conversion analyst for Med Connect, a Spanish private healthcare appointment booking platform. Patients search for specialists, browse clinics on a Doctoralia-style page, select time slots, and pay a priority fee (4,99 € – 29 € depending on urgency: 4,99 € for appointments more than 30 days out, 9,99 € between 15 and 30 days, 19 € between 7 and 14 days, 29 € for appointments within 7 days).
 
 Here is the last 7 days of funnel data:
 ${JSON.stringify(funnelData, null, 2)}

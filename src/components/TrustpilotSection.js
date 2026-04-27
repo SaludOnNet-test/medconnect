@@ -1,5 +1,12 @@
 // TrustpilotSection — static mock reviews focused on insured patients
 // who couldn't get appointments through their insurer's traditional channels.
+//
+// Pricing strategy mapping (must stay aligned with PriceLadder):
+//   - 4,99 €  → cita a más de 30 días
+//   - 9,99 €  → cita entre 15 y 30 días
+//   - 19 €    → cita entre 7 y 14 días
+//   - 29 €    → cita en menos de 7 días (urgente)
+// Each review's fee + waited-time should be coherent with this table.
 
 const FEATURED = {
   name: 'Lucía F.',
@@ -7,7 +14,7 @@ const FEATURED = {
   insurer: 'Adeslas',
   fee: '9,99 €',
   date: 'Febrero 2026',
-  text: 'Tengo Adeslas desde hace años, pero la app me daba cita para dentro de 6 semanas. Pagué 9,99 € de tarifa de prioridad y al día siguiente estaba en la consulta — con mi tarjeta de asegurada y sin pagar nada por la consulta. Por fin entiendo lo que hacéis.',
+  text: 'Tengo Adeslas desde hace años, pero la app me daba cita para dentro de 6 semanas. Pagué 9,99 € de tarifa de prioridad y entré en consulta tres semanas después — con mi tarjeta de asegurada y sin pagar nada por la consulta. Por fin entiendo lo que hacéis.',
 };
 
 const REVIEWS = [
@@ -17,7 +24,7 @@ const REVIEWS = [
     insurer: 'Sanitas',
     date: 'Marzo 2026',
     stars: 5,
-    text: 'Llevaba semanas llamando a clínicas concertadas con Sanitas para traumatología — todas me daban a 4-5 semanas. Pagué 9,99 € de tarifa de prioridad y tuve cita en HM Sanchinarro en 48 horas. La consulta la cubrió mi seguro como siempre.',
+    text: 'Llevaba semanas llamando a clínicas concertadas con Sanitas para traumatología — todas me daban a 4-5 semanas. Pagué 19 € de tarifa de prioridad y tuve cita en HM Sanchinarro a los diez días. La consulta la cubrió mi seguro como siempre.',
   },
   {
     name: 'Dr. Javier M.',
@@ -55,7 +62,7 @@ const REVIEWS = [
     insurer: 'Mapfre',
     date: 'Marzo 2026',
     stars: 5,
-    text: 'Necesitaba dermatología en menos de una semana. Con Mapfre la cita más cercana era a 4 semanas. Pagué 9,99 € por la prioridad y me atendieron al día siguiente con mi tarjeta. Sin doble pago, sin papeleo extra. Es exactamente lo que prometen.',
+    text: 'Necesitaba dermatología y con Mapfre la cita más cercana era a 4 semanas. Pagué 19 € por la prioridad y me atendieron a los seis días con mi tarjeta. Sin doble pago, sin papeleo extra. Es exactamente lo que prometen.',
   },
 ];
 

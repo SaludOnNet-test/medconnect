@@ -102,11 +102,25 @@
   color: var(--fg);
 }
 
+/* ── Body (wraps all sections, owns the vertical overflow) ──────────── */
+.cbm-body {
+  flex: 1 1 auto;
+  overflow-y: auto;
+  /* WebKit smooth-scroll on iOS so the time-slot grid scrolls cleanly
+     inside the modal even on small viewports. */
+  -webkit-overflow-scrolling: touch;
+  /* Prevent the body from collapsing to 0 height in flex contexts that
+     ignore explicit min-content. */
+  min-height: 0;
+}
+
 /* ── Sections ─────────────────────────────────────────────────────────── */
 .cbm-section {
   padding: var(--space-4) var(--space-5);
-  overflow-y: auto;
-  flex-shrink: 0;
+  /* No flex-shrink/overflow on individual sections — the parent .cbm-body
+     handles scrolling. Each section now flows naturally inside it, which
+     stops the footer from being pushed off-screen when the modal has
+     more content than 90 vh (procedure + 7 dates + 12 time slots). */
 }
 
 .cbm-section-title {

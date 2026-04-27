@@ -167,6 +167,9 @@ export default function ClinicBookingModal({
           <button className="cbm-close" onClick={onClose} aria-label="Cerrar"><Icon name="x" size={18} /></button>
         </div>
 
+        {/* Scrollable body — wraps every section so the modal doesn't push
+            the footer off-screen when content is taller than 90 vh. */}
+        <div className="cbm-body">
         {/* Procedure picker (required for everyone) */}
         <div className="cbm-section">
           <h3 className="cbm-section-title">Acto médico</h3>
@@ -264,6 +267,7 @@ export default function ClinicBookingModal({
             )}
           </div>
         )}
+        </div>{/* /.cbm-body */}
 
         {/* Footer CTA */}
         <div className="cbm-footer">
