@@ -746,6 +746,141 @@ img {
   }
 }
 
+/* ── Benefit / feature list (3-up icon + title + body) ── */
+.benefit-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: var(--space-7);
+}
+
+.benefit-item {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.benefit-icon {
+  color: var(--accent);
+}
+
+.benefit-title {
+  font-family: var(--font-display);
+  font-size: var(--text-2xl);
+  font-weight: 500;
+  line-height: 1.15;
+  letter-spacing: var(--tracking-snug);
+  margin: 0;
+  text-wrap: balance;
+}
+
+.benefit-body {
+  font-family: var(--font-body);
+  font-size: var(--text-md);
+  line-height: var(--leading-loose);
+  color: var(--fg-muted);
+  margin: 0;
+}
+
+@media (max-width: 900px) {
+  .benefit-grid {
+    grid-template-columns: 1fr;
+    gap: var(--space-6);
+  }
+}
+
+/* ── Revenue calculator (Para clínicas: ya cobras + te pagamos = real) ── */
+.revcalc {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 0;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+  background: var(--bone-50);
+}
+
+.revcalc-cell {
+  padding: var(--space-6);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  border-right: 1px solid var(--border);
+}
+.revcalc-cell:last-child { border-right: none; }
+
+.revcalc-cell--accent {
+  background: var(--bone-200);
+}
+
+.revcalc-label {
+  font-family: var(--font-mono);
+  font-size: var(--text-2xs);
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--fg-muted);
+}
+
+.revcalc-cell--accent .revcalc-label {
+  color: var(--accent-hover);
+}
+
+.revcalc-value {
+  font-family: var(--font-display);
+  font-size: var(--text-2xl);
+  font-weight: 500;
+  line-height: 1.15;
+  letter-spacing: var(--tracking-snug);
+  color: var(--fg);
+  text-wrap: balance;
+}
+
+.revcalc-sub {
+  font-family: var(--font-body);
+  font-size: var(--text-sm);
+  line-height: var(--leading-normal);
+  color: var(--fg-muted);
+  margin: 0;
+}
+
+@media (max-width: 900px) {
+  .revcalc {
+    grid-template-columns: 1fr;
+  }
+  .revcalc-cell {
+    border-right: none;
+    border-bottom: 1px solid var(--border);
+  }
+  .revcalc-cell:last-child {
+    border-bottom: none;
+  }
+}
+
+/* ── Two-column form layout (info left + form card right) ── */
+.form-split {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--space-8);
+  align-items: start;
+}
+
+@media (max-width: 900px) {
+  .form-split {
+    grid-template-columns: 1fr;
+    gap: var(--space-5);
+  }
+}
+
+.form-card {
+  background: var(--bone-100);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  padding: var(--space-6);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
 /* ── FAQ container ── */
 .faq-container {
   max-width: 880px;

@@ -1,102 +1,122 @@
-'use client';
-import Link from 'next/link';
 import Header from '@/components/Header';
 import Footer from '@/components/Footer';
-import './derivadores.css';
+import PageHeader from '@/components/brand/PageHeader';
+import Eyebrow from '@/components/brand/Eyebrow';
+import Button from '@/components/brand/Button';
+import Icon from '@/components/icons/Icon';
+
+export const metadata = {
+  title: 'Derivar paciente — Med Connect',
+  description: 'Deriva pacientes a especialistas concertados con sus aseguradoras y cobra una comisión por cada derivación confirmada. Sin coste para tu paciente.',
+};
 
 const loginUrl = process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY
   ? '/sign-up?role=professional'
   : '/pro/login';
 
+const BENEFITS = [
+  {
+    icon: 'euro',
+    title: 'Comisión por cada derivación',
+    body: 'Por cada paciente que derivas y reserva, te abonamos una comisión. Cobro mensual a la cuenta que nos indiques, con factura desglosada. Sin invertir en recursos, equipos ni personal.',
+  },
+  {
+    icon: 'user-round-check',
+    title: 'Tu paciente, atendido en días',
+    body: 'Resuelves su problema sin perderlo en la espera del cuadro médico. Sigue siendo tu paciente — tú no dejas de verlo, simplemente lo derivas a un colega para esa especialidad.',
+  },
+  {
+    icon: 'receipt',
+    title: 'Sin cobrarle a tu paciente',
+    body: 'La tarifa de prioridad la paga el paciente directamente a Med Connect, transparente y desglosada. Tú no manejas dinero del paciente ni intervienes en el cobro.',
+  },
+];
+
+const STEPS = [
+  {
+    n: '01',
+    title: 'Identifica la especialidad',
+    body: 'Eliges la especialidad y la urgencia. Te mostramos clínicas concertadas con la aseguradora del paciente.',
+  },
+  {
+    n: '02',
+    title: 'Comparte el enlace',
+    body: 'Generamos un enlace personalizado con el motivo de la derivación. Lo envías por WhatsApp o email al paciente — sin registro previo.',
+  },
+  {
+    n: '03',
+    title: 'El paciente reserva — tú cobras',
+    body: 'El paciente confirma día y hora y paga la tarifa de prioridad. Cuando la cita se realiza, te abonamos automáticamente tu comisión.',
+  },
+];
+
 export default function DerivadoresPage() {
   return (
     <>
       <Header />
-      <main>
-        {/* Hero */}
-        <section className="derivadores-hero">
-          <div className="container">
-            <h1 className="derivadores-hero-title animate-fade-in-up">
-              Tu clínica. Más ingresos. <span>Sin inversión extra.</span>
-            </h1>
-            <p className="derivadores-hero-subtitle animate-fade-in-up" style={{ animationDelay: '0.1s' }}>
-              Aumenta los ingresos de tu consulta de dos formas: deriva pacientes a especialistas de nuestra red, y cobra un extra por los huecos urgentes y prioritarios que ofreces a través de Med Connect — sin tocar tus tarifas con las aseguradoras.
-            </p>
-            <div className="animate-fade-in-up" style={{ animationDelay: '0.2s' }}>
-              <Link href={loginUrl} className="btn btn-gold btn-lg">
-                Empezar a derivar pacientes
-              </Link>
-            </div>
-          </div>
-        </section>
+      <PageHeader
+        dark
+        eyebrow="Derivar paciente"
+        title={<>Deriva un paciente. <em>Cobra por hacerlo.</em></>}
+        lede="Cuando tienes un paciente que necesita otra especialidad y tu cuadro médico no le da cita a tiempo, derívalo con nosotros: tu paciente consigue cita en días, y tú cobras una comisión por cada derivación que se confirma."
+      >
+        <Button href={loginUrl} variant="primary" size="lg">Empezar a derivar pacientes</Button>
+      </PageHeader>
 
-        {/* Benefits */}
-        <section className="derivadores-benefits">
-          <div className="container">
-            <div className="derivadores-benefit-grid">
-              <div className="derivadores-benefit-card animate-fade-in-up" style={{ animationDelay: '0.1s' }}>
-                <span className="derivadores-benefit-icon">💶</span>
-                <h3 className="derivadores-benefit-title">Nuevos ingresos sin coste</h3>
-                <p className="derivadores-benefit-desc">
-                  Genera comisiones por cada paciente que derivas a la red, y cobra el diferencial prioritario por los huecos urgentes que ofreces desde tu propia agenda. Sin invertir en recursos, equipos ni personal. Med Connect te abona el diferencial de tiempo directamente.
-                </p>
+      <section className="info-section">
+        <div className="container">
+          <Eyebrow>Lo que ganas tú</Eyebrow>
+          <h2 className="info-section-title">
+            Tu paciente, atendido. <em>Tú, compensado.</em>
+          </h2>
+          <div className="benefit-grid">
+            {BENEFITS.map((b) => (
+              <div key={b.title} className="benefit-item">
+                <Icon name={b.icon} size={28} className="benefit-icon" />
+                <h3 className="benefit-title">{b.title}</h3>
+                <p className="benefit-body">{b.body}</p>
               </div>
-              <div className="derivadores-benefit-card animate-fade-in-up" style={{ animationDelay: '0.2s' }}>
-                <span className="derivadores-benefit-icon">🏥</span>
-                <h3 className="derivadores-benefit-title">Derivación interna y externa</h3>
-                <p className="derivadores-benefit-desc">
-                  Gestiona derivaciones dentro de tu propia clínica —entre servicios y especialidades propios— y también hacia la red premium de especialistas verificados en toda España. Tu tarifa con las aseguradoras no cambia: lo que cobras de más es el valor del tiempo urgente.
-                </p>
-              </div>
-              <div className="derivadores-benefit-card animate-fade-in-up" style={{ animationDelay: '0.3s' }}>
-                <span className="derivadores-benefit-icon">📊</span>
-                <h3 className="derivadores-benefit-title">Control total, en tiempo real</h3>
-                <p className="derivadores-benefit-desc">
-                  Panel propio con el estado de cada paciente, confirmaciones y liquidaciones de comisiones. Y tus tarifas con aseguradoras, intactas.
-                </p>
-              </div>
-            </div>
+            ))}
           </div>
-        </section>
+        </div>
+      </section>
 
-        {/* How it works */}
-        <section className="derivadores-howitworks container">
-          <h2 className="derivadores-section-title">¿Cómo funciona?</h2>
-          <div className="derivadores-steps">
-            <div className="derivadores-step">
-              <div className="derivadores-step-number">1</div>
-              <div className="derivadores-step-content">
-                <h3>Deriva a tu primer paciente</h3>
-                <p>Selecciona un especialista de la red (o de tu propia clínica), elige fecha y horario y envíale el enlace de confirmación en menos de 60 segundos. Sin registro previo.</p>
+      <section className="info-section info-section--alt">
+        <div className="container faq-container">
+          <Eyebrow>Cómo funciona</Eyebrow>
+          <h2 className="info-section-title">
+            Tres pasos. Sin papeleo, sin <em>cambiar tu consulta</em>.
+          </h2>
+          <div className="reality-list">
+            {STEPS.map((s) => (
+              <div key={s.n} className="reality-row">
+                <span className="reality-n">{s.n}</span>
+                <div>
+                  <h3 className="reality-title">{s.title}</h3>
+                  <p className="reality-body">{s.body}</p>
+                </div>
               </div>
-            </div>
-            <div className="derivadores-step">
-              <div className="derivadores-step-number">2</div>
-              <div className="derivadores-step-content">
-                <h3>Registra tu clínica <span style={{ fontSize: '0.75rem', background: 'var(--gold-light)', color: 'var(--gold)', padding: '2px 8px', borderRadius: '4px', fontWeight: '700', verticalAlign: 'middle' }}>Opcional</span></h3>
-                <p>¿Quieres recibir derivaciones de otros médicos Y cobrar el extra prioritario por tus huecos urgentes? Registra tu centro, añade tus especialidades y horarios. Tu tarifa con las aseguradoras no cambia: Med Connect te abona el diferencial de tiempo directamente.</p>
-              </div>
-            </div>
-            <div className="derivadores-step">
-              <div className="derivadores-step-number">3</div>
-              <div className="derivadores-step-content">
-                <h3>Cobra tus comisiones automáticamente</h3>
-                <p>Por cada paciente derivado que acude a cita recibes la comisión. Por cada hueco prioritario que aceptas, recibes el extra urgente. Todo liquidado directamente en tu cuenta. Sin papeleo.</p>
-              </div>
-            </div>
+            ))}
           </div>
-        </section>
+        </div>
+      </section>
 
-        {/* CTA */}
-        <section className="derivadores-cta-section">
-          <div className="container">
-            <h2 className="derivadores-cta-title">Empieza hoy. Sin compromiso. Sin coste inicial.</h2>
-            <Link href={loginUrl} className="btn btn-navy btn-lg">
-              Empezar a derivar pacientes
-            </Link>
+      <section className="cta-section on-inverse">
+        <div className="cta-noise" aria-hidden="true" />
+        <div className="container cta-inner">
+          <Eyebrow dark>Sin compromiso, sin coste inicial</Eyebrow>
+          <h2 className="cta-title">
+            Empieza <em>hoy</em>.
+          </h2>
+          <p className="cta-lede">
+            Tu primer enlace de derivación lo generas en menos de un minuto.
+          </p>
+          <div className="cta-actions">
+            <Button href={loginUrl} variant="primary" size="lg">Empezar a derivar pacientes</Button>
+            <Button href="mailto:hola@medconnect.es" variant="ghostInv" size="lg">Hablar con ventas</Button>
           </div>
-        </section>
-      </main>
+        </div>
+      </section>
       <Footer />
     </>
   );
