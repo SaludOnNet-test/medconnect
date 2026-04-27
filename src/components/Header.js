@@ -47,11 +47,11 @@ export default function Header() {
           <Link href="/derivadores" className="header-link-pro">
             Derivar un paciente
           </Link>
-          <a href="tel:+34900123456" className="header-phone" aria-label="Llamar al 900 123 456">
+          <a href="tel:+34912172193" className="header-phone" aria-label="Llamar al 91 217 21 93">
             <span className="header-phone-icon">📞</span>
             <div className="header-phone-block">
               <span className="header-phone-label">¿Tu seguro no te da cita? Llámanos</span>
-              <span className="header-phone-number">900 123 456</span>
+              <span className="header-phone-number">91 217 21 93</span>
             </div>
           </a>
 
