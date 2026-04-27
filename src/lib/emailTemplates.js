@@ -78,7 +78,7 @@ export function lockInInvitation({ patientEmail, professionalEmail, clinicName, 
 // ─────────────────────────────────────────────
 // 2. Booking received — payment OK, clinic confirmation pending
 // ─────────────────────────────────────────────
-export function bookingConfirmation({ patientName, providerName, providerAddress, slotDate, slotTime, totalPrice, reference, hasInsurance, feeAmount }) {
+export function bookingConfirmation({ patientName, providerName, providerAddress, slotDate, slotTime, totalPrice, reference, hasInsurance, feeAmount, selfServiceUrl }) {
   const formattedDate = slotDate ? new Date(slotDate + 'T00:00:00').toLocaleDateString('es-ES', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' }) : slotDate;
   const insured = hasInsurance === true;
   const feeForLine = feeAmount ?? totalPrice;
@@ -131,10 +131,20 @@ export function bookingConfirmation({ patientName, providerName, providerAddress
         </p>
       </div>
       `}
-      <p style="margin:0;font-size:13px;color:#6b7280;line-height:1.55;">
+      <p style="margin:0 0 16px;font-size:13px;color:#6b7280;line-height:1.55;">
         En cuanto la clínica confirme, te enviaremos un email final con los datos para que acudas
         (qué llevar, dirección, etc.).
       </p>
+      ${selfServiceUrl ? `
+      <div style="margin-top:16px;padding-top:16px;border-top:1px solid #e5e7eb;">
+        <p style="margin:0 0 8px;font-size:13px;color:#6b7280;line-height:1.55;">
+          ¿Necesitas <strong>cancelar</strong> o <strong>cambiar la fecha</strong>?
+        </p>
+        <a href="${selfServiceUrl}" style="display:inline-block;font-size:13px;color:#1a3c5e;font-weight:600;text-decoration:underline;">
+          Gestionar mi cita
+        </a>
+      </div>
+      ` : ''}
     `)}
   `);
 

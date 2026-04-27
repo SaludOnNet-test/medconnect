@@ -191,6 +191,7 @@ function BookContent() {
     let opsCaseId = null;
     let paymentToClinic = null;
     let tier = null;
+    let selfServiceToken = null;
     try {
       const r = await fetch('/api/bookings', {
         method: 'POST',
@@ -228,6 +229,9 @@ function BookContent() {
         paymentToClinic = j._case.paymentToClinic ?? null;
         tier = j._case.tier ?? null;
       }
+      // F2 — capture the self-service token returned by the booking API so
+      // we can build the cancel/reschedule link for the confirmation email.
+      if (j.selfServiceToken) selfServiceToken = j.selfServiceToken;
     } catch (e) { /* keep going */ }
 
     // If this was a lock-in referral, mark it CONFIRMED in DB + localStorage
@@ -255,6 +259,13 @@ function BookContent() {
     const fmt = (d) => d.toISOString().replace(/[-:]/g, '').split('.')[0] + 'Z';
     const calendarUrl = `https://calendar.google.com/calendar/render?action=TEMPLATE&text=Cita+en+${encodeURIComponent(clinicName)}&dates=${fmt(start)}/${fmt(end)}&details=Referencia+${reference}`;
 
+    // F2 — build the patient self-service URL (cancel / reschedule). Falls back
+    // to the production domain when NEXT_PUBLIC_BASE_URL isn't set.
+    const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || 'https://www.medconnect.es';
+    const selfServiceUrl = selfServiceToken
+      ? `${baseUrl.replace(/\/$/, '')}/booking/${selfServiceToken}`
+      : null;
+
     // Send confirmation emails
     sendEmail('bookingConfirmation', {
       patientEmail,
@@ -269,6 +280,7 @@ function BookContent() {
       feeAmount: activeFee,
       procedureName: serviceLabel || null,
       servicePrice: hasInsurance === false ? Number(servicePrice) || 0 : 0,
+      selfServiceUrl,
     });
     sendEmail('paymentReceipt', {
       patientEmail,

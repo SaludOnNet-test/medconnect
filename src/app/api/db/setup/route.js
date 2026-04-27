@@ -117,6 +117,27 @@ export async function GET(request) {
       ALTER TABLE bookings ADD payment_intent_id NVARCHAR(80);
     `);
 
+    // ── Migration: self_service_token on bookings (F2) ─────────────────
+    // Lets the patient cancel or request a reschedule from a link in the
+    // confirmation email without having to authenticate. Token is a 32-char
+    // hex string generated when the booking is inserted.
+    await pool.request().query(`
+      IF NOT EXISTS (
+        SELECT * FROM sys.columns
+        WHERE Name = 'self_service_token' AND Object_ID = Object_ID('bookings')
+      )
+      ALTER TABLE bookings ADD self_service_token NVARCHAR(64) NULL;
+    `);
+    await pool.request().query(`
+      IF NOT EXISTS (
+        SELECT * FROM sys.indexes
+        WHERE name = 'IX_bookings_self_service_token'
+          AND object_id = OBJECT_ID('bookings')
+      )
+      CREATE UNIQUE INDEX IX_bookings_self_service_token
+        ON bookings(self_service_token) WHERE self_service_token IS NOT NULL;
+    `);
+
     // ── operations_cases: one case per booking that needs ops handling ─
     await pool.request().query(`
       IF NOT EXISTS (SELECT * FROM sys.tables WHERE name = 'operations_cases')
