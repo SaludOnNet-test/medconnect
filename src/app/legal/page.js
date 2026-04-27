@@ -1,5 +1,6 @@
 import Header from '@/components/Header';
 import Footer from '@/components/Footer';
+import Eyebrow from '@/components/brand/Eyebrow';
 
 export const metadata = {
   title: 'Aviso Legal — Med Connect',
@@ -10,29 +11,32 @@ export default function LegalPage() {
   return (
     <>
       <Header />
-      <main className="legal-page" style={{ color: '#374151', lineHeight: '1.8' }}>
-        <h1 style={{ fontSize: 'clamp(1.5rem, 5vw, 2rem)', fontWeight: '800', color: '#1a3c5e', marginBottom: '0.5rem' }}>Aviso Legal</h1>
-        <p style={{ color: '#9ca3af', fontSize: '0.9rem', marginBottom: '2.5rem' }}>En cumplimiento de la Ley 34/2002, de 11 de julio, de Servicios de la Sociedad de la Información y de Comercio Electrónico (LSSI-CE)</p>
+      <main className="legal-page">
+        <Eyebrow style={{ marginBottom: 'var(--space-3)' }}>Aviso legal</Eyebrow>
+        <h1 className="legal-title">Quiénes somos legalmente.</h1>
+        <p className="legal-sub">
+          En cumplimiento de la Ley 34/2002, de 11 de julio, de Servicios de la Sociedad de la Información y de Comercio Electrónico (LSSI-CE).
+        </p>
 
         <Section title="1. Datos identificativos del titular">
           <div className="table-scroll">
-          <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.9rem' }}>
-            <tbody>
-              {[
-                ['Razón social', 'Saludonnet Spain SL'],
-                ['Nombre comercial', 'Med Connect'],
-                // CIF omitted during MVP — to be added before public launch
-                ['Domicilio', 'España'],
-                ['Email de contacto', 'hola@medconnect.es'],
-                ['Actividad', 'Intermediación en la reserva de citas médicas privadas'],
-              ].map(([k, v]) => (
-                <tr key={k} style={{ borderBottom: '1px solid #e5e7eb' }}>
-                  <td style={{ padding: '10px 12px', fontWeight: '600', color: '#1a3c5e', width: '40%' }}>{k}</td>
-                  <td style={{ padding: '10px 12px', color: '#4b5563' }}>{v}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+            <table className="legal-table">
+              <tbody>
+                {[
+                  ['Razón social', 'Saludonnet Spain SL'],
+                  ['Nombre comercial', 'Med Connect'],
+                  // CIF omitted during MVP — to be added before public launch
+                  ['Domicilio', 'España'],
+                  ['Email de contacto', 'hola@medconnect.es'],
+                  ['Actividad', 'Intermediación en la reserva de citas médicas privadas'],
+                ].map(([k, v]) => (
+                  <tr key={k}>
+                    <th scope="row">{k}</th>
+                    <td>{v}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
           </div>
         </Section>
 
@@ -66,7 +70,7 @@ export default function LegalPage() {
         </Section>
 
         <Section title="7. Contacto">
-          <p>Para cualquier consulta legal: <a href="mailto:legal@medconnect.es" style={{ color: '#1a3c5e' }}>legal@medconnect.es</a></p>
+          <p>Para cualquier consulta legal: <a href="mailto:legal@medconnect.es">legal@medconnect.es</a></p>
         </Section>
       </main>
       <Footer />
@@ -76,9 +80,9 @@ export default function LegalPage() {
 
 function Section({ title, children }) {
   return (
-    <section style={{ marginBottom: '2.5rem' }}>
-      <h2 style={{ fontSize: '1.2rem', fontWeight: '700', color: '#1a3c5e', marginBottom: '1rem', paddingBottom: '0.5rem', borderBottom: '2px solid #e5e7eb' }}>{title}</h2>
-      {children}
+    <section className="legal-section">
+      <h2>{title}</h2>
+      <div className="legal-section-body">{children}</div>
     </section>
   );
 }
