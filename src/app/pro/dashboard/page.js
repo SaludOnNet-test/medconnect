@@ -11,8 +11,6 @@ import ReferralModal from '@/components/ReferralModal';
 import LockInTimer from '@/components/LockInTimer';
 import { createReferral, generateReferralId, REFERRAL_STATES, getReferralStatusDisplay, isSlotAvailable } from '@/data/mock';
 
-// TODO: Replace with real clinic ID from user account
-const MY_CLINIC_PROVIDER_ID = 1;
 const HAS_CLERK_KEYS = !!(process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY);
 import './dashboard.css';
 
@@ -50,6 +48,10 @@ export default function ProDashboard() {
   const [referrals, setReferrals] = useState([]);
   const [serverCommissions, setServerCommissions] = useState(null);
   const [clerkUser, setClerkUser] = useState(null);
+  // The pro user's clinic, fetched from /api/pro/me. null while loading or
+  // when the user isn't yet attached (alta pendiente). The ReferralModal
+  // uses this to gate "interna" derivation.
+  const [myClinic, setMyClinic] = useState(null);
   const handleClerkUser = useCallback((data) => setClerkUser(data), []);
   const [isMounted, setIsMounted] = useState(false);
   useEffect(() => setIsMounted(true), []);
@@ -96,6 +98,29 @@ export default function ProDashboard() {
         const data = await res.json();
         if (!cancelled) setServerCommissions(data);
       } catch { /* ignore — fallback to local stats */ }
+    })();
+    return () => { cancelled = true; };
+  }, [professionalEmail]);
+
+  // Resolve the pro user's clinic. The endpoint returns
+  // { clinicId, clinicName, clinicCity, altaStatus } — when the user has no
+  // mapping yet, clinicId is null and the modal shows the alta-pendiente
+  // gate for "interna" derivation.
+  useEffect(() => {
+    if (!professionalEmail) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await fetch(`/api/pro/me?email=${encodeURIComponent(professionalEmail)}`);
+        if (!res.ok) return;
+        const data = await res.json();
+        if (cancelled) return;
+        if (data?.clinicId) {
+          setMyClinic({ id: data.clinicId, name: data.clinicName, city: data.clinicCity });
+        } else {
+          setMyClinic(null);
+        }
+      } catch { /* ignore */ }
     })();
     return () => { cancelled = true; };
   }, [professionalEmail]);
@@ -546,6 +571,7 @@ export default function ProDashboard() {
         derivationType={modalDeriType}
         professionName={professionName}
         professionalEmail={professionalEmail}
+        myClinic={myClinic}
       />
 
       <Footer />
