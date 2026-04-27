@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { getPool, sql, DB_AVAILABLE } from '@/lib/db';
+import { limits } from '@/lib/rateLimit';
 
 // ---------------------------------------------------------------------------
 // Row → camelCase object
@@ -62,6 +63,16 @@ export async function GET(request) {
 export async function POST(request) {
   if (!DB_AVAILABLE) {
     return NextResponse.json({ error: 'DB not configured' }, { status: 503 });
+  }
+
+  // 10 referrals/hour/IP. Stops accidental form-loop spam without throttling
+  // legitimate professional flow (a real pro creates ≤ a handful per hour).
+  const r = limits.referralsPost.check(request);
+  if (!r.ok) {
+    return NextResponse.json(
+      { error: 'rate_limited', retryAfterSec: r.retryAfterSec },
+      { status: 429, headers: r.headers },
+    );
   }
 
   const body = await request.json();

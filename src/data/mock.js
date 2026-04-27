@@ -222,14 +222,18 @@ export function getConvenienceFee(slotDate) {
   target.setHours(0, 0, 0, 0);
   const diffDays = Math.round((target - now) / (1000 * 60 * 60 * 24));
 
-  // New Tiers Med Connect:
-  // Today, Next Business Day, and Next Business Day after that: 25€
-  // Day 3 to Day 30: 9.99€
-  // Day 31+: 0.99€
-  
-  if (diffDays <= 2) return { amount: 25, tier: 'urgent_green', label: 'Cita en menos de 48 h' };
-  if (diffDays <= 29) return { amount: 9.99, tier: 'soon_green', label: 'Cita esta semana' };
-  return { amount: 0.99, tier: 'standard_black', label: 'Cita planificada' };
+  // Canonical Med Connect priority pricing (2026):
+  //   < 48 h               → 29 € (tier 1 — esta semana / urgente)
+  //   3 –  7 días           → 19 € (tier 2)
+  //   8 – 30 días           → 9,99 € (tier 3)
+  //   31+ días             → 4,99 € (tier 4 — más adelante)
+  // The DB-driven slot generator (lib/slot-validation.js) is the source of
+  // truth for live pricing; this helper just keeps the legacy mock fallback
+  // aligned with the same scale.
+  if (diffDays <= 2)  return { amount: 29,    tier: 1, label: 'Cita en menos de 48 h' };
+  if (diffDays <= 7)  return { amount: 19,    tier: 2, label: 'Cita esta semana' };
+  if (diffDays <= 30) return { amount: 9.99,  tier: 3, label: 'Cita en este mes' };
+  return                      { amount: 4.99, tier: 4, label: 'Cita planificada' };
 }
 
 export function getServicesForSpecialty(specialtyId) {

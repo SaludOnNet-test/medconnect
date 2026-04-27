@@ -1,0 +1,85 @@
+.brand-ladder {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 0;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+}
+
+.brand-tier {
+  padding: var(--space-6) var(--space-5);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  border-right: 1px solid var(--border);
+  position: relative;
+}
+
+.brand-tier:last-child {
+  border-right: none;
+}
+
+/* Stepped Bone surfaces — 1 lightest → 4 darkest, mirroring "Bone Hi → Lo" */
+.brand-tier--1 { background: var(--bone-50); }
+.brand-tier--2 { background: var(--bone-100); }
+.brand-tier--3 { background: var(--bone-200); }
+.brand-tier--4 { background: var(--bone-300); }
+
+.brand-tier--highlight {
+  border: 2px solid var(--accent);
+  margin: -1px;
+  z-index: 1;
+}
+
+.brand-tier__amount {
+  font-family: var(--font-display);
+  font-size: var(--text-4xl);
+  font-weight: 500;
+  font-variation-settings: "opsz" 96;
+  letter-spacing: var(--tracking-tight);
+  color: var(--fg);
+  line-height: 1;
+}
+
+.brand-tier--highlight .brand-tier__amount {
+  color: var(--accent-press);
+}
+
+.brand-tier__label {
+  font-family: var(--font-body);
+  font-size: var(--text-sm);
+  font-weight: 600;
+  color: var(--fg);
+}
+
+.brand-tier__copy {
+  font-family: var(--font-body);
+  font-size: var(--text-sm);
+  line-height: var(--leading-normal);
+  color: var(--fg-muted);
+  margin: 0;
+}
+
+@media (max-width: 900px) {
+  .brand-ladder {
+    grid-template-columns: repeat(2, 1fr);
+  }
+  .brand-tier {
+    border-right: 1px solid var(--border);
+    border-bottom: 1px solid var(--border);
+  }
+  .brand-tier:nth-child(2n) { border-right: none; }
+  .brand-tier:nth-last-child(-n+2) { border-bottom: none; }
+}
+
+@media (max-width: 540px) {
+  .brand-ladder {
+    grid-template-columns: 1fr;
+  }
+  .brand-tier {
+    border-right: none;
+    border-bottom: 1px solid var(--border);
+  }
+  .brand-tier:last-child { border-bottom: none; }
+}

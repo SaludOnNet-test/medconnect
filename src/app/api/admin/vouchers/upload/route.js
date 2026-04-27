@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { getPool, query, sql, DB_AVAILABLE } from '@/lib/db';
-import { requireAuth } from '@/lib/adminAuth';
+import { requireRole } from '@/lib/adminAuth';
 import { sendEmail } from '@/lib/email';
 import { voucherDelivery } from '@/lib/emailTemplates';
 
@@ -15,8 +15,9 @@ import { voucherDelivery } from '@/lib/emailTemplates';
  * - resend=true: just re-sends the email using the stored fields.
  */
 export async function POST(request) {
-  const session = requireAuth(request);
-  if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  const rr = requireRole(request, ['admin', 'ops']);
+  if (rr instanceof Response) return rr;
+  const session = rr;
   if (!DB_AVAILABLE) return NextResponse.json({ error: 'DB not configured' }, { status: 503 });
 
   let body;
@@ -118,7 +119,13 @@ export async function POST(request) {
       emailResult = { ok: false, error: e.message };
     }
 
-    if (!alreadySent) {
+    // Only mark "sent" when the transport actually succeeded. Without this,
+    // a transient Resend failure (sandbox mode, throttling, downtime) would
+    // silently bury the email — alreadySent would be true on the next attempt
+    // and the function would skip retrying. Ops would have to manually pass
+    // resend=true to recover. Found during the H8 smoke test on 2026-04-27
+    // while Resend was returning 403s for unverified medconnect.es.
+    if (!alreadySent && emailResult?.ok) {
       await pool.request()
         .input('id', sql.NVarChar(50), bookingId)
         .query(`UPDATE vouchers SET sent_to_patient_at = SYSDATETIMEOFFSET() WHERE booking_id = @id`);

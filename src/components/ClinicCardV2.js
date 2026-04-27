@@ -1,4 +1,6 @@
 'use client';
+import Icon from '@/components/icons/Icon';
+import { formatEUR } from '@/lib/format';
 import './ClinicCardV2.css';
 
 function getInitials(name) {
@@ -45,7 +47,7 @@ export default function ClinicCardV2({
             <div>
               <h3 className="cv2-name">{provider.name}</h3>
               <p className="cv2-address">
-                <span className="cv2-icon">📍</span>
+                <Icon name="map-pin" size={14} className="cv2-icon" />
                 {provider.address}, {provider.city}
               </p>
             </div>
@@ -86,7 +88,7 @@ export default function ClinicCardV2({
               const priced = nextSlots.filter((s) => s.tier && Number(s.price) > 0);
               if (priced.length === 0) return null;
               const min = priced.reduce((m, s) => Math.min(m, Number(s.price)), Infinity);
-              return <> · tarifa de prioridad <strong>desde {min.toFixed(2)}€</strong></>;
+              return <> · tarifa de prioridad <strong>desde {formatEUR(min)}</strong></>;
             })()}
             {!isSinSeguro && (
               <span className="cv2-slots-coverage"> · tu seguro cubre la consulta</span>
@@ -107,7 +109,7 @@ export default function ClinicCardV2({
                 >
                   <span className="cv2-slot-date">{formatSlotDate(slot.date)} · {slot.time}</span>
                   {hasTier && (
-                    <span className="cv2-slot-fee">{fee.toFixed(2)}€</span>
+                    <span className="cv2-slot-fee">{formatEUR(fee)}</span>
                   )}
                 </button>
               );

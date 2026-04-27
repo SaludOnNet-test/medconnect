@@ -1,4 +1,5 @@
 import { sendEmail } from '@/lib/email';
+import { limits } from '@/lib/rateLimit';
 import {
   lockInInvitation,
   lockInReminder,
@@ -33,6 +34,16 @@ const TEMPLATES = {
 
 export async function POST(request) {
   try {
+    // 5 sends/min/IP. Stops accidental loops + abuse without blocking legit
+    // server-side callers (which all live on the same IP and share the bucket).
+    const r = limits.emailSend.check(request);
+    if (!r.ok) {
+      return Response.json(
+        { success: false, error: 'rate_limited', retryAfterSec: r.retryAfterSec },
+        { status: 429, headers: r.headers },
+      );
+    }
+
     const { templateName, data } = await request.json();
 
     if (!templateName || !TEMPLATES[templateName]) {

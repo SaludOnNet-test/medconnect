@@ -1,65 +1,42 @@
-'use client';
-
-import { useState } from 'react';
+import Eyebrow from '@/components/brand/Eyebrow';
+import Accordion from '@/components/brand/Accordion';
 
 const FAQS = [
   {
     q: 'Si ya tengo seguro, ¿por qué tengo que pagaros algo?',
-    a: 'Tu seguro te cubre la consulta, pero no te garantiza cuándo. Pagas la tarifa de prioridad solo por que te consigamos una reserva prioritaria en una clínica de tu cuadro médico — esa gestión es lo único que nos cobramos.',
+    a: <p>Porque tu seguro te garantiza la consulta, pero no el cuándo. Cuando necesitas cita esta semana y tu cuadro médico te ofrece dentro de un mes, somos el atajo legítimo: clínicas que ya tienen acuerdo con tu aseguradora, con una reserva prioritaria reservada para ti.</p>,
   },
   {
     q: '¿Qué pasa exactamente cuando llegue a la clínica?',
-    a: 'Entregas tu tarjeta de asegurado en recepción, como en cualquier otra cita concertada. La clínica te atiende bajo tu póliza y factura la consulta a tu aseguradora. No te vuelven a cobrar nada.',
+    a: <p>Acudes con tu tarjeta de asegurado. Te atienden bajo tu póliza. La clínica factura la consulta a tu aseguradora, no a ti. Lo único nuevo es que la cita es para mañana, no para dentro de seis semanas.</p>,
   },
   {
     q: '¿Mi aseguradora se entera? ¿Me penaliza?',
-    a: 'No. Es una cita normal en una clínica de tu cuadro médico. Tu aseguradora factura la consulta como siempre. Para ellos es indistinguible de una cita gestionada por su app o teléfono.',
+    a: <p>No. Para tu aseguradora es una cita concertada normal — la clínica está en su cuadro y tú estás cubierto por tu póliza. La tarifa de prioridad es un acuerdo entre tú y Med Connect, separado.</p>,
   },
   {
     q: '¿Qué incluye la tarifa de prioridad?',
-    a: 'La gestión, la reserva del hueco urgente y el acceso prioritario que negociamos con la clínica. No incluye el acto médico — eso lo cubre tu seguro.',
+    a: <p>Una reserva prioritaria: <strong>4,99&nbsp;€</strong> si la cita es a 30+ días, <strong>9,99&nbsp;€</strong> si es esta semana, <strong>19&nbsp;€</strong> en menos de 7 días, <strong>29&nbsp;€</strong> si es en menos de 48 horas. Nada más — el acto médico es entre tu aseguradora y la clínica.</p>,
   },
   {
     q: '¿Y si no tengo seguro?',
-    a: 'También te conseguimos cita privada. En ese caso pagas el acto médico de la clínica + la tarifa de prioridad. Te mostramos siempre el total antes de pagar.',
+    a: <p>Te conseguimos cita privada en la misma red de clínicas. En este caso pagas la consulta completa, con precio cerrado de antemano y sin sorpresas en recepción.</p>,
   },
   {
     q: '¿Puedo cancelar?',
-    a: 'Sí, cancelación gratuita hasta 24 horas antes de la cita. Si cancelas antes, te devolvemos íntegra la tarifa de prioridad.',
+    a: <p>Sí, hasta 24 horas antes de la cita y la tarifa de prioridad se reembolsa íntegramente. Pasado ese plazo, la tarifa no es reembolsable salvo causa justificada.</p>,
   },
 ];
 
-function FAQItem({ q, a }) {
-  const [open, setOpen] = useState(false);
-  return (
-    <div className={`home-faq-item ${open ? 'is-open' : ''}`}>
-      <button
-        type="button"
-        className="home-faq-question"
-        onClick={() => setOpen(!open)}
-        aria-expanded={open}
-      >
-        <span>{q}</span>
-        <span className="home-faq-icon" aria-hidden>{open ? '−' : '+'}</span>
-      </button>
-      {open && <div className="home-faq-answer">{a}</div>}
-    </div>
-  );
-}
-
 export default function HomeFAQ() {
   return (
-    <section className="home-faq">
-      <div className="container">
-        <h2 className="home-faq-title">Preguntas que todo asegurado se hace</h2>
-        <p className="home-faq-subtitle">
-          Lo que te aclaramos antes de que lo preguntes en recepción.
-        </p>
-        <div className="home-faq-list">
-          {FAQS.map((faq, i) => (
-            <FAQItem key={i} q={faq.q} a={faq.a} />
-          ))}
-        </div>
+    <section className="home-faq-section">
+      <div className="container faq-container">
+        <Eyebrow>Preguntas que todo asegurado se hace</Eyebrow>
+        <h2 className="home-faq-title">
+          Lo que te aclaramos antes de que lo preguntes <em>en recepción</em>.
+        </h2>
+        <Accordion items={FAQS} defaultOpen={0} />
       </div>
     </section>
   );

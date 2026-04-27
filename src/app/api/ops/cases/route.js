@@ -1,10 +1,11 @@
 import { NextResponse } from 'next/server';
 import { listCases } from '@/lib/opsCases';
-import { requireAuth } from '@/lib/adminAuth';
+import { requireRole } from '@/lib/adminAuth';
 
 export async function GET(request) {
-  const session = requireAuth(request);
-  if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  const r = requireRole(request, ['admin', 'ops']);
+  if (r instanceof Response) return r;
+  const session = r;
 
   const { searchParams } = new URL(request.url);
   const status = searchParams.get('status') || null;

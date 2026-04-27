@@ -445,6 +445,7 @@ function SearchV2Content() {
           initialSlot={modalInitialSlot}
           initialProcedureSlug={procedureSlug}
           initialSpecialtySlug={specialtySlug}
+          initialInsurance={isSinSeguro ? '' : insuranceFilter}
           onClose={() => { setModalProvider(null); setModalInitialSlot(null); }}
         />
       )}

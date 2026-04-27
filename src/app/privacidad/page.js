@@ -1,21 +1,31 @@
 import Header from '@/components/Header';
 import Footer from '@/components/Footer';
+import Eyebrow from '@/components/brand/Eyebrow';
 
 export const metadata = {
   title: 'Política de Privacidad — Med Connect',
   description: 'Política de privacidad y protección de datos de Med Connect conforme al RGPD y LOPDGDD.',
 };
 
+const PURPOSES = [
+  ['Gestionar la reserva de citas', 'Ejecución de contrato (art. 6.1.b RGPD)'],
+  ['Enviar emails transaccionales (confirmación, recordatorio)', 'Ejecución de contrato'],
+  ['Análisis de uso y mejora del servicio (GA4, Clarity)', 'Consentimiento (art. 6.1.a RGPD)'],
+  ['Cumplimiento de obligaciones legales', 'Obligación legal (art. 6.1.c RGPD)'],
+  ['Comunicaciones comerciales (si lo aceptas)', 'Consentimiento'],
+];
+
 export default function PrivacidadPage() {
   return (
     <>
       <Header />
-      <main className="legal-page" style={{ color: '#374151', lineHeight: '1.8' }}>
-        <h1 style={{ fontSize: 'clamp(1.5rem, 5vw, 2rem)', fontWeight: '800', color: '#1a3c5e', marginBottom: '0.5rem' }}>Política de Privacidad</h1>
-        <p style={{ color: '#9ca3af', fontSize: '0.9rem', marginBottom: '2.5rem' }}>Última actualización: abril 2026</p>
+      <main className="legal-page">
+        <Eyebrow style={{ marginBottom: 'var(--space-3)' }}>Política de privacidad</Eyebrow>
+        <h1 className="legal-title">Cómo tratamos tus datos.</h1>
+        <p className="legal-sub">Última actualización: abril 2026.</p>
 
         <Section title="1. Responsable del tratamiento">
-          <p><strong>Med Connect</strong> (en adelante, «la Plataforma»), operada por <strong>Saludonnet Spain SL</strong>, con domicilio en España. Contacto de privacidad: <a href="mailto:privacidad@medconnect.es" style={{ color: '#1a3c5e' }}>privacidad@medconnect.es</a></p>
+          <p><strong>Med Connect</strong> (en adelante, «la Plataforma»), operada por <strong>Saludonnet Spain SL</strong>, con domicilio en España. Contacto de privacidad: <a href="mailto:privacidad@medconnect.es">privacidad@medconnect.es</a></p>
         </Section>
 
         <Section title="2. Datos que recogemos">
@@ -29,28 +39,22 @@ export default function PrivacidadPage() {
 
         <Section title="3. Finalidades y base legal">
           <div className="table-scroll">
-          <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.9rem', minWidth: '480px' }}>
-            <thead>
-              <tr style={{ background: '#f3f4f6' }}>
-                <th style={thStyle}>Finalidad</th>
-                <th style={thStyle}>Base legal</th>
-              </tr>
-            </thead>
-            <tbody>
-              {[
-                ['Gestionar la reserva de citas', 'Ejecución de contrato (art. 6.1.b RGPD)'],
-                ['Enviar emails transaccionales (confirmación, recordatorio)', 'Ejecución de contrato'],
-                ['Análisis de uso y mejora del servicio (GA4, Clarity)', 'Consentimiento (art. 6.1.a RGPD)'],
-                ['Cumplimiento de obligaciones legales', 'Obligación legal (art. 6.1.c RGPD)'],
-                ['Comunicaciones comerciales (si lo aceptas)', 'Consentimiento'],
-              ].map(([fin, base], i) => (
-                <tr key={i} style={{ borderBottom: '1px solid #e5e7eb' }}>
-                  <td style={tdStyle}>{fin}</td>
-                  <td style={tdStyle}>{base}</td>
+            <table className="legal-table">
+              <thead>
+                <tr>
+                  <th scope="col">Finalidad</th>
+                  <th scope="col">Base legal</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
+              </thead>
+              <tbody>
+                {PURPOSES.map(([fin, base], i) => (
+                  <tr key={i}>
+                    <td>{fin}</td>
+                    <td>{base}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
           </div>
         </Section>
 
@@ -71,7 +75,7 @@ export default function PrivacidadPage() {
         </Section>
 
         <Section title="6. Tus derechos">
-          <p>Puedes ejercer en cualquier momento los derechos de <strong>acceso, rectificación, supresión, oposición, limitación y portabilidad</strong> escribiendo a <a href="mailto:privacidad@medconnect.es" style={{ color: '#1a3c5e' }}>privacidad@medconnect.es</a> con copia de tu DNI. También puedes reclamar ante la <a href="https://www.aepd.es" target="_blank" rel="noopener noreferrer" style={{ color: '#1a3c5e' }}>Agencia Española de Protección de Datos (AEPD)</a>.</p>
+          <p>Puedes ejercer en cualquier momento los derechos de <strong>acceso, rectificación, supresión, oposición, limitación y portabilidad</strong> escribiendo a <a href="mailto:privacidad@medconnect.es">privacidad@medconnect.es</a> con copia de tu DNI. También puedes reclamar ante la <a href="https://www.aepd.es" target="_blank" rel="noopener noreferrer">Agencia Española de Protección de Datos (AEPD)</a>.</p>
         </Section>
 
         <Section title="7. Seguridad">
@@ -87,14 +91,11 @@ export default function PrivacidadPage() {
   );
 }
 
-const thStyle = { padding: '10px 12px', textAlign: 'left', fontWeight: '600', color: '#374151' };
-const tdStyle = { padding: '10px 12px', color: '#4b5563', verticalAlign: 'top' };
-
 function Section({ title, children }) {
   return (
-    <section style={{ marginBottom: '2.5rem' }}>
-      <h2 style={{ fontSize: '1.2rem', fontWeight: '700', color: '#1a3c5e', marginBottom: '1rem', paddingBottom: '0.5rem', borderBottom: '2px solid #e5e7eb' }}>{title}</h2>
-      {children}
+    <section className="legal-section">
+      <h2>{title}</h2>
+      <div className="legal-section-body">{children}</div>
     </section>
   );
 }

@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import crypto from 'crypto';
 import { getPool, sql, DB_AVAILABLE } from '@/lib/db';
 import { createCaseForBooking } from '@/lib/opsCases';
 
@@ -140,6 +141,11 @@ export async function POST(request) {
   // B2 — sin seguro starts at awaiting_voucher (ops must upload SON voucher).
   const finalStatus = status || (hasInsurance === true ? 'confirmed' : 'awaiting_voucher');
 
+  // F2 — generate the patient self-service token at insert time. 32 hex chars
+  // (128 bits of entropy), unique-indexed so collisions error out instead of
+  // silently sharing tokens between bookings.
+  const selfServiceToken = crypto.randomBytes(16).toString('hex');
+
   try {
     const pool = await getPool();
     await pool.request()
@@ -164,17 +170,18 @@ export async function POST(request) {
       .input('procedure_name', sql.NVarChar(255), procedureName || null)
       .input('service_price', sql.Decimal(10, 2), servicePrice != null ? Number(servicePrice) : null)
       .input('platform_fee', sql.Decimal(10, 2), platformFee != null ? Number(platformFee) : null)
+      .input('self_service_token', sql.NVarChar(64), selfServiceToken)
       .query(`
         INSERT INTO bookings
           (id, referral_id, patient_name, patient_email, patient_phone, patient_address,
            provider_id, provider_name, specialty, slot_date, slot_time,
            amount, status, card_last4, has_insurance, insurance_company, payment_intent_id,
-           procedure_slug, procedure_name, service_price, platform_fee)
+           procedure_slug, procedure_name, service_price, platform_fee, self_service_token)
         VALUES
           (@id, @referral_id, @patient_name, @patient_email, @patient_phone, @patient_address,
            @provider_id, @provider_name, @specialty, @slot_date, @slot_time,
            @amount, @status, @card_last4, @has_insurance, @insurance_company, @payment_intent_id,
-           @procedure_slug, @procedure_name, @service_price, @platform_fee)
+           @procedure_slug, @procedure_name, @service_price, @platform_fee, @self_service_token)
       `);
 
     // For sin-seguro bookings, open a voucher row in awaiting_voucher state so
@@ -207,8 +214,12 @@ export async function POST(request) {
       .input('id', sql.NVarChar(50), id)
       .query('SELECT * FROM bookings WHERE id = @id');
 
+    // F2 — surface the self-service token to the booking flow so the email
+    // dispatcher can build the cancel/reschedule link. Returned only on POST
+    // (the GET shape stays clean of this implementation detail).
     return NextResponse.json({
       ...toBooking(result.recordset[0]),
+      selfServiceToken,
       _case: opsCase,
     }, { status: 201 });
   } catch (err) {

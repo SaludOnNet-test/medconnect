@@ -1,118 +1,132 @@
 .header {
-  background: var(--navy);
-  color: var(--white);
-  padding: 0.75rem 0;
+  background: rgba(244, 239, 230, 0.85); /* bone-200 with translucency */
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  color: var(--fg);
+  border-bottom: 1px solid var(--border);
   position: sticky;
   top: 0;
-  z-index: 100;
+  z-index: 10;
 }
 
 .header-inner {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  max-width: 1200px;
+  gap: var(--space-5);
+  max-width: var(--container-wide);
   margin: 0 auto;
-  padding: 0 var(--space-lg);
+  padding: 18px var(--gutter-desktop);
 }
 
 .header-logo {
-  font-family: var(--font-heading);
-  font-size: 1.4rem;
-  font-weight: 700;
-  letter-spacing: -0.02em;
-  color: var(--white);
   display: flex;
   align-items: center;
-  gap: var(--space-sm);
+  text-decoration: none;
+  flex-shrink: 0;
 }
 
-.header-logo-accent {
-  color: var(--gold);
+.header-logo-img {
+  height: 32px;
+  width: auto;
+  display: block;
 }
 
+/* ── Primary nav ─────────────────────────────────────────────────────── */
+.header-nav {
+  display: flex;
+  align-items: center;
+  gap: var(--space-6);
+  font-family: var(--font-body);
+  font-size: var(--text-sm);
+  font-weight: 500;
+}
+
+.header-nav-link {
+  color: var(--fg-muted);
+  text-decoration: none;
+  transition: color var(--duration-micro) var(--ease);
+  white-space: nowrap;
+}
+
+.header-nav-link:hover {
+  color: var(--fg);
+}
+
+.header-nav-link--active {
+  color: var(--fg);
+  text-decoration: underline;
+  text-decoration-color: var(--accent);
+  text-decoration-thickness: 1.5px;
+  text-underline-offset: 6px;
+}
+
+/* ── Right cluster (phone + auth) ───────────────────────────────────── */
 .header-right {
   display: flex;
   align-items: center;
-  gap: var(--space-xl);
+  gap: var(--space-4);
 }
 
 .header-phone {
   display: flex;
   align-items: center;
-  gap: var(--space-sm);
-  font-size: 0.85rem;
-  color: var(--muted-light);
-  transition: color var(--transition-fast);
+  gap: var(--space-2);
+  font-family: var(--font-body);
+  font-size: var(--text-xs);
+  color: var(--fg-muted);
+  text-decoration: none;
+  transition: color var(--duration-micro) var(--ease);
 }
 
 .header-phone:hover {
-  color: var(--gold);
+  color: var(--accent);
 }
 
 .header-phone-icon {
-  font-size: 1rem;
-}
-
-.header-phone-label {
-  font-size: 0.7rem;
-  text-transform: uppercase;
-  letter-spacing: 0.1em;
-  color: var(--muted);
-}
-
-.header-phone-number {
-  font-weight: 600;
-  color: var(--white);
-  font-size: 0.95rem;
+  color: var(--accent);
 }
 
 .header-phone-block {
   display: flex;
   flex-direction: column;
+  line-height: 1.2;
 }
 
-.header-link-pro {
-  font-size: 0.85rem;
+.header-phone-label {
+  font-size: 10px;
+  font-weight: 500;
+  letter-spacing: var(--tracking-wide);
+  color: var(--fg-subtle);
+}
+
+.header-phone-number {
   font-weight: 600;
-  color: var(--gold);
+  color: var(--fg);
+  font-size: var(--text-sm);
 }
 
-/* Auth — desktop: two separate buttons (default visible). */
+/* ── Auth — desktop ────────────────────────────────────────────────── */
 .header-auth {
   display: flex;
   align-items: center;
-  gap: var(--space-sm);
+  gap: var(--space-3);
 }
 
 .header-btn-login {
-  font-size: 0.85rem;
-  font-weight: 600;
-  color: rgba(255,255,255,0.85);
-  padding: 0.4rem 0.9rem;
-  border-radius: 6px;
-  transition: color var(--transition-fast);
+  font-family: var(--font-body);
+  font-size: var(--text-sm);
+  font-weight: 500;
+  color: var(--fg);
+  text-decoration: none;
+  transition: color var(--duration-micro) var(--ease);
 }
 
 .header-btn-login:hover {
-  color: var(--white);
+  color: var(--accent);
 }
 
-.header-btn-signup {
-  font-size: 0.85rem;
-  font-weight: 700;
-  color: var(--navy);
-  background: var(--gold);
-  padding: 0.4rem 1rem;
-  border-radius: 6px;
-  transition: opacity var(--transition-fast);
-}
-
-.header-btn-signup:hover {
-  opacity: 0.9;
-}
-
-/* Auth — mobile: single "Acceder" button with dropdown (hidden on desktop). */
+/* ── Auth — mobile dropdown (hidden on desktop) ────────────────────── */
 .header-account {
   position: relative;
   display: none;
@@ -121,80 +135,89 @@
 .header-btn-account {
   display: inline-flex;
   align-items: center;
-  gap: 0.25rem;
-  font-size: 0.85rem;
-  font-weight: 700;
-  color: var(--navy);
-  background: var(--gold);
+  gap: var(--space-1);
+  font-family: var(--font-body);
+  font-size: var(--text-sm);
+  font-weight: 600;
+  color: var(--on-accent);
+  background: var(--accent);
   border: none;
-  padding: 0.45rem 0.9rem;
-  border-radius: 6px;
+  padding: 10px 14px;
+  border-radius: var(--radius-md);
   cursor: pointer;
-  transition: opacity var(--transition-fast);
+  transition: background var(--duration-micro) var(--ease);
 }
 
 .header-btn-account:hover {
-  opacity: 0.9;
-}
-
-.header-btn-account-caret {
-  font-size: 0.75rem;
-  line-height: 1;
+  background: var(--accent-hover);
 }
 
 .header-account-menu {
   position: absolute;
   top: calc(100% + 6px);
   right: 0;
-  min-width: 160px;
-  background: var(--white);
-  border: 1px solid rgba(0,0,0,0.08);
-  border-radius: 8px;
-  box-shadow: 0 8px 24px rgba(0,0,0,0.18);
+  min-width: 170px;
+  background: var(--bone-50);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-2);
   padding: 4px;
-  z-index: 200;
+  z-index: 20;
   display: flex;
   flex-direction: column;
 }
 
 .header-account-menu-item {
   display: block;
-  padding: 0.6rem 0.75rem;
-  font-size: 0.9rem;
-  font-weight: 600;
-  color: var(--navy);
-  border-radius: 6px;
-  transition: background var(--transition-fast);
+  padding: 10px 12px;
+  font-family: var(--font-body);
+  font-size: var(--text-sm);
+  font-weight: 500;
+  color: var(--fg);
+  border-radius: var(--radius-sm);
+  text-decoration: none;
+  transition: background var(--duration-micro) var(--ease);
 }
 
 .header-account-menu-item:hover {
-  background: rgba(0,0,0,0.05);
+  background: var(--bone-200);
+}
+
+/* ── Tablet: hide phone block label, keep number + icon ─────────── */
+@media (max-width: 1100px) {
+  .header-phone-label {
+    display: none;
+  }
+  .header-nav {
+    gap: var(--space-5);
+  }
+}
+
+/* ── Mobile: collapse nav + show dropdown auth + icon-only phone ──── */
+@media (max-width: 900px) {
+  .header-nav {
+    display: none;
+  }
 }
 
 @media (max-width: 640px) {
-  /* Phone collapses to icon only — tap-to-call still works via href="tel:". */
+  .header-inner {
+    padding: 14px var(--gutter-mobile);
+    gap: var(--space-3);
+  }
+
   .header-phone-block {
     display: none;
   }
   .header-phone-icon {
-    font-size: 1.25rem;
+    color: var(--fg-muted);
   }
 
-  /* Hide the desktop two-button group; show the dropdown trigger. */
   .header-auth {
     display: none;
   }
+
   .header-account {
     display: block;
-  }
-
-  /* Hide pro link on mobile (was the previous behavior at 768px). */
-  .header-link-pro {
-    display: none;
-  }
-
-  /* Tighten the right-side gap so logo + phone + Acceder fit comfortably. */
-  .header-right {
-    gap: var(--space-md);
   }
 }

@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import { loadStripe } from '@stripe/stripe-js';
 import { CardElement, Elements, ElementsConsumer } from '@stripe/react-stripe-js';
+import { formatEUR } from '@/lib/format';
 
 /**
  * Real Stripe payment form using Stripe Elements.
@@ -19,7 +20,10 @@ const CARD_ELEMENT_OPTIONS = {
     base: {
       fontSize: '16px',
       color: '#424770',
-      fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
+      // Stripe Elements need a literal stack; mirror our --font-body fallback
+      // chain so the field reads as Inter Tight on systems that already have it
+      // and falls back to system sans-serif.
+      fontFamily: '"Inter Tight", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif',
       '::placeholder': {
         color: '#aab7c4',
       },
@@ -145,7 +149,7 @@ function PaymentFormContent({ totalPrice, providerName, slotDate, slotTime, pati
           <span className="payment-summary-provider">{providerName}</span>
           <span className="payment-summary-slot">{formattedDate} · {slotTime}</span>
         </div>
-        <div className="payment-summary-amount">€{Number(totalPrice).toFixed(2)}</div>
+        <div className="payment-summary-amount">{formatEUR(totalPrice)}</div>
       </div>
 
       {/* Card form */}
@@ -206,7 +210,7 @@ function PaymentFormContent({ totalPrice, providerName, slotDate, slotTime, pati
                           Procesando...
                         </>
                       ) : (
-                        `Pagar €${Number(totalPrice).toFixed(2)}`
+                        `Pagar ${formatEUR(totalPrice)}`
                       )}
                     </button>
                   </div>
@@ -292,7 +296,7 @@ function PaymentFormContent({ totalPrice, providerName, slotDate, slotTime, pati
                       Procesando...
                     </>
                   ) : (
-                    `Pagar €${Number(totalPrice).toFixed(2)}`
+                    `Pagar ${formatEUR(totalPrice)}`
                   )}
                 </button>
               </div>

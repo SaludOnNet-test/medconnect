@@ -1,0 +1,13 @@
+.brand-eyebrow {
+  font-family: var(--font-body);
+  font-size: var(--text-xs);
+  font-weight: 600;
+  letter-spacing: var(--tracking-eyebrow);
+  text-transform: uppercase;
+  color: var(--fg-muted);
+  display: inline-block;
+}
+
+.brand-eyebrow--dark {
+  color: var(--brass-400);
+}

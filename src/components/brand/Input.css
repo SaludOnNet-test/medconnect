@@ -1,0 +1,55 @@
+.brand-input {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  width: 100%;
+}
+
+.brand-input__label {
+  /* Eyebrow handles its own typography */
+}
+
+.brand-input__field {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  background: var(--bone-50);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  padding: 10px 14px;
+  transition: border-color var(--duration-micro) var(--ease),
+              box-shadow var(--duration-micro) var(--ease);
+}
+
+.brand-input__field:focus-within {
+  border-color: var(--accent);
+  box-shadow: var(--focus-ring);
+}
+
+.brand-input__icon {
+  display: inline-flex;
+  align-items: center;
+  color: var(--fg-muted);
+  flex-shrink: 0;
+}
+
+.brand-input__control {
+  border: none;
+  outline: none;
+  background: transparent;
+  font-family: var(--font-body);
+  font-size: var(--text-md);
+  color: var(--fg);
+  width: 100%;
+  padding: 0;
+  line-height: var(--leading-normal);
+}
+
+.brand-input__control::placeholder {
+  color: var(--fg-subtle);
+}
+
+textarea.brand-input__control {
+  min-height: 96px;
+  resize: vertical;
+}

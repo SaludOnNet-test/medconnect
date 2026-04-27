@@ -1,10 +1,10 @@
 import { NextResponse } from 'next/server';
 import { getCase, updateCase, appendCallLog } from '@/lib/opsCases';
-import { requireAuth } from '@/lib/adminAuth';
+import { requireRole } from '@/lib/adminAuth';
 
 export async function GET(request, { params }) {
-  const session = requireAuth(request);
-  if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  const r = requireRole(request, ['admin', 'ops']);
+  if (r instanceof Response) return r;
   const { id } = await params;
   const c = await getCase(id);
   if (!c) return NextResponse.json({ error: 'Not found' }, { status: 404 });
@@ -12,8 +12,9 @@ export async function GET(request, { params }) {
 }
 
 export async function PATCH(request, { params }) {
-  const session = requireAuth(request);
-  if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  const rr = requireRole(request, ['admin', 'ops']);
+  if (rr instanceof Response) return rr;
+  const session = rr;
   const { id } = await params;
   const body = await request.json();
 

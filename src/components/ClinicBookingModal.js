@@ -2,6 +2,8 @@
 import { useState, useEffect, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import { trackEvent } from '@/lib/analytics';
+import { formatEUR } from '@/lib/format';
+import Icon from '@/components/icons/Icon';
 import './ClinicBookingModal.css';
 
 function feeFromSlot(slot) {
@@ -25,6 +27,10 @@ export default function ClinicBookingModal({
   initialSlot = null,
   initialProcedureSlug = '',
   initialSpecialtySlug = '',
+  // Prop carrying the insurance the user selected in search-v2 (if any).
+  // Forwarded to /book so the form can pre-select the insurance toggle +
+  // dropdown without forcing the user to click again.
+  initialInsurance = '',
   onClose,
 }) {
   const router = useRouter();
@@ -124,6 +130,9 @@ export default function ClinicBookingModal({
       procedureName: selectedProcedure?.name || '',
       procedurePrice: String(procedurePrice),
       ...(serviceId ? { service: serviceId } : {}),
+      // Pass the insurer the user selected in search filters so /book can
+      // pre-select the toggle + dropdown.
+      ...(initialInsurance && !isSinSeguro ? { insurance: initialInsurance } : {}),
     });
     router.push(`/book?${params.toString()}`);
     onClose();
@@ -148,14 +157,14 @@ export default function ClinicBookingModal({
         <div className="cbm-header">
           <div>
             <h2 className="cbm-title">{provider.name}</h2>
-            <p className="cbm-subtitle">📍 {provider.address}, {provider.city}</p>
+            <p className="cbm-subtitle"><Icon name="map-pin" size={14} /> {provider.address}, {provider.city}</p>
             <div className="cbm-rating">
               <span style={{ color: '#f59e0b' }}>★</span>
               <span style={{ fontWeight: '700', fontSize: '0.9rem' }}>{provider.rating}</span>
               <span style={{ color: '#9ca3af', fontSize: '0.8rem' }}>({provider.reviewCount} opiniones)</span>
             </div>
           </div>
-          <button className="cbm-close" onClick={onClose} aria-label="Cerrar">✕</button>
+          <button className="cbm-close" onClick={onClose} aria-label="Cerrar"><Icon name="x" size={18} /></button>
         </div>
 
         {/* Procedure picker (required for everyone) */}
@@ -175,14 +184,14 @@ export default function ClinicBookingModal({
             >
               {procedures.map((p) => (
                 <option key={p.slug} value={p.slug}>
-                  {p.name}{isSinSeguro && p.price != null ? ` — ${Number(p.price).toFixed(2)}€` : ''}
+                  {p.name}{isSinSeguro && p.price != null ? ` — ${formatEUR(p.price)}` : ''}
                 </option>
               ))}
             </select>
           )}
           {isSinSeguro && selectedProcedure && (
             <p className="cbm-procedure-hint">
-              Pagas <strong>{procedurePrice.toFixed(2)}€</strong> por el acto + tarifa de prioridad.
+              Pagas <strong>{formatEUR(procedurePrice)}</strong> por el acto + tarifa de prioridad.
               Recibirás el voucher de SaludOnNet por email.
             </p>
           )}
@@ -215,7 +224,7 @@ export default function ClinicBookingModal({
                   <span className="cbm-date-num">{day}</span>
                   <span className="cbm-date-month">{month}</span>
                   {priceByDate[date] != null && (
-                    <span className="cbm-date-price">desde {priceByDate[date].toFixed(2)}€</span>
+                    <span className="cbm-date-price">desde {formatEUR(priceByDate[date])}</span>
                   )}
                 </button>
               );
@@ -245,7 +254,7 @@ export default function ClinicBookingModal({
                       title={f.label || ''}
                     >
                       <span className="cbm-time">{slot.time}</span>
-                      {f.amount > 0 && <span className="cbm-time-fee">{fee.toFixed(2)}€</span>}
+                      {f.amount > 0 && <span className="cbm-time-fee">{formatEUR(fee)}</span>}
                     </button>
                   );
                 })}
@@ -269,7 +278,7 @@ export default function ClinicBookingModal({
                 </p>
               </div>
               <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
-                <span className="cbm-footer-fee">{selectedFee > 0 ? `${selectedFee.toFixed(2)}€` : 'Gratis'}</span>
+                <span className="cbm-footer-fee">{selectedFee > 0 ? formatEUR(selectedFee) : 'Gratis'}</span>
                 <button className="cbm-book-btn" onClick={handleBook}>
                   Confirmar reserva →
                 </button>

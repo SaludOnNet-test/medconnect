@@ -7,6 +7,8 @@ import Footer from '@/components/Footer';
 import PaymentForm from '@/components/PaymentForm';
 import { services, insuranceCompanies, createReferral, getConvenienceFee, REFERRAL_STATES } from '@/data/mock';
 import { trackEvent } from '@/lib/analytics';
+import { formatEUR } from '@/lib/format';
+import Icon from '@/components/icons/Icon';
 import './book.css';
 
 function BookContent() {
@@ -36,10 +38,20 @@ function BookContent() {
   const lockInId = searchParams.get('lockInId') || '';
   const stepParam = searchParams.get('step') || '';
 
+  // Forwarded from search-v2 → ClinicBookingModal: the user already declared
+  // their coverage situation by picking a filter, so pre-select the toggle
+  // and (if they chose an insurer) the dropdown — saves a redundant click.
+  const isSinSeguroParam = searchParams.get('isSinSeguro') === 'true';
+  const insuranceParam = searchParams.get('insurance') || '';
+
   const [step, setStep] = useState('form'); // 'form' | 'payment' | 'success'
   const [paymentRef, setPaymentRef] = useState('');
   const [lockInData, setLockInData] = useState(null);
-  const [hasInsurance, setHasInsurance] = useState(null);
+  // Pre-select hasInsurance: false when sin-seguro filter was used,
+  // true when an insurer was picked, null otherwise (user still chooses).
+  const [hasInsurance, setHasInsurance] = useState(
+    isSinSeguroParam ? false : (insuranceParam ? true : null)
+  );
 
   // Track book_started on mount
   useEffect(() => {
@@ -76,7 +88,7 @@ function BookContent() {
 
     loadLockIn();
   }, [stepParam, lockInId]);
-  const [selectedInsurance, setSelectedInsurance] = useState('');
+  const [selectedInsurance, setSelectedInsurance] = useState(insuranceParam || '');
   
   // Referral states
   const [isReferral, setIsReferral] = useState(false);
@@ -191,6 +203,7 @@ function BookContent() {
     let opsCaseId = null;
     let paymentToClinic = null;
     let tier = null;
+    let selfServiceToken = null;
     try {
       const r = await fetch('/api/bookings', {
         method: 'POST',
@@ -228,6 +241,9 @@ function BookContent() {
         paymentToClinic = j._case.paymentToClinic ?? null;
         tier = j._case.tier ?? null;
       }
+      // F2 — capture the self-service token returned by the booking API so
+      // we can build the cancel/reschedule link for the confirmation email.
+      if (j.selfServiceToken) selfServiceToken = j.selfServiceToken;
     } catch (e) { /* keep going */ }
 
     // If this was a lock-in referral, mark it CONFIRMED in DB + localStorage
@@ -255,6 +271,13 @@ function BookContent() {
     const fmt = (d) => d.toISOString().replace(/[-:]/g, '').split('.')[0] + 'Z';
     const calendarUrl = `https://calendar.google.com/calendar/render?action=TEMPLATE&text=Cita+en+${encodeURIComponent(clinicName)}&dates=${fmt(start)}/${fmt(end)}&details=Referencia+${reference}`;
 
+    // F2 — build the patient self-service URL (cancel / reschedule). Falls back
+    // to the production domain when NEXT_PUBLIC_BASE_URL isn't set.
+    const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || 'https://www.medconnect.es';
+    const selfServiceUrl = selfServiceToken
+      ? `${baseUrl.replace(/\/$/, '')}/booking/${selfServiceToken}`
+      : null;
+
     // Send confirmation emails
     sendEmail('bookingConfirmation', {
       patientEmail,
@@ -269,6 +292,7 @@ function BookContent() {
       feeAmount: activeFee,
       procedureName: serviceLabel || null,
       servicePrice: hasInsurance === false ? Number(servicePrice) || 0 : 0,
+      selfServiceUrl,
     });
     sendEmail('paymentReceipt', {
       patientEmail,
@@ -390,8 +414,8 @@ function BookContent() {
               <div className="book-summary-card" style={{ textAlign: 'left', marginTop: '1.5rem' }}>
                 <div className="book-summary-provider">{clinicName}</div>
                 <div className="book-summary-details">
-                  <span>📅 <strong>{formattedSuccessDate}</strong></span>
-                  <span>🕐 <strong>{slotTimeToUse}</strong></span>
+                  <span><Icon name="calendar" size={14} /> <strong>{formattedSuccessDate}</strong></span>
+                  <span><Icon name="clock" size={14} /> <strong>{slotTimeToUse}</strong></span>
                 </div>
               </div>
 
@@ -407,7 +431,7 @@ function BookContent() {
               {hasInsurance === false && (
                 <>
                   <div className="book-info-box book-info-box--green" style={{ marginTop: '1rem', textAlign: 'left' }}>
-                    <strong>📧 Voucher en camino (en menos de 24 h)</strong>
+                    <strong><Icon name="mail" size={16} /> Voucher en camino (en menos de 24 h)</strong>
                     <p style={{ marginTop: '0.5rem', marginBottom: 0, fontSize: '0.9rem', lineHeight: 1.6 }}>
                       Te enviaremos un email separado de <strong>SaludOnNet</strong> con el voucher
                       que cubre el coste del acto médico. Llévalo en el móvil o impreso a la clínica
@@ -447,7 +471,7 @@ function BookContent() {
               <div style={{ display: 'flex', gap: '1rem', justifyContent: 'center', flexWrap: 'wrap', marginTop: '1.5rem' }}>
                 {calendarUrl && (
                   <a href={calendarUrl} target="_blank" rel="noopener noreferrer" className="btn btn-outline btn-lg book-success-calendar-btn">
-                    📅 Añadir al calendario
+                    <Icon name="calendar" size={16} /> Añadir al calendario
                   </a>
                 )}
                 <Link href="/" className="btn btn-gold btn-lg">
@@ -475,9 +499,9 @@ function BookContent() {
           <div className="book-summary-card">
             <div className="book-summary-provider">{providerName}</div>
             <div className="book-summary-details">
-              <span>📅 <strong>{formattedDate}</strong></span>
-              <span>🕐 <strong>{time}</strong></span>
-              {serviceLabel && <span>🩺 <strong>{serviceLabel}</strong></span>}
+              <span><Icon name="calendar" size={14} /> <strong>{formattedDate}</strong></span>
+              <span><Icon name="clock" size={14} /> <strong>{time}</strong></span>
+              {serviceLabel && <span><Icon name="stethoscope" size={14} /> <strong>{serviceLabel}</strong></span>}
             </div>
           </div>
 
@@ -672,11 +696,11 @@ function BookContent() {
                 {/* Medical service line — ALWAYS visible to make clear what insurance covers */}
                 {serviceLabel && (
                   <div className="book-price-row">
-                    <span className="book-price-label">🩺 {serviceLabel}</span>
+                    <span className="book-price-label"><Icon name="stethoscope" size={14} /> {serviceLabel}</span>
                     <span className="book-price-amount">
                       {hasInsurance === true
                         ? <span style={{ color: '#00805a', fontWeight: 600 }}>Cubierto por tu seguro</span>
-                        : `${Number(servicePrice).toFixed(2)}€`}
+                        : formatEUR(servicePrice)}
                     </span>
                   </div>
                 )}
@@ -686,30 +710,30 @@ function BookContent() {
                     🎫 Tarifa de prioridad{feeLabel ? ` (${feeLabel.toLowerCase()})` : ''}
                   </span>
                   <span className="book-price-amount">
-                    {activeFee > 0 ? `${Number(activeFee).toFixed(2)}€` : '0€'}
+                    {activeFee > 0 ? formatEUR(activeFee) : '0 €'}
                   </span>
                 </div>
 
                 <div className="book-price-row total">
                   <span>Total que pagas hoy</span>
                   <span className="book-price-amount">
-                    {totalPrice > 0 ? `${Number(totalPrice).toFixed(2)}€` : 'Gratis'}
+                    {totalPrice > 0 ? formatEUR(totalPrice) : 'Gratis'}
                   </span>
                 </div>
 
                 {hasInsurance === true && (
                   <p style={{ marginTop: 'var(--space-md)', fontSize: '0.8rem', color: 'var(--muted)', lineHeight: 1.6 }}>
-                    ⓘ Tu seguro cubre la consulta directamente con la clínica. Tú solo pagas la prioridad por la reserva.
+                    <Icon name="info" size={14} /> Tu seguro cubre la consulta directamente con la clínica. Tú solo pagas la prioridad por la reserva.
                   </p>
                 )}
 
                 {hasInsurance === false && (
                   <>
                     <p style={{ marginTop: 'var(--space-md)', fontSize: '0.8rem', color: 'var(--muted)', lineHeight: 1.6 }}>
-                      ⓘ Sin seguro pagas dos cosas en una: la <strong>consulta privada</strong> (tarifa oficial de la clínica, según el catálogo SaludOnNet) y la <strong>tarifa de prioridad</strong> por conseguirte el hueco urgente. Ese es el total — no se vuelve a cobrar en la clínica.
+                      <Icon name="info" size={14} /> Sin seguro pagas dos cosas en una: la <strong>consulta privada</strong> (tarifa oficial de la clínica, según el catálogo SaludOnNet) y la <strong>tarifa de prioridad</strong> por conseguirte el hueco urgente. Ese es el total — no se vuelve a cobrar en la clínica.
                     </p>
                     <p style={{ marginTop: 'var(--space-sm)', fontSize: '0.78rem', color: 'var(--muted)', lineHeight: 1.6 }}>
-                      🛡️ <strong>Cancelación 100% reembolsable:</strong> si la clínica no puede atenderte el día/hora reservados, te devolvemos el importe completo (acto + tarifa).
+                      <Icon name="shield-check" size={14} /> <strong>Cancelación 100% reembolsable:</strong> si la clínica no puede atenderte el día/hora reservados, te devolvemos el importe completo (acto + tarifa).
                     </p>
                   </>
                 )}
@@ -720,7 +744,7 @@ function BookContent() {
             {hasInsurance !== null && (
               <div className="book-actions animate-fade-in">
                 <button type="submit" className="btn btn-gold btn-lg" id="pay-btn">
-                  {totalPrice > 0 ? `Confirmar y Proceder al Pago (${Number(totalPrice).toFixed(2)}€)` : 'Confirmar reserva gratuita'}
+                  {totalPrice > 0 ? `Confirmar y Proceder al Pago (${formatEUR(totalPrice)})` : 'Confirmar reserva gratuita'}
                 </button>
               </div>
             )}
