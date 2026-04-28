@@ -26,7 +26,7 @@ export default async function BookingProposePage({ searchParams }) {
           </p>
           <p style={{ color: 'var(--muted)', fontSize: '0.85rem', marginBottom: '2rem' }}>
             ¿Prefieres llamarnos directamente?{' '}
-            <a href="tel:+34912172193" style={{ color: 'var(--navy)', fontWeight: '600' }}>91 217 21 93</a>
+            <a href="tel:+34911977052" style={{ color: 'var(--navy)', fontWeight: '600' }}>911 977 052</a>
           </p>
           <Link href="/" className="btn btn-navy">
             Volver al inicio

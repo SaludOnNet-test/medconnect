@@ -21,8 +21,8 @@ const ROWS = [
   {
     icon: 'phone',
     label: 'Teléfono',
-    value: '91 217 21 93',
-    href: 'tel:+34912172193',
+    value: '911 977 052',
+    href: 'tel:+34911977052',
     sub: 'Lunes a viernes de 9:00 a 20:00',
   },
   {

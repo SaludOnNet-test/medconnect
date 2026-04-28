@@ -179,14 +179,14 @@ export default function Header() {
 
         <div className="header-right">
           <a
-            href="tel:+34912172193"
+            href="tel:+34911977052"
             className="header-phone"
-            aria-label="Llamar al 91 217 21 93"
+            aria-label="Llamar al 911 977 052"
           >
             <Icon name="phone" size={16} className="header-phone-icon" />
             <span className="header-phone-block">
               <span className="header-phone-label">¿Tu seguro no te da cita?</span>
-              <span className="header-phone-number">91 217 21 93</span>
+              <span className="header-phone-number">911 977 052</span>
             </span>
           </a>
 
