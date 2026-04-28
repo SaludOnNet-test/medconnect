@@ -181,12 +181,12 @@ export default function Header() {
           <a
             href="tel:+34911977052"
             className="header-phone"
-            aria-label="Llamar al 911 977 052"
+            aria-label="Llamar al 91 197 70 52"
           >
             <Icon name="phone" size={16} className="header-phone-icon" />
             <span className="header-phone-block">
               <span className="header-phone-label">¿Tu seguro no te da cita?</span>
-              <span className="header-phone-number">911 977 052</span>
+              <span className="header-phone-number">91 197 70 52</span>
             </span>
           </a>
 
