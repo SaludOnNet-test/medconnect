@@ -100,9 +100,13 @@ export default function ParaClinicasOMedicosPage() {
         title={<>Dos formas de ganar con <em>Med Connect</em>.</>}
         lede="Si tienes agenda propia, vende huecos prioritarios y cobra una compensación por cada uno. Si derivas pacientes a otras especialidades, cobra una comisión por cada derivación que se confirma. Puedes hacer las dos cosas."
       >
-        <div className="cta-actions">
-          <Button href="#vender-huecos" variant="primary" size="lg">Vender huecos</Button>
-          <Button href="#derivar-pacientes" variant="ghostInv" size="lg">Derivar pacientes</Button>
+        <div className="cta-actions cta-actions--stack">
+          <Button href="#vender-huecos" variant="primary" size="lg">
+            Quiero ganar más por cada servicio vendiendo huecos de mi clínica
+          </Button>
+          <Button href="#derivar-pacientes" variant="ghostInv" size="lg">
+            Quiero derivar pacientes a otras clínicas por servicios que no cubro y cobrar una comisión
+          </Button>
         </div>
       </PageHeader>
 

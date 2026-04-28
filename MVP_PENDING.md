@@ -48,6 +48,7 @@ _Last updated: 2026-04-24 (continued from 2026-04-10)_
 | H5 | **Activate GA4 in Google Ads** | Link GA4 property to Google Ads account for conversion tracking on bookings. Prerequisite: H4 must be done first. |
 | H6 | **Run `/api/db/setup`** | After B1 (Azure SQL firewall), call `GET /api/db/setup?secret=mc-setup-2026` to create all tables including `analytics_events`. One-time setup. |
 | H7 | **Update Resend FROM email** | After B2 (domain verification), change `RESEND_FROM_EMAIL` in Vercel from `onboarding@resend.dev` to `Med Connect <noreply@medconnect.es>`. |
+| H10 | **Curate `clinic_service_coverage` matrix (per-clinic × per-service × per-insurer)** | Schema landed via `scripts/migration_add_clinic_service_coverage.py` — table empty by design (absence = covered). Today `/aseguradoras` reads `clinics.accepted_insurance` for stats and `/search-v2` doesn't filter by per-procedure coverage. Real data needed: ops curates rows with `covered = 0` for the (clinic, procedure, insurer) combinations a clinic does NOT bill to a given insurer. Until then, the user-facing page conservatively assumes every service at every concertada clinic is billable to every listed aseguradora — fine for soft launch but should be tightened before paid traffic so we don't promise coverage that doesn't exist. |
 
 ---
 

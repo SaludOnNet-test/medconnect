@@ -1,5 +1,5 @@
 'use client';
-import { useState, useEffect, Suspense } from 'react';
+import { useState, useEffect, useCallback, Suspense } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
 import Header from '@/components/Header';
@@ -10,6 +10,27 @@ import { trackEvent } from '@/lib/analytics';
 import { formatEUR } from '@/lib/format';
 import Icon from '@/components/icons/Icon';
 import './book.css';
+
+const HAS_CLERK_KEYS = !!process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY;
+
+// Lazy bridge — same pattern as /pro/dashboard. Mounted only when Clerk
+// keys are configured. Tells the parent whether the current Clerk user is
+// a professional/admin so the "I'm a doctor referring this patient"
+// checkbox can be pre-checked on /book.
+function ClerkProBridge({ onResolve }) {
+  const { useUser } = require('@clerk/nextjs');
+  const { user, isLoaded } = useUser();
+  useEffect(() => {
+    if (!isLoaded) return;
+    const role = user?.publicMetadata?.role;
+    onResolve({
+      isPro: role === 'professional' || role === 'admin',
+      email: user?.primaryEmailAddress?.emailAddress || '',
+      name: user?.fullName || user?.firstName || '',
+    });
+  }, [user, isLoaded, onResolve]);
+  return null;
+}
 
 function BookContent() {
   const searchParams = useSearchParams();
@@ -43,6 +64,10 @@ function BookContent() {
   // and (if they chose an insurer) the dropdown — saves a redundant click.
   const isSinSeguroParam = searchParams.get('isSinSeguro') === 'true';
   const insuranceParam = searchParams.get('insurance') || '';
+  // ?asProfessional=true — set when search-v2 detected a logged-in pro user
+  // OR when an external "derivar un paciente" entry-point deep-linked here.
+  // Pre-checks the "I'm a doctor" toggle so the pro doesn't have to do it.
+  const asProfessionalParam = searchParams.get('asProfessional') === 'true';
 
   const [step, setStep] = useState('form'); // 'form' | 'payment' | 'success'
   const [paymentRef, setPaymentRef] = useState('');
@@ -89,14 +114,31 @@ function BookContent() {
     loadLockIn();
   }, [stepParam, lockInId]);
   const [selectedInsurance, setSelectedInsurance] = useState(insuranceParam || '');
-  
-  // Referral states
-  const [isReferral, setIsReferral] = useState(false);
+
+  // Referral states. Initial value comes from ?asProfessional=true (the
+  // explicit deep-link case); the Clerk bridge below can flip it on too
+  // when a pro user is signed in but didn't deep-link.
+  const [isReferral, setIsReferral] = useState(asProfessionalParam);
   const [proData, setProData] = useState({
     clinicName: '',
     medicId: '', // Num colegiado
     email: '',
   });
+  const [isMounted, setIsMounted] = useState(false);
+  useEffect(() => setIsMounted(true), []);
+  const handleClerkUser = useCallback(({ isPro, email, name }) => {
+    if (isPro) {
+      // Pre-check the toggle and pre-fill the pro email — they can edit
+      // both before paying. We only WIDEN to checked: if a non-pro deep-
+      // linked with asProfessional=false we don't fight them.
+      setIsReferral(true);
+      setProData((prev) => ({
+        ...prev,
+        email: prev.email || email,
+        clinicName: prev.clinicName || name,
+      }));
+    }
+  }, []);
 
   const [form, setForm] = useState({
     name: '',
@@ -488,6 +530,7 @@ function BookContent() {
 
   return (
     <>
+      {isMounted && HAS_CLERK_KEYS && <ClerkProBridge onResolve={handleClerkUser} />}
       <Header />
       <main className="book-page">
         <div className="book-container">

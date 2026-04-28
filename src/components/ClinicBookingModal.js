@@ -31,6 +31,11 @@ export default function ClinicBookingModal({
   // Forwarded to /book so the form can pre-select the insurance toggle +
   // dropdown without forcing the user to click again.
   initialInsurance = '',
+  // When true, /book pre-checks the "Soy un profesional médico y estoy
+  // derivando a este paciente" toggle. Set by the parent (search-v2) when
+  // a Clerk pro user is signed in OR when ?asProfessional=true was
+  // deep-linked from a "derivar un paciente" entry-point.
+  asProfessional = false,
   onClose,
 }) {
   const router = useRouter();
@@ -133,6 +138,9 @@ export default function ClinicBookingModal({
       // Pass the insurer the user selected in search filters so /book can
       // pre-select the toggle + dropdown.
       ...(initialInsurance && !isSinSeguro ? { insurance: initialInsurance } : {}),
+      // Pro user / explicit derivation entry-point — /book pre-checks the
+      // referral toggle and pre-fills the pro fields from Clerk on its end.
+      ...(asProfessional ? { asProfessional: 'true' } : {}),
     });
     router.push(`/book?${params.toString()}`);
     onClose();

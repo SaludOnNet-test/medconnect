@@ -8,6 +8,23 @@ import Eyebrow from '@/components/brand/Eyebrow';
 import ClinicCardV2 from '@/components/ClinicCardV2';
 import ClinicBookingModal from '@/components/ClinicBookingModal';
 import { insuranceCompanies } from '@/data/mock';
+
+const HAS_CLERK_KEYS = !!process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY;
+
+// Same lazy bridge pattern as /pro/dashboard. Mounted only when Clerk keys
+// are present. Tells the parent if the current user is a logged-in pro so
+// the booking modal can forward `asProfessional=true` to /book and the
+// "I'm a doctor referring this patient" toggle starts checked.
+function ClerkProBridge({ onResolve }) {
+  const { useUser } = require('@clerk/nextjs');
+  const { user, isLoaded } = useUser();
+  useEffect(() => {
+    if (!isLoaded) return;
+    const role = user?.publicMetadata?.role;
+    onResolve(role === 'professional' || role === 'admin');
+  }, [user, isLoaded, onResolve]);
+  return null;
+}
 // First-paint fallback: real (possibly stale) clinics snapshotted from DB.
 // Regenerate with `python scripts/snapshot_clinics_for_search.py`.
 import clinicsSnapshot from '@/data/clinics-snapshot.json';
@@ -27,6 +44,17 @@ function SearchV2Content() {
   const serviceId          = searchParams.get('service') || '';
   const cityParam          = searchParams.get('city') || '';
   const providerNameParam  = searchParams.get('providerName') || '';
+  // ?asProfessional=true — explicit deep-link from a "derivar un paciente"
+  // entry-point. Forwarded to the booking modal so /book lands with the
+  // pro toggle checked. Auto-detected pro Clerk users get the same flag.
+  const asProfessionalParam = searchParams.get('asProfessional') === 'true';
+
+  const [isPro, setIsPro] = useState(asProfessionalParam);
+  const [isMounted, setIsMounted] = useState(false);
+  useEffect(() => setIsMounted(true), []);
+  const handleClerkPro = useCallback((value) => {
+    if (value) setIsPro(true); // never demote — user can clear via UI
+  }, []);
 
   // Filter state
   const [insuranceFilter, setInsuranceFilter] = useState('');
@@ -463,6 +491,8 @@ function SearchV2Content() {
         </div>
       </main>
 
+      {isMounted && HAS_CLERK_KEYS && <ClerkProBridge onResolve={handleClerkPro} />}
+
       {modalProvider && (
         <ClinicBookingModal
           provider={modalProvider}
@@ -472,6 +502,7 @@ function SearchV2Content() {
           initialProcedureSlug={procedureSlug}
           initialSpecialtySlug={specialtySlug}
           initialInsurance={isSinSeguro ? '' : insuranceFilter}
+          asProfessional={isPro}
           onClose={() => { setModalProvider(null); setModalInitialSlot(null); }}
         />
       )}
