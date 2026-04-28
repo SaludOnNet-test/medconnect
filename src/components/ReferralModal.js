@@ -51,10 +51,50 @@ export default function ReferralModal({
   const [slotsLoading, setSlotsLoading] = useState(false);
 
   const [searchCity, setSearchCity] = useState('');
+  const [searchSpecialtySlug, setSearchSpecialtySlug] = useState('');
+  const [searchProcedureSlug, setSearchProcedureSlug] = useState('');
+  // Catalogue of specialties + procedures for the step-1 filter dropdowns.
+  // Loaded once when the externa flow opens and reused. Source of truth is
+  // /api/clinics/filters (same endpoint the patient search uses).
+  const [filtersCatalog, setFiltersCatalog] = useState({ specialties: [], procedures: [] });
 
   // Internal derivation must have a clinic — if the pro user isn't yet
   // attached to one, gate the flow with an explanatory message.
   const internalGated = derivationType === 'interna' && !myClinic;
+
+  // ── Filter catalogue — load once for externa ─────────────────────────
+  useEffect(() => {
+    if (!isOpen || derivationType !== 'externa') return;
+    if (filtersCatalog.specialties.length > 0) return; // already cached
+    fetch('/api/clinics/filters')
+      .then((r) => r.json())
+      .then((data) => {
+        setFiltersCatalog({
+          specialties: Array.isArray(data?.specialties) ? data.specialties : [],
+          procedures: Array.isArray(data?.procedures) ? data.procedures : [],
+        });
+      })
+      .catch(() => { /* ignore — filters just stay empty */ });
+  }, [isOpen, derivationType, filtersCatalog.specialties.length]);
+
+  // Procedures dropdown narrows to the selected specialty when one is
+  // picked. With ~hundreds of distinct procedures across the SON catalog
+  // the dropdown becomes unusable otherwise.
+  const filteredProcedures = useMemo(() => {
+    if (!searchSpecialtySlug) return filtersCatalog.procedures;
+    return filtersCatalog.procedures.filter((p) => p.specialtySlug === searchSpecialtySlug);
+  }, [filtersCatalog.procedures, searchSpecialtySlug]);
+
+  // If the user picks a specialty that doesn't include the currently
+  // selected procedure, clear the procedure so the search isn't filtered
+  // by an inconsistent combination.
+  useEffect(() => {
+    if (!searchSpecialtySlug || !searchProcedureSlug) return;
+    const proc = filtersCatalog.procedures.find((p) => p.slug === searchProcedureSlug);
+    if (proc && proc.specialtySlug !== searchSpecialtySlug) {
+      setSearchProcedureSlug('');
+    }
+  }, [searchSpecialtySlug, searchProcedureSlug, filtersCatalog.procedures]);
 
   // ── Step 1 — load clinics (DB) ───────────────────────────────────────
   useEffect(() => {
@@ -67,12 +107,14 @@ export default function ReferralModal({
     setProvidersLoading(true);
     const params = new URLSearchParams({ limit: '24' });
     if (searchCity) params.set('city', searchCity);
+    if (searchSpecialtySlug) params.set('specialtySlug', searchSpecialtySlug);
+    if (searchProcedureSlug) params.set('procedureSlug', searchProcedureSlug);
     fetch(`/api/clinics/search?${params.toString()}`)
       .then((r) => r.json())
       .then((data) => setProviders(Array.isArray(data?.clinics) ? data.clinics : []))
       .catch(() => setProviders([]))
       .finally(() => setProvidersLoading(false));
-  }, [isOpen, derivationType, myClinic, searchCity, internalGated]);
+  }, [isOpen, derivationType, myClinic, searchCity, searchSpecialtySlug, searchProcedureSlug, internalGated]);
 
   // ── Step 2 — load procedures for the selected clinic ─────────────────
   useEffect(() => {
@@ -164,6 +206,8 @@ export default function ReferralModal({
     setLastSentEmail('');
     setShowPreview(false);
     setSearchCity('');
+    setSearchSpecialtySlug('');
+    setSearchProcedureSlug('');
   }
 
   function handleCloseAndReset() {
@@ -274,14 +318,41 @@ export default function ReferralModal({
               </div>
               <h3>1. Selecciona un centro médico</h3>
               {derivationType === 'externa' && (
-                <input
-                  type="text"
-                  className="form-input"
-                  placeholder="Filtrar por ciudad…"
-                  value={searchCity}
-                  onChange={(e) => setSearchCity(e.target.value)}
-                  style={{ marginBottom: 'var(--space-3)' }}
-                />
+                <div className="referral-filters">
+                  <input
+                    type="text"
+                    className="form-input"
+                    placeholder="Filtrar por ciudad…"
+                    value={searchCity}
+                    onChange={(e) => setSearchCity(e.target.value)}
+                    aria-label="Filtrar por ciudad"
+                  />
+                  <select
+                    className="form-input"
+                    value={searchSpecialtySlug}
+                    onChange={(e) => setSearchSpecialtySlug(e.target.value)}
+                    aria-label="Filtrar por especialidad"
+                  >
+                    <option value="">Todas las especialidades</option>
+                    {filtersCatalog.specialties.map((s) => (
+                      <option key={s.slug} value={s.slug}>{s.name}</option>
+                    ))}
+                  </select>
+                  <select
+                    className="form-input"
+                    value={searchProcedureSlug}
+                    onChange={(e) => setSearchProcedureSlug(e.target.value)}
+                    aria-label="Filtrar por servicio"
+                    disabled={filteredProcedures.length === 0}
+                  >
+                    <option value="">
+                      {searchSpecialtySlug ? 'Todos los servicios de la especialidad' : 'Todos los servicios'}
+                    </option>
+                    {filteredProcedures.map((p) => (
+                      <option key={p.slug} value={p.slug}>{p.name}</option>
+                    ))}
+                  </select>
+                </div>
               )}
               {providersLoading ? (
                 <div className="no-slots">Cargando clínicas…</div>

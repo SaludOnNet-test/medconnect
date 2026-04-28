@@ -94,6 +94,44 @@
   animation: fadeIn 0.3s ease;
 }
 
+/* Step-1 filter row — city + specialty + procedure, side-by-side on
+   desktop, stacked on narrow screens. The procedure dropdown narrows to
+   the selected specialty so the list stays manageable across the full
+   SON catalogue. */
+.referral-filters {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  gap: var(--space-2);
+  margin-bottom: var(--space-3);
+}
+
+.referral-filters .form-input {
+  padding: 0.55rem 0.75rem;
+  font-size: 0.9rem;
+}
+
+.referral-filters select.form-input {
+  appearance: none;
+  -webkit-appearance: none;
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%23666' stroke-width='2'><polyline points='6 9 12 15 18 9'/></svg>");
+  background-repeat: no-repeat;
+  background-position: right 0.65rem center;
+  padding-right: 1.75rem;
+  cursor: pointer;
+}
+
+.referral-filters select.form-input:disabled {
+  background-color: var(--bone-100, #f5f2ec);
+  cursor: not-allowed;
+  color: #999;
+}
+
+@media (max-width: 600px) {
+  .referral-filters {
+    grid-template-columns: 1fr;
+  }
+}
+
 /* Mode explainer card shown at the top of step 1 — keeps the pro
    anchored on whether this is an interna (own clinic, payment-share)
    vs externa (other clinic, commission) flow. */
