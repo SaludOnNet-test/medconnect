@@ -8,6 +8,7 @@ import Link from 'next/link';
 import Header from '@/components/Header';
 import Footer from '@/components/Footer';
 import ReferralModal from '@/components/ReferralModal';
+import ProVerificationModal from '@/components/ProVerificationModal';
 import LockInTimer from '@/components/LockInTimer';
 import { createReferral, generateReferralId, REFERRAL_STATES, getReferralStatusDisplay, isSlotAvailable } from '@/data/mock';
 
@@ -38,7 +39,12 @@ const sendEmail = (templateName, data) =>
   }).catch(() => {});
 
 export default function ProDashboard() {
+  // Verification state — read from /api/pro/me. `verificationStatus` is
+  // one of 'none' | 'pending' | 'rejected' | 'approved'. The banner +
+  // "Solicitar Liquidación" gate consume `isVerified`.
   const [isVerified, setIsVerified] = useState(false);
+  const [verificationStatus, setVerificationStatus] = useState('none');
+  const [verifyOpen, setVerifyOpen] = useState(false);
   const [activeTab, setActiveTab] = useState('pending'); // 'pending', 'interna', 'externa'
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [modalDeriType, setModalDeriType] = useState('externa');
@@ -106,10 +112,12 @@ export default function ProDashboard() {
     return () => { cancelled = true; };
   }, [professionalEmail]);
 
-  // Resolve the pro user's clinic. The endpoint returns
-  // { clinicId, clinicName, clinicCity, altaStatus } — when the user has no
-  // mapping yet, clinicId is null and the modal shows the alta-pendiente
-  // gate for "interna" derivation.
+  // Resolve the pro user's clinic + verification state. The endpoint
+  // returns { clinicId, clinicName, clinicCity, altaStatus, isVerified,
+  // verificationStatus, ... } — when the user has no mapping yet,
+  // clinicId is null and the modal shows the alta-pendiente gate for
+  // "interna" derivation. We also drive the verification banner +
+  // liquidation gate from this same call.
   useEffect(() => {
     if (!professionalEmail) return;
     let cancelled = false;
@@ -125,14 +133,28 @@ export default function ProDashboard() {
           setMyClinic(null);
         }
         setAltaStatus(data?.altaStatus || 'none');
+        setIsVerified(!!data?.isVerified);
+        setVerificationStatus(data?.verificationStatus || 'none');
       } catch { /* ignore */ }
     })();
     return () => { cancelled = true; };
   }, [professionalEmail]);
 
-  const handleCreateReferral = async ({ provider, slot, patientEmail }) => {
+  const handleCreateReferral = async ({ provider, procedure, slot, patientEmail }) => {
     const id = generateReferralId();
     const lockInWarningAt = new Date(Date.now() + 60 * 60 * 1000).toISOString();
+
+    // Tier-based priority fee — same scale the patient flow charges in
+    // /search-v2 + /book (see PRICING_TIERS in src/lib/slot-validation.js):
+    // 4,99 / 9,99 / 19 / 29 € depending on time-to-appointment. The slot
+    // object that ReferralModal hands us already carries `slot.fee` (it
+    // copies `slot.price` through). The legacy 25 € hardcode meant every
+    // derivation email said the same number regardless of urgency — which
+    // didn't match what the patient ends up paying when they reach /book.
+    const fee = Number(slot?.fee ?? slot?.price ?? 0);
+    // Use the procedure as the specialty label so the patient email reads
+    // the actual acto médico instead of a generic "Consulta médica".
+    const specialty = procedure?.specialtyName || procedure?.name || 'Consulta médica';
 
     // Persist to DB via API; fall back to local mock if unavailable
     let newReferral;
@@ -149,8 +171,8 @@ export default function ProDashboard() {
           providerName: provider.name,
           slotDate: slot.date,
           slotTime: slot.time,
-          fee: 25.00,
-          specialty: 'Consulta médica',
+          fee,
+          specialty,
           lockInWarningAt,
         }),
       });
@@ -161,7 +183,7 @@ export default function ProDashboard() {
       newReferral = createReferral({
         type: modalDeriType, professionalEmail, professionName, patientEmail,
         providerId: provider.id, serviceId: 1, slotDate: slot.date,
-        slotTime: slot.time, providerName: provider.name, fee: 25.00,
+        slotTime: slot.time, providerName: provider.name, fee,
       });
     }
 
@@ -171,11 +193,11 @@ export default function ProDashboard() {
       patientEmail,
       professionalEmail,
       clinicName: professionName,
-      specialty: 'Consulta médica',
+      specialty,
       providerName: provider.name,
       slotDate: slot.date,
       slotTime: slot.time,
-      fee: 25.00,
+      fee,
       lockInId: newReferral.id,
     };
 
@@ -202,11 +224,11 @@ export default function ProDashboard() {
       patientEmail: patientEmail || referral?.patientEmail,
       professionalEmail,
       clinicName: professionName,
-      specialty: 'Consulta médica',
+      specialty: referral?.specialty || 'Consulta médica',
       providerName: referral?.providerName || '',
       slotDate: referral?.slotDate || '',
       slotTime: referral?.slotTime || '',
-      fee: referral?.fee || 25,
+      fee: referral?.fee ?? 0,
       lockInId: referralId,
     });
   };
@@ -218,11 +240,11 @@ export default function ProDashboard() {
       patientEmail: newEmailValue.trim(),
       professionalEmail,
       clinicName: professionName,
-      specialty: 'Consulta médica',
+      specialty: referral?.specialty || 'Consulta médica',
       providerName: referral?.providerName || '',
       slotDate: referral?.slotDate || '',
       slotTime: referral?.slotTime || '',
-      fee: referral?.fee || 25,
+      fee: referral?.fee ?? 0,
       lockInId: referralId,
     });
     setNewEmailInputId(null);
@@ -292,31 +314,69 @@ export default function ProDashboard() {
               Panel Profesional
               <span>{professionName}</span>
             </h1>
-            <div style={{ display: 'flex', gap: '0.75rem' }}>
-              <button
-                className="btn btn-outline"
-                onClick={() => { setModalDeriType('interna'); setIsModalOpen(true); }}
-              >
-                + Derivación Interna
-              </button>
-              <button
-                className="btn btn-primary"
-                onClick={() => { setModalDeriType('externa'); setIsModalOpen(true); }}
-              >
-                + Derivación Externa
-              </button>
+            <div className="pro-dash-actions">
+              <div className="pro-dash-action">
+                <button
+                  className="btn btn-outline"
+                  onClick={() => { setModalDeriType('interna'); setIsModalOpen(true); }}
+                  title="Derivar a un colega de tu propia clínica."
+                >
+                  + Derivación Interna
+                </button>
+                <p className="pro-dash-action-hint">
+                  Para colegas dentro de tu clínica. Cobras tu tarifa concertada habitual + nuestra
+                  compensación por cubrir el hueco prioritario.
+                </p>
+              </div>
+              <div className="pro-dash-action">
+                <button
+                  className="btn btn-primary"
+                  onClick={() => { setModalDeriType('externa'); setIsModalOpen(true); }}
+                  title="Derivar a otra clínica de la red Med Connect."
+                >
+                  + Derivación Externa
+                </button>
+                <p className="pro-dash-action-hint">
+                  Para especialidades que no cubres. Derivas a una clínica de la red y cobras una
+                  comisión por cada derivación que el paciente confirma.
+                </p>
+              </div>
             </div>
           </div>
 
-          {!isVerified && (
+          {/* Verification banner — copy + CTA shift with the lifecycle:
+                  - 'none'     : nudge to start verification
+                  - 'pending'  : in-review, no CTA
+                  - 'rejected' : explain + invite re-submission
+                  - 'approved' : nothing (banner hidden) */}
+          {!isVerified && verificationStatus !== 'approved' && (
             <div className="pro-alert animate-fade-in-up">
               <div className="pro-alert-text">
-                <strong>⚠️ Cuenta pendiente de verificación</strong>
-                Sube tu licencia médica o habilitación de clínica para poder solicitar el pago de tus comisiones.
+                {verificationStatus === 'pending' ? (
+                  <>
+                    <strong>⏳ Verificación en revisión</strong>
+                    Hemos recibido tu documentación. El equipo de operaciones la valida en
+                    menos de 48 h hábiles — te avisamos por email en cuanto esté lista.
+                  </>
+                ) : verificationStatus === 'rejected' ? (
+                  <>
+                    <strong>⚠️ No pudimos verificar tu cuenta</strong>
+                    Revisa el email que enviamos con el motivo. Puedes volver a enviar la
+                    documentación con los cambios necesarios.
+                  </>
+                ) : (
+                  <>
+                    <strong>⚠️ Cuenta pendiente de verificación</strong>
+                    Sube tu licencia médica o habilitación de clínica para poder solicitar el
+                    pago de tus comisiones.
+                  </>
+                )}
               </div>
-              <button className="btn btn-navy btn-sm" onClick={() => alert('WIP: Abrir modal de subida de documentos')}>
-                Verificar cuenta ahora
-              </button>
+              {verificationStatus !== 'pending' && (
+                <button className="btn btn-navy btn-sm" onClick={() => setVerifyOpen(true)}>
+                  {verificationStatus === 'rejected' ? 'Volver a enviar' : 'Verificar cuenta ahora'}
+                </button>
+              )}
             </div>
           )}
 
@@ -612,6 +672,19 @@ export default function ProDashboard() {
         professionName={professionName}
         professionalEmail={professionalEmail}
         myClinic={myClinic}
+      />
+
+      {/* Verification Modal — opens from the "Verificar cuenta" banner.
+          On success the modal calls onSubmitted which flips the status
+          to 'pending' so the banner copy reflects the new state without
+          waiting for a /api/pro/me refresh. */}
+      <ProVerificationModal
+        isOpen={verifyOpen}
+        onClose={() => setVerifyOpen(false)}
+        professionalEmail={professionalEmail}
+        onSubmitted={() => {
+          setVerificationStatus('pending');
+        }}
       />
 
       <Footer />

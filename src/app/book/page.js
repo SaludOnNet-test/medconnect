@@ -55,9 +55,21 @@ function BookContent() {
   // Pre-checks the "I'm a doctor" toggle so the pro doesn't have to do it.
   const asProfessionalParam = searchParams.get('asProfessional') === 'true';
 
-  const [step, setStep] = useState('form'); // 'form' | 'payment' | 'success'
+  // When the patient lands here from a /lock-in redirect we already have
+  // their name + email + phone + address (collected in /lock-in/[id] and
+  // PATCHed onto the referral row). Default the step to 'payment' in that
+  // case so the patient form never flashes — the old default 'form'
+  // briefly rendered the empty patient inputs while we fetched the
+  // referral, which the audit caught as a "double entry" UX bug.
+  const [step, setStep] = useState(
+    stepParam === 'payment' && lockInId ? 'payment' : 'form',
+  );
   const [paymentRef, setPaymentRef] = useState('');
   const [lockInData, setLockInData] = useState(null);
+  // True while we're fetching the referral row that backs the payment
+  // step. PaymentForm shows a skeleton instead of trying to render with
+  // missing data.
+  const lockInLoading = stepParam === 'payment' && lockInId && !lockInData;
   // Pre-select hasInsurance: false when sin-seguro filter was used,
   // true when an insurer was picked, null otherwise (user still chooses).
   const [hasInsurance, setHasInsurance] = useState(
@@ -378,6 +390,33 @@ function BookContent() {
     const clinicName = lockInData?.providerName || providerName;
     const patientName = lockInData?.patientName || `${form.name} ${form.surname}`.trim();
 
+    // Loading skeleton while we fetch the referral row from the lock-in
+    // redirect. We avoid rendering PaymentForm until lockInData lands so
+    // the patient never sees a half-populated payment form (and never
+    // sees the empty patient input form briefly flash).
+    if (lockInLoading) {
+      return (
+        <>
+          <Header />
+          <main className="book-page">
+            <div className="book-container">
+              <div className="book-header">
+                <p className="book-step-label">Paso 2 de 2</p>
+                <h1 className="book-title">Pago seguro</h1>
+              </div>
+              <div
+                className="book-summary-card"
+                style={{ textAlign: 'center', padding: 'var(--space-7)', color: 'var(--fg-muted)' }}
+              >
+                Cargando los datos de tu reserva…
+              </div>
+            </div>
+          </main>
+          <Footer />
+        </>
+      );
+    }
+
     return (
       <>
         <Header />
@@ -387,6 +426,26 @@ function BookContent() {
               <p className="book-step-label">Paso 2 de 2</p>
               <h1 className="book-title">Pago seguro</h1>
             </div>
+            {/* Recap card — when the patient came from /lock-in, surface
+                the data they already entered there so they don't wonder
+                if they need to type it again. */}
+            {lockInData && (
+              <div className="book-summary-card book-summary-card--lockin" style={{ marginBottom: 'var(--space-md)' }}>
+                <div style={{ fontFamily: 'var(--font-body)', fontSize: 'var(--text-2xs)', textTransform: 'uppercase', letterSpacing: 'var(--tracking-eyebrow)', color: 'var(--fg-muted)', marginBottom: 4 }}>
+                  Reserva a nombre de
+                </div>
+                <div style={{ fontFamily: 'var(--font-display)', fontSize: 'var(--text-xl)', color: 'var(--fg)', marginBottom: 4 }}>
+                  {patientName || lockInData.patientEmail}
+                </div>
+                <div style={{ fontFamily: 'var(--font-body)', fontSize: 'var(--text-sm)', color: 'var(--fg-muted)' }}>
+                  {lockInData.patientEmail}
+                  {lockInData.patientPhone ? ` · ${lockInData.patientPhone}` : ''}
+                </div>
+                <div style={{ marginTop: 8, fontFamily: 'var(--font-body)', fontSize: 'var(--text-xs)', color: 'var(--fg-subtle)' }}>
+                  Datos confirmados desde tu enlace de reserva — solo te queda pagar.
+                </div>
+              </div>
+            )}
             <PaymentForm
               totalPrice={totalPrice}
               providerName={clinicName}
