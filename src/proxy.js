@@ -18,19 +18,41 @@ export async function proxy(request) {
   return clerkMiddleware(async (auth, req) => {
     if (isProRoute(req)) {
       const { userId, sessionClaims } = await auth();
-      const role = sessionClaims?.publicMetadata?.role;
 
-      // Not signed in → send to /sign-in with a return URL.
+      // Not signed in → send to /pro/sign-in with a return URL. (Was
+      // /sign-in originally, switched after the auth split — pros that
+      // lose their session shouldn't land on the patient flow.)
       if (!userId) {
-        const url = new URL('/sign-in', req.url);
+        const url = new URL('/pro/sign-in', req.url);
         url.searchParams.set('redirect_url', req.url);
         return NextResponse.redirect(url);
       }
 
+      // Try the session token first (fast path). Clerk v7 only includes
+      // publicMetadata in the JWT when the dashboard's session-token
+      // template has been customized to add it — many instances don't,
+      // so the claim arrives undefined even after the role is set.
+      let role = sessionClaims?.publicMetadata?.role;
+
+      // Slow fallback — fetch the user fresh from Clerk's API. ~50 ms
+      // latency on /pro/dashboard requests. Only triggers when the
+      // session-token route didn't return a role, so once the dashboard
+      // template includes publicMetadata this code path goes unused.
+      if (role !== 'professional' && role !== 'admin') {
+        try {
+          const { clerkClient } = await import('@clerk/nextjs/server');
+          const client = await clerkClient();
+          const user = await client.users.getUser(userId);
+          role = user?.publicMetadata?.role;
+        } catch (err) {
+          console.error('[proxy] failed to refetch user role', err);
+        }
+      }
+
       // Signed in but no professional/admin role yet → send to the pending-
-      // approval page so the user understands WHY they can't get in, instead
-      // of bouncing back to /sign-in (which looks broken). Ops promotes them
-      // via POST /api/admin/professionals/grant.
+      // approval page so the user understands WHY they can't get in.
+      // Ops promotes them via POST /api/admin/professionals/grant or via
+      // the Clerk webhook on /pro/sign-up.
       if (role !== 'professional' && role !== 'admin') {
         return NextResponse.redirect(new URL('/pro/pending-approval', req.url));
       }
