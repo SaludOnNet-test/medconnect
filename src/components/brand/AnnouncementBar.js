@@ -13,8 +13,8 @@ export default function AnnouncementBar({
   leftHref = '/search-v2',
   leftLabel = 'Busca una cita',
   leftIcon = 'search',
-  phoneHref = 'tel:+34912172193',
-  phoneNumber = '91 217 21 93',
+  phoneHref = 'tel:+34911977052',
+  phoneNumber = '911 977 052',
   phonePrefix = '¿Tu seguro no te da cita?',
   phoneCta = 'Llámanos',
 }) {
