@@ -3,10 +3,16 @@ import Link from 'next/link';
 import Image from 'next/image';
 import { useEffect, useRef, useState } from 'react';
 import { usePathname } from 'next/navigation';
-import { SignedIn, SignedOut, useUser, useClerk } from '@clerk/nextjs';
+import { useUser, useClerk } from '@clerk/nextjs';
 import Button from '@/components/brand/Button';
 import Icon from '@/components/icons/Icon';
 import './Header.css';
+
+// Note: Clerk v7 moved <SignedIn>/<SignedOut> to server-only
+// (`@clerk/nextjs/app-router/server/controlComponents`); we can't use them
+// in this 'use client' file. The Header decides which auth UI to show
+// from `useUser()`. Until Clerk hydrates, isLoaded is false and we paint
+// the signed-out shell so the static prerender stays stable.
 
 /**
  * Brand 2026 sticky nav bar.
@@ -28,9 +34,9 @@ import './Header.css';
  * 404 — that's intentional for the migration window.
  */
 
-// Inline auth dropdown for the signed-in state. Clerk's `<SignedIn>`
-// only mounts this once the user has a real session, so we can read
-// `useUser` here without worrying about the static prerender path.
+// Inline auth dropdown for the signed-in state. The parent only mounts
+// this when `useUser()` reports a signed-in user, so we can use the
+// hooks freely here.
 function SignedInArea() {
   const { user } = useUser();
   const clerk = useClerk();
@@ -107,6 +113,12 @@ export default function Header() {
   const [accountOpen, setAccountOpen] = useState(false);
   const accountRef = useRef(null);
   const pathname = usePathname();
+  // useUser() returns isLoaded=false during the brief window between
+  // hydration and Clerk fetching the session. We render the signed-out
+  // shell during that window so the static prerender's HTML matches the
+  // first client paint — avoids hydration mismatch warnings.
+  const { isSignedIn, isLoaded } = useUser();
+  const showSignedIn = isLoaded && isSignedIn;
 
   useEffect(() => {
     if (!accountOpen) return;
@@ -168,57 +180,56 @@ export default function Header() {
             </span>
           </a>
 
-          {/* Auth area — Clerk swaps between the signed-out CTAs and a
-              user dropdown automatically. <SignedIn> / <SignedOut> only
-              render once Clerk has hydrated, so the static prerender
-              shows nothing here briefly and then the right state paints
-              in. Better than always showing "Iniciar sesión / Crear
-              cuenta" even when the user is already logged in. */}
-          <SignedOut>
-            {/* Desktop: signin link + signup primary button. */}
-            <div className="header-auth">
-              <Link href="/sign-in" className="header-btn-login">Iniciar sesión</Link>
-              <Button href="/sign-up" variant="primary" size="sm">Crear cuenta</Button>
-            </div>
-
-            {/* Mobile: single "Acceder" dropdown. */}
-            <div className="header-account" ref={accountRef}>
-              <button
-                type="button"
-                className="header-btn-account"
-                aria-haspopup="menu"
-                aria-expanded={accountOpen}
-                onClick={() => setAccountOpen((v) => !v)}
-              >
-                Acceder
-                <Icon name={accountOpen ? 'chevron-up' : 'chevron-down'} size={14} />
-              </button>
-              {accountOpen && (
-                <div className="header-account-menu" role="menu">
-                  <Link
-                    href="/sign-up"
-                    className="header-account-menu-item"
-                    role="menuitem"
-                    onClick={() => setAccountOpen(false)}
-                  >
-                    Crear cuenta
-                  </Link>
-                  <Link
-                    href="/sign-in"
-                    className="header-account-menu-item"
-                    role="menuitem"
-                    onClick={() => setAccountOpen(false)}
-                  >
-                    Iniciar sesión
-                  </Link>
-                </div>
-              )}
-            </div>
-          </SignedOut>
-
-          <SignedIn>
+          {/* Auth area — switches based on Clerk session state. While
+              Clerk JS is loading we render the signed-out shell so the
+              static prerender + first client paint stay in sync. Once
+              the session is known we either keep the CTAs or swap them
+              for the avatar dropdown. */}
+          {showSignedIn ? (
             <SignedInArea />
-          </SignedIn>
+          ) : (
+            <>
+              {/* Desktop: signin link + signup primary button. */}
+              <div className="header-auth">
+                <Link href="/sign-in" className="header-btn-login">Iniciar sesión</Link>
+                <Button href="/sign-up" variant="primary" size="sm">Crear cuenta</Button>
+              </div>
+
+              {/* Mobile: single "Acceder" dropdown. */}
+              <div className="header-account" ref={accountRef}>
+                <button
+                  type="button"
+                  className="header-btn-account"
+                  aria-haspopup="menu"
+                  aria-expanded={accountOpen}
+                  onClick={() => setAccountOpen((v) => !v)}
+                >
+                  Acceder
+                  <Icon name={accountOpen ? 'chevron-up' : 'chevron-down'} size={14} />
+                </button>
+                {accountOpen && (
+                  <div className="header-account-menu" role="menu">
+                    <Link
+                      href="/sign-up"
+                      className="header-account-menu-item"
+                      role="menuitem"
+                      onClick={() => setAccountOpen(false)}
+                    >
+                      Crear cuenta
+                    </Link>
+                    <Link
+                      href="/sign-in"
+                      className="header-account-menu-item"
+                      role="menuitem"
+                      onClick={() => setAccountOpen(false)}
+                    >
+                      Iniciar sesión
+                    </Link>
+                  </div>
+                )}
+              </div>
+            </>
+          )}
         </div>
       </div>
     </header>
