@@ -23,10 +23,11 @@ export default function LegalPage() {
             <table className="legal-table">
               <tbody>
                 {[
-                  ['Razón social', 'Saludonnet Spain SL'],
+                  ['Razón social', 'SALUDONNET WORLDWIDE MEDICAL NETWORK SL'],
                   ['Nombre comercial', 'Med Connect'],
-                  // CIF omitted during MVP — to be added before public launch
-                  ['Domicilio', 'España'],
+                  ['CIF', 'B87648150'],
+                  ['Inscripción', 'Registro Mercantil de Madrid'],
+                  ['Domicilio', 'Madrid, España'],
                   ['Email de contacto', 'hola@medconnect.es'],
                   ['Actividad', 'Intermediación en la reserva de citas médicas privadas'],
                 ].map(([k, v]) => (
@@ -54,7 +55,7 @@ export default function LegalPage() {
         </Section>
 
         <Section title="4. Propiedad intelectual e industrial">
-          <p>Todos los contenidos del Sitio (textos, imágenes, logotipos, código fuente, diseño) son propiedad de Saludonnet Spain SL o de sus licenciantes y están protegidos por la legislación española e internacional sobre propiedad intelectual. Queda prohibida su reproducción sin autorización expresa.</p>
+          <p>Todos los contenidos del Sitio (textos, imágenes, logotipos, código fuente, diseño) son propiedad de SALUDONNET WORLDWIDE MEDICAL NETWORK SL o de sus licenciantes y están protegidos por la legislación española e internacional sobre propiedad intelectual. Queda prohibida su reproducción sin autorización expresa.</p>
         </Section>
 
         <Section title="5. Exclusión de responsabilidad">
