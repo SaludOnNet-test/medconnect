@@ -14,7 +14,7 @@ export default function AnnouncementBar({
   leftLabel = 'Busca una cita',
   leftIcon = 'search',
   phoneHref = 'tel:+34911977052',
-  phoneNumber = '911 977 052',
+  phoneNumber = '91 197 70 52',
   phonePrefix = '¿Tu seguro no te da cita?',
   phoneCta = 'Llámanos',
 }) {
