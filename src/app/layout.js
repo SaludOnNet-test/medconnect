@@ -49,7 +49,17 @@ export const metadata = {
 };
 
 // GA4 and Clarity are loaded ONLY after cookie consent (inside CookieBanner)
-const publishableKey = process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY;
+//
+// Defensive trim — the Vercel env var was set with a trailing newline
+// (`pk_test_…JA\n`) which made Clerk reject the key silently. ClerkJS would
+// fail to initialize, and any page that calls `useUser()` (incl.
+// /search-v2, /sign-in, /sign-up via the SignIn/SignUp widgets) would
+// hang forever inside its Suspense boundary. Sanitizing here keeps the
+// app working even if the env var picks up whitespace again. The proper
+// fix is on the Vercel side — edit NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY and
+// strip the trailing whitespace.
+const rawPublishableKey = process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY;
+const publishableKey = rawPublishableKey ? rawPublishableKey.trim() : '';
 
 export default async function RootLayout({ children }) {
   if (publishableKey) {
@@ -57,7 +67,7 @@ export default async function RootLayout({ children }) {
     return (
       <html lang="es" className={fontClassNames}>
         <body>
-          <ClerkProvider>
+          <ClerkProvider publishableKey={publishableKey}>
             {children}
           </ClerkProvider>
           <CookieBanner />
