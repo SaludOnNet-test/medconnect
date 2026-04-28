@@ -2,6 +2,8 @@
 // All templates use inline CSS for Gmail/Outlook compatibility
 // Colors: navy #1a3c5e, gold #c9a84c, cream #f9f7f4, green #10b981
 
+import { formatEUR } from '@/lib/format';
+
 const BASE_URL = process.env.NEXT_PUBLIC_BASE_URL || 'https://medconnect-bay.vercel.app';
 
 const baseWrapper = (content) => `
@@ -61,7 +63,7 @@ export function lockInInvitation({ patientEmail, professionalEmail, clinicName, 
       ${infoRow('Centro', providerName)}
       ${infoRow('Fecha', formattedDate)}
       ${infoRow('Hora', slotTime)}
-      ${fee ? infoRow('Tarifa de prioridad', `€${fee}`) : ''}
+      ${fee ? infoRow('Tarifa de prioridad', formatEUR(fee)) : ''}
     </table>
     <div style="text-align:center;margin:28px 0;">
       ${ctaButton(lockInUrl, '✓ Confirmar mi cita ahora', '#c9a84c', '#1a3c5e')}
@@ -278,7 +280,7 @@ export function derivadorReferralCreated({ professionalName, patientEmail, clini
       ${infoRow('Centro', providerName)}
       ${infoRow('Fecha', formattedDate)}
       ${infoRow('Hora', slotTime)}
-      ${fee ? infoRow('Tarifa de prioridad', `€${fee}`) : ''}
+      ${fee ? infoRow('Tarifa de prioridad', formatEUR(fee)) : ''}
     </table>
     <p style="font-size:13px;color:#9ca3af;text-align:center;">Recibirás un email cuando el paciente confirme y pague.</p>
   `));
@@ -345,7 +347,7 @@ export function lockInReminder({ patientEmail, professionalEmail, clinicName, sp
       ${infoRow('Centro', providerName)}
       ${infoRow('Fecha', formattedDate)}
       ${infoRow('Hora', slotTime)}
-      ${fee ? infoRow('Tarifa de prioridad', `€${fee}`) : ''}
+      ${fee ? infoRow('Tarifa de prioridad', formatEUR(fee)) : ''}
     </table>
     <div style="text-align:center;margin:28px 0;">
       ${ctaButton(lockInUrl, '⚡ Confirmar ahora antes de que expire', '#ef4444', '#ffffff')}

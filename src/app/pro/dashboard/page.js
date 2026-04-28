@@ -130,9 +130,21 @@ export default function ProDashboard() {
     return () => { cancelled = true; };
   }, [professionalEmail]);
 
-  const handleCreateReferral = async ({ provider, slot, patientEmail }) => {
+  const handleCreateReferral = async ({ provider, procedure, slot, patientEmail }) => {
     const id = generateReferralId();
     const lockInWarningAt = new Date(Date.now() + 60 * 60 * 1000).toISOString();
+
+    // Tier-based priority fee — same scale the patient flow charges in
+    // /search-v2 + /book (see PRICING_TIERS in src/lib/slot-validation.js):
+    // 4,99 / 9,99 / 19 / 29 € depending on time-to-appointment. The slot
+    // object that ReferralModal hands us already carries `slot.fee` (it
+    // copies `slot.price` through). The legacy 25 € hardcode meant every
+    // derivation email said the same number regardless of urgency — which
+    // didn't match what the patient ends up paying when they reach /book.
+    const fee = Number(slot?.fee ?? slot?.price ?? 0);
+    // Use the procedure as the specialty label so the patient email reads
+    // the actual acto médico instead of a generic "Consulta médica".
+    const specialty = procedure?.specialtyName || procedure?.name || 'Consulta médica';
 
     // Persist to DB via API; fall back to local mock if unavailable
     let newReferral;
@@ -149,8 +161,8 @@ export default function ProDashboard() {
           providerName: provider.name,
           slotDate: slot.date,
           slotTime: slot.time,
-          fee: 25.00,
-          specialty: 'Consulta médica',
+          fee,
+          specialty,
           lockInWarningAt,
         }),
       });
@@ -161,7 +173,7 @@ export default function ProDashboard() {
       newReferral = createReferral({
         type: modalDeriType, professionalEmail, professionName, patientEmail,
         providerId: provider.id, serviceId: 1, slotDate: slot.date,
-        slotTime: slot.time, providerName: provider.name, fee: 25.00,
+        slotTime: slot.time, providerName: provider.name, fee,
       });
     }
 
@@ -171,11 +183,11 @@ export default function ProDashboard() {
       patientEmail,
       professionalEmail,
       clinicName: professionName,
-      specialty: 'Consulta médica',
+      specialty,
       providerName: provider.name,
       slotDate: slot.date,
       slotTime: slot.time,
-      fee: 25.00,
+      fee,
       lockInId: newReferral.id,
     };
 
@@ -202,11 +214,11 @@ export default function ProDashboard() {
       patientEmail: patientEmail || referral?.patientEmail,
       professionalEmail,
       clinicName: professionName,
-      specialty: 'Consulta médica',
+      specialty: referral?.specialty || 'Consulta médica',
       providerName: referral?.providerName || '',
       slotDate: referral?.slotDate || '',
       slotTime: referral?.slotTime || '',
-      fee: referral?.fee || 25,
+      fee: referral?.fee ?? 0,
       lockInId: referralId,
     });
   };
@@ -218,11 +230,11 @@ export default function ProDashboard() {
       patientEmail: newEmailValue.trim(),
       professionalEmail,
       clinicName: professionName,
-      specialty: 'Consulta médica',
+      specialty: referral?.specialty || 'Consulta médica',
       providerName: referral?.providerName || '',
       slotDate: referral?.slotDate || '',
       slotTime: referral?.slotTime || '',
-      fee: referral?.fee || 25,
+      fee: referral?.fee ?? 0,
       lockInId: referralId,
     });
     setNewEmailInputId(null);
