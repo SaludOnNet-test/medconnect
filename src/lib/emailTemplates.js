@@ -775,3 +775,123 @@ export function clinicAltaRejected({ requestedByName, clinicName, opsNotes }) {
     html,
   };
 }
+
+// ─────────────────────────────────────────────
+// 18. Ops alert — new pro verification request submitted.
+// ─────────────────────────────────────────────
+export function proVerificationOps({
+  requestId, requestedByEmail, profileType, fullName, licenseNumber,
+  clinicName, documentCount,
+}) {
+  const reviewUrl = `${BASE_URL}/admin/pro-verifications`;
+  const profileLabel = profileType === 'doctor'
+    ? 'Médico individual'
+    : 'Representante de clínica';
+  const html = baseWrapper(bodySection(`
+    <h2 style="margin:0 0 8px;font-size:22px;font-weight:800;color:#1a3c5e;">Nueva verificación de pro</h2>
+    <p style="margin:0 0 24px;font-size:15px;color:#6b7280;">
+      <strong>${requestedByEmail}</strong> ha enviado documentación para verificar su cuenta.
+      Revisa los archivos adjuntos antes de aprobar o rechazar.
+    </p>
+    <table width="100%" cellpadding="0" cellspacing="0" style="margin-bottom:24px;border:1px solid #e5e7eb;border-radius:8px;overflow:hidden;">
+      <tr style="background:#f9fafb;"><th colspan="2" style="padding:12px 16px;text-align:left;font-size:13px;color:#6b7280;font-weight:600;text-transform:uppercase;letter-spacing:0.05em;">Solicitud #${requestId}</th></tr>
+      ${infoRow('Tipo de perfil', profileLabel)}
+      ${fullName ? infoRow('Nombre completo', fullName) : ''}
+      ${licenseNumber ? infoRow('Nº colegiado', licenseNumber) : ''}
+      ${clinicName ? infoRow('Razón social', clinicName) : ''}
+      ${infoRow('Documentos', `${documentCount} archivo${documentCount === 1 ? '' : 's'}`)}
+    </table>
+    <div style="text-align:center;margin:28px 0;">
+      ${ctaButton(reviewUrl, 'Revisar en el panel', '#c9a84c', '#1a3c5e')}
+    </div>
+  `));
+  return {
+    subject: `🔍 Verificación de pro pendiente — ${profileLabel}`,
+    html,
+  };
+}
+
+// ─────────────────────────────────────────────
+// 19. Pro user — verification submitted (ack).
+// ─────────────────────────────────────────────
+export function proVerificationReceived({ requestedByName }) {
+  const html = baseWrapper(bodySection(`
+    <h2 style="margin:0 0 8px;font-size:22px;font-weight:800;color:#1a3c5e;">Hemos recibido tu documentación</h2>
+    <p style="margin:0 0 16px;font-size:15px;color:#374151;line-height:1.55;">
+      Hola <strong>${requestedByName || ''}</strong>,
+    </p>
+    <p style="margin:0 0 16px;font-size:15px;color:#374151;line-height:1.55;">
+      Estamos revisando los archivos que nos enviaste. Nuestro equipo de operaciones
+      validará la documentación y te avisará por email — normalmente en menos de
+      <strong>48 horas hábiles</strong>.
+    </p>
+    <p style="margin:0 0 16px;font-size:15px;color:#374151;line-height:1.55;">
+      Mientras tanto puedes seguir creando derivaciones desde tu panel profesional.
+      Solo se desbloquea la <strong>solicitud de liquidación</strong> una vez verificada
+      la cuenta.
+    </p>
+    <p style="margin:0;font-size:13px;color:#6b7280;line-height:1.55;">
+      Si tenés dudas escribinos a
+      <a href="mailto:operaciones@medconnect.es" style="color:#1a3c5e;">operaciones@medconnect.es</a>.
+    </p>
+  `));
+  return {
+    subject: `Verificación recibida — Med Connect`,
+    html,
+  };
+}
+
+// ─────────────────────────────────────────────
+// 20. Pro user — verification approved.
+// ─────────────────────────────────────────────
+export function proVerificationApproved({ requestedByName }) {
+  const dashboardUrl = `${BASE_URL}/pro/dashboard`;
+  const html = baseWrapper(bodySection(`
+    <h2 style="margin:0 0 8px;font-size:22px;font-weight:800;color:#1a3c5e;">¡Tu cuenta está verificada!</h2>
+    <p style="margin:0 0 16px;font-size:15px;color:#374151;line-height:1.55;">
+      Hola <strong>${requestedByName || ''}</strong>,
+    </p>
+    <p style="margin:0 0 16px;font-size:15px;color:#374151;line-height:1.55;">
+      Hemos aprobado la documentación que nos enviaste. Tu cuenta queda
+      <strong>verificada</strong> en Med Connect, y ya puedes solicitar la liquidación
+      de tus comisiones desde el panel profesional.
+    </p>
+    <div style="text-align:center;margin:28px 0;">
+      ${ctaButton(dashboardUrl, 'Ir al panel profesional', '#c9a84c', '#1a3c5e')}
+    </div>
+  `));
+  return {
+    subject: `Tu cuenta ya está verificada en Med Connect`,
+    html,
+  };
+}
+
+// ─────────────────────────────────────────────
+// 21. Pro user — verification rejected.
+// ─────────────────────────────────────────────
+export function proVerificationRejected({ requestedByName, opsNotes }) {
+  const html = baseWrapper(bodySection(`
+    <h2 style="margin:0 0 8px;font-size:22px;font-weight:800;color:#1a3c5e;">No hemos podido verificar tu cuenta</h2>
+    <p style="margin:0 0 16px;font-size:15px;color:#374151;line-height:1.55;">
+      Hola <strong>${requestedByName || ''}</strong>,
+    </p>
+    <p style="margin:0 0 16px;font-size:15px;color:#374151;line-height:1.55;">
+      Hemos revisado los documentos que nos enviaste y, por ahora, no podemos
+      verificar tu cuenta automáticamente.
+    </p>
+    ${opsNotes ? `
+    <div style="background:#fff8e6;border:1px solid #f59e0b;border-radius:8px;padding:16px;margin-bottom:20px;">
+      <p style="margin:0 0 8px;font-size:13px;color:#92400e;font-weight:700;">Motivo</p>
+      <p style="margin:0;font-size:14px;color:#92400e;line-height:1.5;">${opsNotes}</p>
+    </div>` : ''}
+    <p style="margin:0 0 16px;font-size:14px;color:#374151;line-height:1.55;">
+      Puedes volver a enviar la documentación desde el panel profesional con los
+      cambios que necesites, o contactarnos para resolver el problema:
+      <a href="mailto:operaciones@medconnect.es" style="color:#1a3c5e;">operaciones@medconnect.es</a>.
+    </p>
+  `));
+  return {
+    subject: `Verificación pendiente — Med Connect`,
+    html,
+  };
+}

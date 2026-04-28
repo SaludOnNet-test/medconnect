@@ -8,6 +8,7 @@ import Link from 'next/link';
 import Header from '@/components/Header';
 import Footer from '@/components/Footer';
 import ReferralModal from '@/components/ReferralModal';
+import ProVerificationModal from '@/components/ProVerificationModal';
 import LockInTimer from '@/components/LockInTimer';
 import { createReferral, generateReferralId, REFERRAL_STATES, getReferralStatusDisplay, isSlotAvailable } from '@/data/mock';
 
@@ -38,7 +39,12 @@ const sendEmail = (templateName, data) =>
   }).catch(() => {});
 
 export default function ProDashboard() {
+  // Verification state — read from /api/pro/me. `verificationStatus` is
+  // one of 'none' | 'pending' | 'rejected' | 'approved'. The banner +
+  // "Solicitar Liquidación" gate consume `isVerified`.
   const [isVerified, setIsVerified] = useState(false);
+  const [verificationStatus, setVerificationStatus] = useState('none');
+  const [verifyOpen, setVerifyOpen] = useState(false);
   const [activeTab, setActiveTab] = useState('pending'); // 'pending', 'interna', 'externa'
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [modalDeriType, setModalDeriType] = useState('externa');
@@ -106,10 +112,12 @@ export default function ProDashboard() {
     return () => { cancelled = true; };
   }, [professionalEmail]);
 
-  // Resolve the pro user's clinic. The endpoint returns
-  // { clinicId, clinicName, clinicCity, altaStatus } — when the user has no
-  // mapping yet, clinicId is null and the modal shows the alta-pendiente
-  // gate for "interna" derivation.
+  // Resolve the pro user's clinic + verification state. The endpoint
+  // returns { clinicId, clinicName, clinicCity, altaStatus, isVerified,
+  // verificationStatus, ... } — when the user has no mapping yet,
+  // clinicId is null and the modal shows the alta-pendiente gate for
+  // "interna" derivation. We also drive the verification banner +
+  // liquidation gate from this same call.
   useEffect(() => {
     if (!professionalEmail) return;
     let cancelled = false;
@@ -125,6 +133,8 @@ export default function ProDashboard() {
           setMyClinic(null);
         }
         setAltaStatus(data?.altaStatus || 'none');
+        setIsVerified(!!data?.isVerified);
+        setVerificationStatus(data?.verificationStatus || 'none');
       } catch { /* ignore */ }
     })();
     return () => { cancelled = true; };
@@ -334,15 +344,39 @@ export default function ProDashboard() {
             </div>
           </div>
 
-          {!isVerified && (
+          {/* Verification banner — copy + CTA shift with the lifecycle:
+                  - 'none'     : nudge to start verification
+                  - 'pending'  : in-review, no CTA
+                  - 'rejected' : explain + invite re-submission
+                  - 'approved' : nothing (banner hidden) */}
+          {!isVerified && verificationStatus !== 'approved' && (
             <div className="pro-alert animate-fade-in-up">
               <div className="pro-alert-text">
-                <strong>⚠️ Cuenta pendiente de verificación</strong>
-                Sube tu licencia médica o habilitación de clínica para poder solicitar el pago de tus comisiones.
+                {verificationStatus === 'pending' ? (
+                  <>
+                    <strong>⏳ Verificación en revisión</strong>
+                    Hemos recibido tu documentación. El equipo de operaciones la valida en
+                    menos de 48 h hábiles — te avisamos por email en cuanto esté lista.
+                  </>
+                ) : verificationStatus === 'rejected' ? (
+                  <>
+                    <strong>⚠️ No pudimos verificar tu cuenta</strong>
+                    Revisa el email que enviamos con el motivo. Puedes volver a enviar la
+                    documentación con los cambios necesarios.
+                  </>
+                ) : (
+                  <>
+                    <strong>⚠️ Cuenta pendiente de verificación</strong>
+                    Sube tu licencia médica o habilitación de clínica para poder solicitar el
+                    pago de tus comisiones.
+                  </>
+                )}
               </div>
-              <button className="btn btn-navy btn-sm" onClick={() => alert('WIP: Abrir modal de subida de documentos')}>
-                Verificar cuenta ahora
-              </button>
+              {verificationStatus !== 'pending' && (
+                <button className="btn btn-navy btn-sm" onClick={() => setVerifyOpen(true)}>
+                  {verificationStatus === 'rejected' ? 'Volver a enviar' : 'Verificar cuenta ahora'}
+                </button>
+              )}
             </div>
           )}
 
@@ -638,6 +672,19 @@ export default function ProDashboard() {
         professionName={professionName}
         professionalEmail={professionalEmail}
         myClinic={myClinic}
+      />
+
+      {/* Verification Modal — opens from the "Verificar cuenta" banner.
+          On success the modal calls onSubmitted which flips the status
+          to 'pending' so the banner copy reflects the new state without
+          waiting for a /api/pro/me refresh. */}
+      <ProVerificationModal
+        isOpen={verifyOpen}
+        onClose={() => setVerifyOpen(false)}
+        professionalEmail={professionalEmail}
+        onSubmitted={() => {
+          setVerificationStatus('pending');
+        }}
       />
 
       <Footer />
