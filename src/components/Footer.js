@@ -68,7 +68,7 @@ export default function Footer() {
 
       <div className="footer-baseline">
         <div className="footer-copy">
-          © 2026 Med Connect — Saludonnet Spain SL.
+          © 2026 Med Connect — Saludonnet Worldwide Medical Network SL.
         </div>
         <div className="footer-legal-links">
           <Link href="/privacidad">Privacidad</Link>
