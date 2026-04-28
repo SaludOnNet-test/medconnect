@@ -127,6 +127,25 @@ export default function ReferralModal({
       .finally(() => setProceduresLoading(false));
   }, [selectedProvider]);
 
+  // Auto-skip step 2 when the pro already picked the service in the
+  // step-1 filter. The procedure-slug used in the filter comes from the
+  // same `clinic_procedures` table the per-clinic catalogue endpoint
+  // reads from, so an exact slug match is the right comparison. Only
+  // fires while we're on step 2 + nothing is selected yet → going back
+  // from step 3 doesn't re-skip, and if the clinic doesn't carry that
+  // procedure (data drift) we just stay on step 2 normally.
+  useEffect(() => {
+    if (step !== 2) return;
+    if (!searchProcedureSlug) return;
+    if (selectedProcedure) return;
+    if (!procedures || procedures.length === 0) return;
+    const match = procedures.find((p) => p.slug === searchProcedureSlug);
+    if (match) {
+      setSelectedProcedure(match);
+      setStep(3);
+    }
+  }, [step, procedures, searchProcedureSlug, selectedProcedure]);
+
   // ── Step 3 — load available slots for the selected clinic ────────────
   useEffect(() => {
     if (!selectedProvider) return;
