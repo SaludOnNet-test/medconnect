@@ -8,11 +8,14 @@ import { brandClerkAppearance } from '@/lib/clerkAppearance';
 
 const hasClerkKeys = !!(process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY);
 
-// If Clerk's <SignIn /> never paints anything inside the wrapper after a few
-// seconds, it usually means the current host is not whitelisted on the Clerk
-// instance (typical with `pk_test_` keys on a Vercel preview alias). In that
-// case we replace the blank screen with an actionable message.
-function SignInWithFallback() {
+/**
+ * /pro/sign-in — pro-only sign-in flow.
+ *
+ * Lands on /pro/dashboard after sign-in, vs the patient flow which
+ * lands on `/`. Mirrors the SignInWithFallback fallback the patient
+ * page uses so an un-whitelisted host doesn't show a blank widget.
+ */
+function ProSignInWithFallback() {
   const wrapperRef = useRef(null);
   const [stuck, setStuck] = useState(false);
 
@@ -36,14 +39,7 @@ function SignInWithFallback() {
           El proveedor de autenticación (Clerk) no respondió en este dominio (<code>{host}</code>).
         </p>
         <p style={{ margin: 0, color: 'var(--fg-muted)', fontSize: 'var(--text-sm)', lineHeight: 'var(--leading-normal)' }}>
-          <strong>Causa probable:</strong> este host no está autorizado en Clerk. Soluciones:
-        </p>
-        <ul style={{ margin: 0, paddingLeft: 'var(--space-4)', color: 'var(--fg-muted)', fontSize: 'var(--text-sm)', lineHeight: 'var(--leading-loose)' }}>
-          <li>Accede desde <a href="https://www.medconnect.es/sign-in">www.medconnect.es</a> (dominio principal autorizado).</li>
-          <li>Si eres administrador: añade <code>{host}</code> a los <em>Allowed origins</em> en el dashboard de Clerk.</li>
-        </ul>
-        <p style={{ margin: 0, fontSize: 'var(--text-xs)', color: 'var(--fg-subtle)' }}>
-          ¿Necesitas ayuda? Escribe a <a href="mailto:hola@medconnect.es">hola@medconnect.es</a>.
+          Recarga la página o contacta al equipo si persiste.
         </p>
       </Card>
     );
@@ -52,27 +48,25 @@ function SignInWithFallback() {
   return (
     <div ref={wrapperRef}>
       <SignIn
-        path="/sign-in"
-        signUpUrl="/sign-up"
+        path="/pro/sign-in"
+        signUpUrl="/pro/sign-up"
         appearance={brandClerkAppearance}
+        forceRedirectUrl="/pro/dashboard"
       />
     </div>
   );
 }
 
-export default function SignInPage() {
+export default function ProSignInPage() {
   if (!hasClerkKeys) {
     return (
-      <AuthLayout mode="sign-in">
+      <AuthLayout mode="sign-in" audience="pro">
         <Card surface="50">
           <h2 style={{ fontFamily: 'var(--font-display)', fontSize: 'var(--text-xl)', margin: 0 }}>
             Auth no configurada
           </h2>
           <p style={{ margin: 0, color: 'var(--fg-muted)', fontSize: 'var(--text-sm)', lineHeight: 'var(--leading-normal)' }}>
-            Añade <code>NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY</code> y <code>CLERK_SECRET_KEY</code> en <code>.env.local</code> para activar el login.
-          </p>
-          <p style={{ margin: 0, fontSize: 'var(--text-xs)', color: 'var(--fg-subtle)' }}>
-            Demo: usa <a href="/pro/login">/pro/login</a> o <a href="/admin/login">/admin/login</a> con Admin / ADMIN.
+            Añade las claves de Clerk en <code>.env.local</code> para activar el login.
           </p>
         </Card>
       </AuthLayout>
@@ -80,8 +74,8 @@ export default function SignInPage() {
   }
 
   return (
-    <AuthLayout mode="sign-in">
-      <SignInWithFallback />
+    <AuthLayout mode="sign-in" audience="pro">
+      <ProSignInWithFallback />
     </AuthLayout>
   );
 }

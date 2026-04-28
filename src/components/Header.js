@@ -57,6 +57,10 @@ function SignedInArea() {
     };
   }, [open]);
 
+  // Read the role from the Clerk user. Only pros / admins see the
+  // "Panel profesional" link in the dropdown.
+  const role = user?.publicMetadata?.role;
+
   // user is guaranteed non-null inside <SignedIn>, but keep a guard for the
   // brief instant before Clerk has populated the user object.
   if (!user) return null;
@@ -79,14 +83,20 @@ function SignedInArea() {
       </button>
       {open && (
         <div className="header-account-menu" role="menu">
-          <Link
-            href="/pro/dashboard"
-            className="header-account-menu-item"
-            role="menuitem"
-            onClick={() => setOpen(false)}
-          >
-            Panel profesional
-          </Link>
+          {/* "Panel profesional" only makes sense for users with a
+              professional / admin role — patients see only "Cerrar
+              sesión". The middleware on /pro/dashboard would bounce
+              them out anyway, but hiding the link avoids confusion. */}
+          {(role === 'professional' || role === 'admin') && (
+            <Link
+              href="/pro/dashboard"
+              className="header-account-menu-item"
+              role="menuitem"
+              onClick={() => setOpen(false)}
+            >
+              Panel profesional
+            </Link>
+          )}
           <button
             type="button"
             className="header-account-menu-item header-account-menu-item--danger"

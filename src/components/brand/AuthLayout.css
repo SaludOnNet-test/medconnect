@@ -122,6 +122,26 @@
      prop provides the brand colour overrides. */
 }
 
+/* Audience crossover — small hint under the widget pointing the
+   "wrong-URL" landing to the matching audience. */
+.brand-auth__crossover {
+  margin: var(--space-4) 0 0;
+  font-family: var(--font-body);
+  font-size: var(--text-sm);
+  color: var(--fg-muted);
+  text-align: center;
+}
+
+.brand-auth__crossover a {
+  color: var(--accent-press);
+  text-decoration: underline;
+  font-weight: 500;
+}
+
+.brand-auth__crossover a:hover {
+  color: var(--accent);
+}
+
 /* ── Tablet: stack with left panel as slim banner ─────────────────── */
 @media (max-width: 900px) {
   .brand-auth {

@@ -47,8 +47,10 @@ export default async function SignUpPage({ searchParams }) {
         </Card>
       )}
       <SignUp
+        path="/sign-up"
+        signInUrl="/sign-in"
         appearance={brandClerkAppearance}
-        afterSignUpUrl={acceptCookies ? '/accept-cookies' : '/'}
+        forceRedirectUrl={acceptCookies ? '/accept-cookies' : '/'}
       />
     </AuthLayout>
   );

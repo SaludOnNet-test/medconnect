@@ -11,8 +11,10 @@ export const metadata = {
   description: 'Dos formas de ganar con Med Connect: vende huecos prioritarios de tu agenda y cobra una compensación por cada uno, o deriva pacientes a otras clínicas y cobra una comisión por cada derivación confirmada.',
 };
 
+// Pros land on /pro/sign-up (audience-aware AuthLayout + auto role
+// grant via the Clerk webhook).
 const loginUrl = process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY
-  ? '/sign-up?role=professional'
+  ? '/pro/sign-up'
   : '/pro/login';
 
 const SELL_BENEFITS = [
