@@ -33,6 +33,10 @@ export async function GET(request) {
   const nameQuery      = searchParams.get('name') || '';
   const limit          = Math.min(parseInt(searchParams.get('limit') || '20'), 100);
   const offset         = Math.max(parseInt(searchParams.get('offset') || '0'), 0);
+  // bbox=south,west,north,east — when set, only return clinics whose
+  // coordinates fall inside the rectangle. Powers the search-v2 "refresh
+  // results when the user pans/zooms the map" UX.
+  const bboxParam      = searchParams.get('bbox') || '';
 
   if (!DB_AVAILABLE) return NextResponse.json({ clinics: [], total: 0, source: 'no-db' });
 
@@ -68,6 +72,20 @@ export async function GET(request) {
     if (procedureSlug) {
       params.procSlug = { type: sql.NVarChar(200), value: `%${procedureSlug}%` };
       where += ` AND EXISTS (SELECT 1 FROM clinic_procedures cp2 WHERE cp2.clinic_id = c.id AND cp2.procedure_slug LIKE @procSlug)`;
+    }
+    // Spatial filter — south,west,north,east. Only applied when all four
+    // values parse cleanly so a malformed bbox can't silently drop the
+    // entire result set.
+    if (bboxParam) {
+      const parts = bboxParam.split(',').map((s) => parseFloat(s));
+      if (parts.length === 4 && parts.every((n) => Number.isFinite(n))) {
+        const [south, west, north, east] = parts;
+        where += ' AND c.latitude BETWEEN @south AND @north AND c.longitude BETWEEN @west AND @east';
+        params.south = { type: sql.Decimal(10, 6), value: south };
+        params.north = { type: sql.Decimal(10, 6), value: north };
+        params.west  = { type: sql.Decimal(10, 6), value: west };
+        params.east  = { type: sql.Decimal(10, 6), value: east };
+      }
     }
 
     // Count total for pagination

@@ -3,9 +3,28 @@ import { useState, useMemo, useEffect, useCallback, useRef, Suspense } from 'rea
 import { useSearchParams } from 'next/navigation';
 import dynamic from 'next/dynamic';
 import Header from '@/components/Header';
+import Icon from '@/components/icons/Icon';
+import Eyebrow from '@/components/brand/Eyebrow';
 import ClinicCardV2 from '@/components/ClinicCardV2';
 import ClinicBookingModal from '@/components/ClinicBookingModal';
 import { insuranceCompanies } from '@/data/mock';
+
+const HAS_CLERK_KEYS = !!process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY;
+
+// Same lazy bridge pattern as /pro/dashboard. Mounted only when Clerk keys
+// are present. Tells the parent if the current user is a logged-in pro so
+// the booking modal can forward `asProfessional=true` to /book and the
+// "I'm a doctor referring this patient" toggle starts checked.
+function ClerkProBridge({ onResolve }) {
+  const { useUser } = require('@clerk/nextjs');
+  const { user, isLoaded } = useUser();
+  useEffect(() => {
+    if (!isLoaded) return;
+    const role = user?.publicMetadata?.role;
+    onResolve(role === 'professional' || role === 'admin');
+  }, [user, isLoaded, onResolve]);
+  return null;
+}
 // First-paint fallback: real (possibly stale) clinics snapshotted from DB.
 // Regenerate with `python scripts/snapshot_clinics_for_search.py`.
 import clinicsSnapshot from '@/data/clinics-snapshot.json';
@@ -25,6 +44,17 @@ function SearchV2Content() {
   const serviceId          = searchParams.get('service') || '';
   const cityParam          = searchParams.get('city') || '';
   const providerNameParam  = searchParams.get('providerName') || '';
+  // ?asProfessional=true — explicit deep-link from a "derivar un paciente"
+  // entry-point. Forwarded to the booking modal so /book lands with the
+  // pro toggle checked. Auto-detected pro Clerk users get the same flag.
+  const asProfessionalParam = searchParams.get('asProfessional') === 'true';
+
+  const [isPro, setIsPro] = useState(asProfessionalParam);
+  const [isMounted, setIsMounted] = useState(false);
+  useEffect(() => setIsMounted(true), []);
+  const handleClerkPro = useCallback((value) => {
+    if (value) setIsPro(true); // never demote — user can clear via UI
+  }, []);
 
   // Filter state
   const [insuranceFilter, setInsuranceFilter] = useState('');
@@ -61,6 +91,13 @@ function SearchV2Content() {
   const [highlightedId, setHighlightedId]     = useState(null);
   const [modalProvider, setModalProvider]     = useState(null);
   const [modalInitialSlot, setModalInitialSlot] = useState(null);
+
+  // Map-driven bbox refresh — once the user pans / zooms, the map fires
+  // onBoundsChange with the visible rectangle. We persist that into
+  // mapBounds, which buildUrl appends to the search query so both the
+  // list and the bubbles re-snap to what's visible. null = no bbox active
+  // (initial load or filter reset).
+  const [mapBounds, setMapBounds] = useState(null);
 
   // Slot batch-loading — one request per group of cards, fired from the page (not per-card)
   const [slotsMap, setSlotsMap] = useState({});
@@ -101,12 +138,27 @@ function SearchV2Content() {
     if (procedureSlug)     params.set('procedureSlug', procedureSlug);
     if (ratingFilter > 0)  params.set('rating', ratingFilter);
     if (providerNameParam) params.set('name', providerNameParam);
+    if (mapBounds) {
+      const { south, west, north, east } = mapBounds;
+      params.set('bbox', `${south.toFixed(6)},${west.toFixed(6)},${north.toFixed(6)},${east.toFixed(6)}`);
+    }
     params.set('limit', limit);
     params.set('offset', offset);
     return `/api/clinics/search?${params.toString()}`;
-  }, [cityFilter, specialtySlug, specialtyIdParam, procedureSlug, ratingFilter, providerNameParam]);
+  }, [cityFilter, specialtySlug, specialtyIdParam, procedureSlug, ratingFilter, providerNameParam, mapBounds]);
 
-  // Initial load / filter change — also reset slot state
+  // When the user picks a different city / specialty / procedure / rating,
+  // wipe any map-driven bbox — those filters override the spatial scope.
+  // Insurance + sort live client-side and don't trigger a refetch, so they
+  // don't need to clear bounds.
+  useEffect(() => {
+    setMapBounds(null);
+  }, [cityFilter, specialtySlug, procedureSlug, ratingFilter]);
+
+  // Initial load / filter change — also reset slot state.
+  // Bumps page size to 50 when a bbox is active so the map can show every
+  // clinic in the visible rectangle on the first paint without forcing the
+  // user to scroll.
   useEffect(() => {
     let cancelled = false;
     setIsLoading(true);
@@ -115,7 +167,8 @@ function SearchV2Content() {
     setHasMore(false);
     setSlotsMap({});
 
-    fetch(buildUrl(0, PAGE_SIZE_INITIAL))
+    const initialSize = mapBounds ? 50 : PAGE_SIZE_INITIAL;
+    fetch(buildUrl(0, initialSize))
       .then((r) => r.json())
       .then((data) => {
         if (cancelled) return;
@@ -216,32 +269,28 @@ function SearchV2Content() {
       <Header />
 
       <main className="sv2-page">
-        {/* Title */}
+        {/* Title — brand editorial: Eyebrow + Fraunces with italic emphasis */}
         <div className="sv2-title-row container">
           <div>
+            <Eyebrow>Resultados de búsqueda</Eyebrow>
             <h1 className="sv2-title">
-              {specialtySlug
-                ? `${dbSpecialties.find((s) => s.slug === specialtySlug)?.name || specialtySlug} en ${cityLabel}`
-                : `Centros médicos en ${cityLabel}`}
+              {specialtySlug ? (
+                <>
+                  {dbSpecialties.find((s) => s.slug === specialtySlug)?.name || specialtySlug}{' '}
+                  <em>en {cityLabel}</em>
+                </>
+              ) : (
+                <>Centros médicos <em>en {cityLabel}</em></>
+              )}
             </h1>
-            <p className="sv2-subtitle">Centros médicos privados · Cita disponible hoy</p>
+            <p className="sv2-subtitle">Cita prioritaria · disponibilidad en tiempo real</p>
           </div>
         </div>
 
         {/* Insurance disclaimer banner */}
-        <div className="container" style={{ paddingTop: '0.75rem', paddingBottom: '0.5rem' }}>
-          <div style={{
-            background: '#fffaeb',
-            border: '1px solid #f0d97a',
-            borderRadius: '10px',
-            padding: '0.75rem 1rem',
-            fontSize: '0.85rem',
-            color: '#5b4400',
-            display: 'flex',
-            alignItems: 'center',
-            gap: '0.5rem',
-          }}>
-            <span aria-hidden style={{ fontSize: '1rem' }}>ℹ️</span>
+        <div className="container sv2-disclaimer-row">
+          <div className="sv2-disclaimer">
+            <Icon name="info" size={16} className="sv2-disclaimer-icon" />
             <span>
               Los precios mostrados son la <strong>tarifa de prioridad</strong> (lo que pagas por la reserva).
               Si tienes seguro, la consulta la cubre tu póliza.
@@ -417,11 +466,15 @@ function SearchV2Content() {
             </div>
           </div>
 
-          {/* Right: map */}
+          {/* Right: map. We re-mount the map on city change (key=cityFilter)
+              so the user-interaction flag inside ClinicMap resets and the
+              map recenters on the new city — otherwise a previous pan would
+              keep the viewport stuck on the old location. */}
           {showMap && (
             <div className="sv2-map-panel">
               <div className="sv2-map-wrap">
                 <ClinicMap
+                  key={cityFilter || cityParam || 'all'}
                   providers={displayProviders.filter((p) => p.lat && p.lng)}
                   highlightedId={highlightedId}
                   city={cityFilter || cityParam}
@@ -430,12 +483,15 @@ function SearchV2Content() {
                     setModalProvider(p);
                     setModalInitialSlot(null);
                   }}
+                  onBoundsChange={setMapBounds}
                 />
               </div>
             </div>
           )}
         </div>
       </main>
+
+      {isMounted && HAS_CLERK_KEYS && <ClerkProBridge onResolve={handleClerkPro} />}
 
       {modalProvider && (
         <ClinicBookingModal
@@ -446,6 +502,7 @@ function SearchV2Content() {
           initialProcedureSlug={procedureSlug}
           initialSpecialtySlug={specialtySlug}
           initialInsurance={isSinSeguro ? '' : insuranceFilter}
+          asProfessional={isPro}
           onClose={() => { setModalProvider(null); setModalInitialSlot(null); }}
         />
       )}

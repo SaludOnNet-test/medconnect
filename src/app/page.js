@@ -134,7 +134,10 @@ export default function HomePage() {
         {/* ── Trustpilot — existing component ──────────────────────────── */}
         <TrustpilotSection />
 
-        {/* ── SEO / Info section ───────────────────────────────────────── */}
+        {/* ── SEO / Info section ─────────────────────────────────────────
+            "¿Qué pagas exactamente?" se quitó porque vivía duplicado entre
+            la PriceLadder y el FAQ con copys inconsistentes — la fuente
+            canónica del pricing es el componente PriceLadder. ─────────── */}
         <section className="home-seo-section">
           <div className="container">
             <Eyebrow>Lo que tu seguro no te explica</Eyebrow>
@@ -152,12 +155,6 @@ export default function HomePage() {
                 <h4>Sigues siendo paciente de tu seguro</h4>
                 <p>
                   Llegas a la clínica con tu tarjeta de asegurado. Te atienden bajo tu póliza. La clínica factura la consulta a tu aseguradora, no a ti. Lo único nuevo es que la cita es para mañana, no para dentro de seis semanas.
-                </p>
-              </div>
-              <div className="home-seo-item">
-                <h4>¿Qué pagas exactamente?</h4>
-                <p>
-                  Una <strong>tarifa de prioridad</strong>: 4,99 € si la cita es a 30+ días, 9,99 € si es esta semana, 19 € en menos de 7 días, 29 € si es en menos de 48 horas. Nada más — el acto médico es entre tu aseguradora y la clínica.
                 </p>
               </div>
             </div>

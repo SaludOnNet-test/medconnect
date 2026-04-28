@@ -25,7 +25,7 @@ const FAQ_ITEMS = [
   },
   {
     q: '¿Qué incluye la tarifa de prioridad?',
-    a: <p>Una reserva prioritaria: <strong>4,99&nbsp;€</strong> si la cita es a 30+ días, <strong>9,99&nbsp;€</strong> si es esta semana, <strong>19&nbsp;€</strong> en menos de 7 días, <strong>29&nbsp;€</strong> si es en menos de 48 horas. Nada más — el acto médico es entre tu aseguradora y la clínica.</p>,
+    a: <p>Una reserva prioritaria, escalonada por urgencia: <strong>4,99&nbsp;€</strong> si la cita es a más de 30 días, <strong>9,99&nbsp;€</strong> entre 15 y 30 días, <strong>19&nbsp;€</strong> entre 7 y 14 días, y <strong>29&nbsp;€</strong> si necesitas cita en menos de 7 días. Nada más — el acto médico es entre tu aseguradora y la clínica.</p>,
   },
   {
     q: '¿Y si no tengo seguro?',

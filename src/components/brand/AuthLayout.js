@@ -32,7 +32,7 @@ export default function AuthLayout({ mode = 'sign-in', children }) {
         <div className="brand-auth__quote">
           <Eyebrow dark>Reserva prioritaria · con tu seguro</Eyebrow>
           <p className="brand-auth__quote-body">
-            "La app me daba cita a 6 semanas. Pagué <em>9,99&nbsp;€</em> y al día siguiente estaba en consulta — con mi tarjeta y sin pagar nada por la visita."
+            "La app me daba cita a 6 semanas. Pagué <em>9,99&nbsp;€</em> y entré en consulta tres semanas después — con mi tarjeta y sin pagar nada por la visita."
           </p>
           <div className="brand-auth__quote-meta">
             <strong>Lucía F.</strong> · Valencia · asegurada con Adeslas

@@ -680,6 +680,70 @@ img {
   }
 }
 
+/* ── How it works grid (used on / and /como-funciona) ────────────────
+   Sits inside `.info-section` so it shares the same left margin / max
+   width as adjacent sections. Numbers are Fraunces italic at display
+   size, same editorial treatment as the .reality-n pattern below — keeps
+   the kit visually coherent. */
+.how-it-works-grid {
+  list-style: none;
+  padding: 0;
+  margin: var(--space-6) 0 0;
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: var(--space-6);
+}
+
+.how-it-works-step {
+  position: relative;
+  padding-top: var(--space-4);
+  border-top: 1px solid var(--border-strong);
+}
+
+.how-it-works-number {
+  display: block;
+  font-family: var(--font-display);
+  font-style: italic;
+  font-size: clamp(var(--text-4xl), 5vw, var(--text-6xl));
+  font-weight: 400;
+  line-height: 1;
+  color: var(--accent-press);
+  font-feature-settings: "lnum";
+  font-variation-settings: "opsz" 144;
+  margin-bottom: var(--space-3);
+  letter-spacing: -0.02em;
+}
+
+.how-it-works-step-title {
+  font-family: var(--font-display);
+  font-size: var(--text-2xl);
+  font-weight: 500;
+  letter-spacing: var(--tracking-snug);
+  line-height: 1.2;
+  margin: 0 0 var(--space-2);
+  color: var(--fg);
+  text-wrap: balance;
+}
+
+.how-it-works-step-body {
+  font-family: var(--font-body);
+  font-size: var(--text-md);
+  line-height: var(--leading-loose);
+  color: var(--fg-muted);
+  margin: 0;
+  max-width: 36ch;
+}
+
+@media (max-width: 720px) {
+  .how-it-works-grid {
+    grid-template-columns: 1fr;
+    gap: var(--space-4);
+  }
+  .how-it-works-step {
+    padding-top: var(--space-3);
+  }
+}
+
 /* ── Insurer cards (used in /aseguradoras) ── */
 .insurers-grid {
   display: grid;
@@ -1005,6 +1069,27 @@ a.contact-row-value:hover {
   gap: var(--space-3);
   flex-wrap: wrap;
   justify-content: center;
+}
+
+/* Stack variant for the long-form B2B CTAs on /para-clinicas-o-medicos —
+   the wording is intentionally explicit ("Quiero ganar más por cada
+   servicio vendiendo huecos…") and would never fit side-by-side. */
+.cta-actions--stack {
+  flex-direction: column;
+  align-items: stretch;
+  width: min(100%, 560px);
+  margin: 0 auto;
+}
+
+.cta-actions--stack .brand-btn {
+  text-align: center;
+  text-wrap: balance;
+  white-space: normal;
+  line-height: 1.25;
+  /* The long copy needs more vertical breathing room than the default
+     size=lg button gives, otherwise it clips on two-line wrap. */
+  padding-top: var(--space-3);
+  padding-bottom: var(--space-3);
 }
 
 @media (max-width: 640px) {

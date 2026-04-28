@@ -31,6 +31,11 @@ export default function ClinicBookingModal({
   // Forwarded to /book so the form can pre-select the insurance toggle +
   // dropdown without forcing the user to click again.
   initialInsurance = '',
+  // When true, /book pre-checks the "Soy un profesional médico y estoy
+  // derivando a este paciente" toggle. Set by the parent (search-v2) when
+  // a Clerk pro user is signed in OR when ?asProfessional=true was
+  // deep-linked from a "derivar un paciente" entry-point.
+  asProfessional = false,
   onClose,
 }) {
   const router = useRouter();
@@ -133,6 +138,9 @@ export default function ClinicBookingModal({
       // Pass the insurer the user selected in search filters so /book can
       // pre-select the toggle + dropdown.
       ...(initialInsurance && !isSinSeguro ? { insurance: initialInsurance } : {}),
+      // Pro user / explicit derivation entry-point — /book pre-checks the
+      // referral toggle and pre-fills the pro fields from Clerk on its end.
+      ...(asProfessional ? { asProfessional: 'true' } : {}),
     });
     router.push(`/book?${params.toString()}`);
     onClose();
@@ -167,6 +175,9 @@ export default function ClinicBookingModal({
           <button className="cbm-close" onClick={onClose} aria-label="Cerrar"><Icon name="x" size={18} /></button>
         </div>
 
+        {/* Scrollable body — wraps every section so the modal doesn't push
+            the footer off-screen when content is taller than 90 vh. */}
+        <div className="cbm-body">
         {/* Procedure picker (required for everyone) */}
         <div className="cbm-section">
           <h3 className="cbm-section-title">Acto médico</h3>
@@ -264,6 +275,7 @@ export default function ClinicBookingModal({
             )}
           </div>
         )}
+        </div>{/* /.cbm-body */}
 
         {/* Footer CTA */}
         <div className="cbm-footer">
