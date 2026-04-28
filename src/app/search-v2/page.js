@@ -9,22 +9,13 @@ import ClinicCardV2 from '@/components/ClinicCardV2';
 import ClinicBookingModal from '@/components/ClinicBookingModal';
 import { insuranceCompanies } from '@/data/mock';
 
-const HAS_CLERK_KEYS = !!process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY;
-
-// Same lazy bridge pattern as /pro/dashboard. Mounted only when Clerk keys
-// are present. Tells the parent if the current user is a logged-in pro so
-// the booking modal can forward `asProfessional=true` to /book and the
-// "I'm a doctor referring this patient" toggle starts checked.
-function ClerkProBridge({ onResolve }) {
-  const { useUser } = require('@clerk/nextjs');
-  const { user, isLoaded } = useUser();
-  useEffect(() => {
-    if (!isLoaded) return;
-    const role = user?.publicMetadata?.role;
-    onResolve(role === 'professional' || role === 'admin');
-  }, [user, isLoaded, onResolve]);
-  return null;
-}
+// 2026-04-28 — Clerk auto-detection pulled. Deep-linking with
+// `?asProfessional=true` still flips the booking-modal flag, and once we
+// understand why the inline `require('@clerk/nextjs')` bridge breaks
+// production hydration on this route specifically (it works fine on
+// /pro/dashboard) we can re-add a guarded version. Item 1 stays usable
+// for now via the URL param — pros that come from a referral entry-point
+// keep the pre-checked toggle.
 // First-paint fallback: real (possibly stale) clinics snapshotted from DB.
 // Regenerate with `python scripts/snapshot_clinics_for_search.py`.
 import clinicsSnapshot from '@/data/clinics-snapshot.json';
@@ -49,12 +40,9 @@ function SearchV2Content() {
   // pro toggle checked. Auto-detected pro Clerk users get the same flag.
   const asProfessionalParam = searchParams.get('asProfessional') === 'true';
 
-  const [isPro, setIsPro] = useState(asProfessionalParam);
-  const [isMounted, setIsMounted] = useState(false);
-  useEffect(() => setIsMounted(true), []);
-  const handleClerkPro = useCallback((value) => {
-    if (value) setIsPro(true); // never demote — user can clear via UI
-  }, []);
+  // Pro mode is now URL-only on this route — see the comment near the
+  // top of the file for the rollback rationale.
+  const isPro = asProfessionalParam;
 
   // Filter state
   const [insuranceFilter, setInsuranceFilter] = useState('');
@@ -490,8 +478,6 @@ function SearchV2Content() {
           )}
         </div>
       </main>
-
-      {isMounted && HAS_CLERK_KEYS && <ClerkProBridge onResolve={handleClerkPro} />}
 
       {modalProvider && (
         <ClinicBookingModal

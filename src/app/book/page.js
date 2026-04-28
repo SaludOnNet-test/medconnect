@@ -1,5 +1,5 @@
 'use client';
-import { useState, useEffect, useCallback, Suspense } from 'react';
+import { useState, useEffect, Suspense } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
 import Header from '@/components/Header';
@@ -11,26 +11,12 @@ import { formatEUR } from '@/lib/format';
 import Icon from '@/components/icons/Icon';
 import './book.css';
 
-const HAS_CLERK_KEYS = !!process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY;
-
-// Lazy bridge — same pattern as /pro/dashboard. Mounted only when Clerk
-// keys are configured. Tells the parent whether the current Clerk user is
-// a professional/admin so the "I'm a doctor referring this patient"
-// checkbox can be pre-checked on /book.
-function ClerkProBridge({ onResolve }) {
-  const { useUser } = require('@clerk/nextjs');
-  const { user, isLoaded } = useUser();
-  useEffect(() => {
-    if (!isLoaded) return;
-    const role = user?.publicMetadata?.role;
-    onResolve({
-      isPro: role === 'professional' || role === 'admin',
-      email: user?.primaryEmailAddress?.emailAddress || '',
-      name: user?.fullName || user?.firstName || '',
-    });
-  }, [user, isLoaded, onResolve]);
-  return null;
-}
+// 2026-04-28 — Clerk auto-detection pulled. The pro toggle is still
+// pre-checked when an entry-point deep-links here with
+// `?asProfessional=true`; pros logged into Clerk currently have to flip
+// the checkbox themselves until we understand why the inline
+// `require('@clerk/nextjs')` bridge broke hydration in production after
+// switching to the production Clerk instance.
 
 function BookContent() {
   const searchParams = useSearchParams();
@@ -124,21 +110,9 @@ function BookContent() {
     medicId: '', // Num colegiado
     email: '',
   });
-  const [isMounted, setIsMounted] = useState(false);
-  useEffect(() => setIsMounted(true), []);
-  const handleClerkUser = useCallback(({ isPro, email, name }) => {
-    if (isPro) {
-      // Pre-check the toggle and pre-fill the pro email — they can edit
-      // both before paying. We only WIDEN to checked: if a non-pro deep-
-      // linked with asProfessional=false we don't fight them.
-      setIsReferral(true);
-      setProData((prev) => ({
-        ...prev,
-        email: prev.email || email,
-        clinicName: prev.clinicName || name,
-      }));
-    }
-  }, []);
+  // (Clerk-driven auto-fill of clinicName / email used to live here —
+  // removed with the bridge above; deep-link callers can still pre-fill
+  // via URL params if needed.)
 
   const [form, setForm] = useState({
     name: '',
@@ -530,7 +504,6 @@ function BookContent() {
 
   return (
     <>
-      {isMounted && HAS_CLERK_KEYS && <ClerkProBridge onResolve={handleClerkUser} />}
       <Header />
       <main className="book-page">
         <div className="book-container">
