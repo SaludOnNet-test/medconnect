@@ -32,12 +32,14 @@ export default function ReferralModal({
   professionalEmail,
   myClinic = null,
 }) {
-  const [step, setStep] = useState(1); // 1 = provider, 2 = procedure, 3 = slot, 4 = patient email
+  const [step, setStep] = useState(1); // 1=provider, 2=procedure, 3=slot, 4=patient email, 5=success
   const [selectedProvider, setSelectedProvider] = useState(null);
   const [selectedProcedure, setSelectedProcedure] = useState(null);
   const [selectedSlot, setSelectedSlot] = useState(null);
   const [patientEmail, setPatientEmail] = useState('');
+  const [lastSentEmail, setLastSentEmail] = useState('');
   const [isConfirming, setIsConfirming] = useState(false);
+  const [showPreview, setShowPreview] = useState(false);
 
   const [providers, setProviders] = useState([]);
   const [providersLoading, setProvidersLoading] = useState(false);
@@ -138,8 +140,19 @@ export default function ReferralModal({
     }
 
     setIsConfirming(false);
-    handleReset();
-    onClose();
+    setLastSentEmail(patientEmail);
+    setShowPreview(false);
+    setStep(5);
+  }
+
+  // Reuse the same provider/procedure/slot to invite a second patient —
+  // the dashboard audit flagged this as a recurring need (one referral
+  // sometimes goes to several family members).
+  function handleDuplicate() {
+    setLastSentEmail('');
+    setPatientEmail('');
+    setShowPreview(false);
+    setStep(4);
   }
 
   function handleReset() {
@@ -148,8 +161,39 @@ export default function ReferralModal({
     setSelectedProcedure(null);
     setSelectedSlot(null);
     setPatientEmail('');
+    setLastSentEmail('');
+    setShowPreview(false);
     setSearchCity('');
   }
+
+  function handleCloseAndReset() {
+    handleReset();
+    onClose();
+  }
+
+  // Preview URL — feeds /api/email/preview the same args the real
+  // sendEmail() call uses, so the iframe is exactly what the patient
+  // would receive (modulo the lockInId, which we render as 'preview-id'
+  // since the real one only exists after submission).
+  const previewSrc = (() => {
+    if (!selectedProvider || !selectedSlot) return null;
+    const slotFee = Number(selectedSlot.price ?? 0);
+    const payload = {
+      patientEmail: patientEmail || 'paciente@ejemplo.com',
+      professionalEmail,
+      clinicName: professionName,
+      specialty: selectedProcedure?.specialtyName || selectedProcedure?.name || 'Consulta médica',
+      providerName: selectedProvider.name,
+      slotDate: selectedSlot.date,
+      slotTime: selectedSlot.time,
+      fee: slotFee,
+      lockInId: 'preview',
+    };
+    const b64 = typeof window !== 'undefined'
+      ? btoa(unescape(encodeURIComponent(JSON.stringify(payload))))
+      : '';
+    return `/api/email/preview?template=lockInInvitation&data=${b64}`;
+  })();
 
   if (!isOpen) return null;
 
@@ -203,6 +247,31 @@ export default function ReferralModal({
           {/* ── Step 1 — pick a provider ── */}
           {step === 1 && (
             <div className="referral-step">
+              {/* Mode explainer — same copy lives on the dashboard CTAs;
+                  reproducing it here keeps the pro oriented even if they
+                  jumped straight into the modal from a deep-link. */}
+              <div className="referral-mode-card">
+                <Icon
+                  name={derivationType === 'interna' ? 'building-2' : 'share-2'}
+                  size={18}
+                  className="referral-mode-icon"
+                />
+                <div>
+                  {derivationType === 'interna' ? (
+                    <>
+                      <strong>Derivación interna.</strong> A un colega de tu propia clínica.
+                      Cobras tu tarifa concertada habitual + nuestra compensación por cubrir el
+                      hueco prioritario.
+                    </>
+                  ) : (
+                    <>
+                      <strong>Derivación externa.</strong> A otra clínica de la red Med Connect
+                      cuando no cubres esa especialidad. Cobras una comisión por cada derivación
+                      que el paciente confirma.
+                    </>
+                  )}
+                </div>
+              </div>
               <h3>1. Selecciona un centro médico</h3>
               {derivationType === 'externa' && (
                 <input
@@ -357,12 +426,62 @@ export default function ReferralModal({
                 />
                 <small>El paciente recibirá un email con un enlace para confirmar sus datos en 60 minutos.</small>
               </div>
+
+              {/* Email preview — collapsible iframe rendered server-side
+                  by /api/email/preview using the same template the patient
+                  will receive. Lets the pro see exactly what's sent before
+                  hitting the button. */}
+              {previewSrc && (
+                <div className="referral-preview">
+                  <button
+                    type="button"
+                    className="referral-preview-toggle"
+                    onClick={() => setShowPreview((v) => !v)}
+                    aria-expanded={showPreview}
+                  >
+                    <span>Vista previa del email</span>
+                    <Icon name={showPreview ? 'chevron-up' : 'chevron-down'} size={14} />
+                  </button>
+                  {showPreview && (
+                    <iframe
+                      src={previewSrc}
+                      title="Vista previa del email al paciente"
+                      className="referral-preview-frame"
+                      sandbox="allow-same-origin"
+                    />
+                  )}
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* ── Step 5 — success state with duplicate-to-another-patient ── */}
+          {step === 5 && selectedProvider && selectedSlot && (
+            <div className="referral-step referral-success">
+              <div className="referral-success-icon">
+                <Icon name="check" size={28} />
+              </div>
+              <h3>Lock-in enviado</h3>
+              <p>
+                Hemos enviado el email a <strong>{lastSentEmail}</strong>. El paciente tiene 60
+                minutos para confirmar y pagar. Recibirás un email cuando complete la reserva.
+              </p>
+              <div className="referral-success-actions">
+                <button className="btn btn-outline" onClick={handleDuplicate}>
+                  Enviar a otro paciente
+                </button>
+                <button className="btn btn-primary" onClick={handleCloseAndReset}>
+                  Cerrar
+                </button>
+              </div>
             </div>
           )}
         </div>
 
         <div className="modal-footer">
-          <button className="btn btn-outline" onClick={onClose}>Cancelar</button>
+          {step !== 5 && (
+            <button className="btn btn-outline" onClick={handleCloseAndReset}>Cancelar</button>
+          )}
           {step === 4 && (
             <button
               className="btn btn-primary"

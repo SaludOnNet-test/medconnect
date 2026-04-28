@@ -304,19 +304,33 @@ export default function ProDashboard() {
               Panel Profesional
               <span>{professionName}</span>
             </h1>
-            <div style={{ display: 'flex', gap: '0.75rem' }}>
-              <button
-                className="btn btn-outline"
-                onClick={() => { setModalDeriType('interna'); setIsModalOpen(true); }}
-              >
-                + Derivación Interna
-              </button>
-              <button
-                className="btn btn-primary"
-                onClick={() => { setModalDeriType('externa'); setIsModalOpen(true); }}
-              >
-                + Derivación Externa
-              </button>
+            <div className="pro-dash-actions">
+              <div className="pro-dash-action">
+                <button
+                  className="btn btn-outline"
+                  onClick={() => { setModalDeriType('interna'); setIsModalOpen(true); }}
+                  title="Derivar a un colega de tu propia clínica."
+                >
+                  + Derivación Interna
+                </button>
+                <p className="pro-dash-action-hint">
+                  Para colegas dentro de tu clínica. Cobras tu tarifa concertada habitual + nuestra
+                  compensación por cubrir el hueco prioritario.
+                </p>
+              </div>
+              <div className="pro-dash-action">
+                <button
+                  className="btn btn-primary"
+                  onClick={() => { setModalDeriType('externa'); setIsModalOpen(true); }}
+                  title="Derivar a otra clínica de la red Med Connect."
+                >
+                  + Derivación Externa
+                </button>
+                <p className="pro-dash-action-hint">
+                  Para especialidades que no cubres. Derivas a una clínica de la red y cobras una
+                  comisión por cada derivación que el paciente confirma.
+                </p>
+              </div>
             </div>
           </div>
 

@@ -27,6 +27,47 @@
   margin-top: 4px;
 }
 
+/* ── Header CTAs (Derivación Interna / Externa) ────────────────────────
+   Each button now sits above a one-line explainer so the pro
+   immediately understands which model they're about to start. The
+   explainer text matches the longer copy on /para-clinicas-o-medicos
+   and the audit caught that the buttons alone weren't self-explanatory. */
+.pro-dash-actions {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--space-md);
+  align-items: start;
+}
+
+@media (max-width: 720px) {
+  .pro-dash-actions {
+    grid-template-columns: 1fr;
+  }
+}
+
+.pro-dash-action {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: var(--space-xs);
+  min-width: 220px;
+}
+
+.pro-dash-action .btn {
+  width: 100%;
+  white-space: normal;
+  line-height: 1.25;
+}
+
+.pro-dash-action-hint {
+  font-family: var(--font-body);
+  font-size: var(--text-xs);
+  color: var(--fg-muted);
+  line-height: var(--leading-normal);
+  margin: 0;
+  text-wrap: pretty;
+}
+
 /* Alert Verification */
 .pro-alert {
   background: var(--tier-soon-bg);
