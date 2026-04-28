@@ -3,8 +3,9 @@
 // Auth-gated onboarding page — never statically prerendered.
 export const dynamic = 'force-dynamic';
 
-import { useCallback, useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 import Link from 'next/link';
+import { useUser } from '@clerk/nextjs';
 import Header from '@/components/Header';
 import Footer from '@/components/Footer';
 import Icon from '@/components/icons/Icon';
@@ -12,20 +13,12 @@ import './onboarding.css';
 
 const HAS_CLERK_KEYS = !!process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY;
 
-// Bridge component — only mounted when Clerk is configured.
-function ClerkUserBridge({ onUser }) {
-  const { useUser } = require('@clerk/nextjs');
-  const { user, isLoaded } = useUser();
-  useEffect(() => {
-    if (isLoaded && user) {
-      onUser({
-        email: user.primaryEmailAddress?.emailAddress || '',
-        name: user.fullName || user.firstName || '',
-      });
-    }
-  }, [user, isLoaded, onUser]);
-  return null;
-}
+// Note: the previous version used a `ClerkUserBridge` with an inline
+// `require('@clerk/nextjs')` to defer the Clerk hook call. That same
+// pattern silently broke hydration on /search-v2 and /book in production
+// after the cut-over to the prod Clerk instance, leaving the page stuck
+// on its loading state forever. Switched to a static import + direct
+// `useUser()` (the Header uses this same pattern and works fine).
 
 /**
  * /pro/onboarding — clinic mapping flow for pro users.
@@ -40,18 +33,15 @@ function ClerkUserBridge({ onUser }) {
  * mapped (or a pending alta) see the right state and don't duplicate work.
  */
 export default function ProOnboarding() {
-  const [isMounted, setIsMounted] = useState(false);
-  useEffect(() => setIsMounted(true), []);
+  // Read the Clerk user directly. While Clerk JS is still loading
+  // (`isLoaded === false`) we hold off on the /api/pro/me fetch — the
+  // useEffect below skips when professionalEmail is the placeholder.
+  const { user, isLoaded } = useUser();
 
-  const [clerkUser, setClerkUser] = useState(null);
-  const handleClerkUser = useCallback((data) => setClerkUser(data), []);
-
-  const professionalEmail = (HAS_CLERK_KEYS && clerkUser?.email)
-    ? clerkUser.email
-    : 'info@centromedico.es';
-  const professionalName = (HAS_CLERK_KEYS && clerkUser?.name)
-    ? clerkUser.name
+  const professionalEmail = (isLoaded && user?.primaryEmailAddress?.emailAddress)
+    ? user.primaryEmailAddress.emailAddress
     : '';
+  const professionalName = (isLoaded && (user?.fullName || user?.firstName)) || '';
 
   const [meStatus, setMeStatus] = useState(null); // { altaStatus, clinicName, clinicCity, ... }
   const [meLoading, setMeLoading] = useState(true);
@@ -82,9 +72,15 @@ export default function ProOnboarding() {
   const [altaError, setAltaError] = useState(null);
   const [altaSuccess, setAltaSuccess] = useState(false);
 
-  // Load /api/pro/me once we know the email.
+  // Load /api/pro/me once Clerk has resolved a signed-in user. If
+  // Clerk is still loading we keep meLoading=true; if Clerk says no
+  // user, we stop loading so the empty-state branch can render.
   useEffect(() => {
-    if (!professionalEmail) return;
+    if (!isLoaded) return;
+    if (!professionalEmail) {
+      setMeLoading(false);
+      return;
+    }
     let cancelled = false;
     (async () => {
       setMeLoading(true);
@@ -100,7 +96,7 @@ export default function ProOnboarding() {
       }
     })();
     return () => { cancelled = true; };
-  }, [professionalEmail]);
+  }, [isLoaded, professionalEmail]);
 
   // Search clinics (debounced via blur / button — keep it simple).
   const handleSearch = useCallback(async () => {
@@ -198,7 +194,6 @@ export default function ProOnboarding() {
 
   return (
     <>
-      {isMounted && HAS_CLERK_KEYS && <ClerkUserBridge onUser={handleClerkUser} />}
       <Header />
       <main className="pro-onboarding">
         <div className="container narrow">
@@ -219,7 +214,25 @@ export default function ProOnboarding() {
             </div>
           )}
 
-          {!meLoading && altaStatus === 'active' && meStatus?.clinicName && (
+          {/* Clerk resolved but the user isn't signed in — bounce them to
+              /pro/sign-in (this page is meant to follow signup, not as
+              an entry-point for guests). */}
+          {!meLoading && isLoaded && !professionalEmail && (
+            <div className="onboarding-card onboarding-card--rejected">
+              <div className="onboarding-card-icon"><Icon name="alert-triangle" size={28} /></div>
+              <h2>Tienes que iniciar sesión</h2>
+              <p>
+                Esta página vincula tu cuenta de profesional a una clínica. Inicia sesión o crea una
+                cuenta como pro para continuar.
+              </p>
+              <div style={{ display: 'flex', gap: '0.75rem', flexWrap: 'wrap' }}>
+                <Link href="/pro/sign-in" className="btn btn-primary">Iniciar sesión</Link>
+                <Link href="/pro/sign-up" className="btn btn-outline">Crear cuenta de pro</Link>
+              </div>
+            </div>
+          )}
+
+          {!meLoading && professionalEmail && altaStatus === 'active' && meStatus?.clinicName && (
             <div className="onboarding-card onboarding-card--success">
               <div className="onboarding-card-icon"><Icon name="check-circle-2" size={28} /></div>
               <h2>Tu clínica ya está vinculada</h2>
@@ -234,7 +247,7 @@ export default function ProOnboarding() {
             </div>
           )}
 
-          {!meLoading && altaStatus === 'pending' && (
+          {!meLoading && professionalEmail && altaStatus === 'pending' && (
             <div className="onboarding-card onboarding-card--pending">
               <div className="onboarding-card-icon"><Icon name="clock" size={28} /></div>
               <h2>Tu solicitud está en revisión</h2>
@@ -253,7 +266,7 @@ export default function ProOnboarding() {
             </div>
           )}
 
-          {!meLoading && altaStatus === 'rejected' && (
+          {!meLoading && professionalEmail && altaStatus === 'rejected' && (
             <div className="onboarding-card onboarding-card--rejected">
               <div className="onboarding-card-icon"><Icon name="alert-triangle" size={28} /></div>
               <h2>No hemos podido completar tu alta</h2>
@@ -268,7 +281,7 @@ export default function ProOnboarding() {
             </div>
           )}
 
-          {!meLoading && altaStatus === 'none' && !mode && (
+          {!meLoading && professionalEmail && altaStatus === 'none' && !mode && (
             <div className="onboarding-options">
               <button
                 type="button"
@@ -291,7 +304,7 @@ export default function ProOnboarding() {
             </div>
           )}
 
-          {!meLoading && altaStatus === 'none' && mode === 'pick' && (
+          {!meLoading && professionalEmail && altaStatus === 'none' && mode === 'pick' && (
             <section className="onboarding-card onboarding-card--neutral">
               <button className="btn-back" onClick={() => setMode(null)}>
                 <Icon name="arrow-left" size={14} /> Volver
@@ -353,7 +366,7 @@ export default function ProOnboarding() {
             </section>
           )}
 
-          {!meLoading && altaStatus === 'none' && mode === 'alta' && !altaSuccess && (
+          {!meLoading && professionalEmail && altaStatus === 'none' && mode === 'alta' && !altaSuccess && (
             <section className="onboarding-card onboarding-card--neutral">
               <button className="btn-back" onClick={() => setMode(null)}>
                 <Icon name="arrow-left" size={14} /> Volver
