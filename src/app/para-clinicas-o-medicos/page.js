@@ -103,12 +103,22 @@ export default function ParaClinicasOMedicosPage() {
         lede="Si tienes agenda propia, vende huecos prioritarios y cobra una compensación por cada uno. Si derivas pacientes a otras especialidades, cobra una comisión por cada derivación que se confirma. Puedes hacer las dos cosas."
       >
         <div className="cta-actions cta-actions--stack">
-          <Button href="#vender-huecos" variant="primary" size="lg">
+          {/* Both intents lead to the same /pro/sign-up route (the audit
+              found that anchor-only buttons read as "lleva al home"
+              because the page just scrolls and the user doesn't realise
+              they moved). The intent= query param lets us split metrics
+              and tailor the post-signup landing later. */}
+          <Button href={`${loginUrl}?intent=sell-slots`} variant="primary" size="lg">
             Quiero ganar más por cada servicio vendiendo huecos de mi clínica
           </Button>
-          <Button href="#derivar-pacientes" variant="ghostInv" size="lg">
+          <Button href={`${loginUrl}?intent=refer`} variant="ghostInv" size="lg">
             Quiero derivar pacientes a otras clínicas por servicios que no cubro y cobrar una comisión
           </Button>
+          <p style={{ fontFamily: 'var(--font-body)', fontSize: 'var(--text-sm)', color: 'var(--fg-on-inverse-muted)', marginTop: 'var(--space-3)', textAlign: 'center' }}>
+            <a href="#vender-huecos" style={{ color: 'inherit', textDecoration: 'underline' }}>
+              ↓ Más detalles sobre los dos modelos
+            </a>
+          </p>
         </div>
       </PageHeader>
 

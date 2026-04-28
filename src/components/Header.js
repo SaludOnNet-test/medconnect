@@ -199,13 +199,21 @@ export default function Header() {
             <SignedInArea />
           ) : (
             <>
-              {/* Desktop: signin link + signup primary button. */}
+              {/* Desktop: explicit pro entry-point + signin + signup.
+                  The "Soy profesional" link sends pros directly to
+                  /pro/sign-up so they don't fall into the patient flow
+                  by mistake — that ambiguity was the #1 complaint after
+                  the auth split. */}
               <div className="header-auth">
+                <Link href="/pro/sign-up" className="header-btn-pro">
+                  Soy profesional
+                </Link>
                 <Link href="/sign-in" className="header-btn-login">Iniciar sesión</Link>
                 <Button href="/sign-up" variant="primary" size="sm">Crear cuenta</Button>
               </div>
 
-              {/* Mobile: single "Acceder" dropdown. */}
+              {/* Mobile: single "Acceder" dropdown — also lists the pro
+                  entry-points so the audience choice is obvious. */}
               <div className="header-account" ref={accountRef}>
                 <button
                   type="button"
@@ -219,6 +227,7 @@ export default function Header() {
                 </button>
                 {accountOpen && (
                   <div className="header-account-menu" role="menu">
+                    <div className="header-account-menu-section">Paciente</div>
                     <Link
                       href="/sign-up"
                       className="header-account-menu-item"
@@ -234,6 +243,23 @@ export default function Header() {
                       onClick={() => setAccountOpen(false)}
                     >
                       Iniciar sesión
+                    </Link>
+                    <div className="header-account-menu-section">Clínica / profesional</div>
+                    <Link
+                      href="/pro/sign-up"
+                      className="header-account-menu-item"
+                      role="menuitem"
+                      onClick={() => setAccountOpen(false)}
+                    >
+                      Crear cuenta de pro
+                    </Link>
+                    <Link
+                      href="/pro/sign-in"
+                      className="header-account-menu-item"
+                      role="menuitem"
+                      onClick={() => setAccountOpen(false)}
+                    >
+                      Iniciar sesión pro
                     </Link>
                   </div>
                 )}

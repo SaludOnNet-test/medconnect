@@ -126,6 +126,33 @@
   color: var(--accent);
 }
 
+/* "Soy profesional" entry-point — quieter than the patient CTAs (it's
+   for a smaller audience) but still recognisable. Underlined hover so
+   it reads as a link, not a primary action. */
+.header-btn-pro {
+  font-family: var(--font-body);
+  font-size: var(--text-sm);
+  font-weight: 500;
+  color: var(--fg-muted);
+  text-decoration: none;
+  border-right: 1px solid var(--border);
+  padding-right: var(--space-3);
+  transition: color var(--duration-micro) var(--ease);
+}
+
+.header-btn-pro:hover {
+  color: var(--accent-press);
+  text-decoration: underline;
+}
+
+/* Hide on the narrowest viewports — the mobile "Acceder" dropdown
+   already lists the pro entry-points alongside the patient ones. */
+@media (max-width: 720px) {
+  .header-btn-pro {
+    display: none;
+  }
+}
+
 /* ── Auth — mobile dropdown (hidden on desktop) ────────────────────── */
 .header-account {
   position: relative;
@@ -181,6 +208,23 @@
 
 .header-account-menu-item:hover {
   background: var(--bone-200);
+}
+
+/* Section heading inside the mobile dropdown — labels the patient and
+   pro groups so the chooser is unambiguous. */
+.header-account-menu-section {
+  font-family: var(--font-body);
+  font-size: var(--text-2xs);
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: var(--tracking-eyebrow);
+  color: var(--fg-muted);
+  padding: var(--space-2) var(--space-3) 4px;
+}
+
+.header-account-menu-section:not(:first-child) {
+  margin-top: var(--space-2);
+  border-top: 1px solid var(--border);
 }
 
 .header-account-menu-item--danger {

@@ -122,6 +122,45 @@
      prop provides the brand colour overrides. */
 }
 
+/* Audience tab pair — sits at the very top of the right panel so a user
+   who landed on the wrong flow can switch with one click. The active
+   tab reads as a brass-tinted card; the inactive one is a flat link
+   with a subtle hover. */
+.brand-auth__audience {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 4px;
+  padding: 4px;
+  background: var(--bone-200);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  margin-bottom: var(--space-5);
+}
+
+.brand-auth__audience-tab {
+  text-align: center;
+  padding: 10px 12px;
+  font-family: var(--font-body);
+  font-size: var(--text-sm);
+  font-weight: 600;
+  color: var(--fg-muted);
+  text-decoration: none;
+  border-radius: var(--radius-sm);
+  transition: background var(--duration-micro) var(--ease),
+              color var(--duration-micro) var(--ease);
+}
+
+.brand-auth__audience-tab:hover {
+  color: var(--fg);
+}
+
+.brand-auth__audience-tab--active {
+  background: var(--bone-50);
+  color: var(--fg);
+  box-shadow: var(--shadow-1);
+  cursor: default;
+}
+
 /* Audience crossover — small hint under the widget pointing the
    "wrong-URL" landing to the matching audience. */
 .brand-auth__crossover {

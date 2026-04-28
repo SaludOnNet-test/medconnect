@@ -89,6 +89,29 @@ export default function AuthLayout({ mode = 'sign-in', audience = 'patient', chi
       {/* ── Right: form ──────────────────────────────────────────────── */}
       <div className="brand-auth__right">
         <div className="brand-auth__right-inner">
+          {/* Audience toggle — surfaced as a tab pair at the very top so a
+              user who landed on the wrong flow can switch in one click
+              without having to scroll past the Clerk widget. The selected
+              tab matches the current page's audience prop; the other tab
+              navigates to the counterpart flow. */}
+          <div className="brand-auth__audience" role="tablist" aria-label="¿Eres paciente o profesional?">
+            <Link
+              href={isUp ? '/sign-up' : '/sign-in'}
+              role="tab"
+              aria-selected={!isPro}
+              className={`brand-auth__audience-tab${!isPro ? ' brand-auth__audience-tab--active' : ''}`}
+            >
+              Soy paciente
+            </Link>
+            <Link
+              href={isUp ? '/pro/sign-up' : '/pro/sign-in'}
+              role="tab"
+              aria-selected={isPro}
+              className={`brand-auth__audience-tab${isPro ? ' brand-auth__audience-tab--active' : ''}`}
+            >
+              Soy clínica / profesional
+            </Link>
+          </div>
           <Eyebrow>{rightEyebrow}</Eyebrow>
           <h1 className="brand-auth__title">{rightTitle}</h1>
           <p className="brand-auth__lede">{rightLede}</p>
