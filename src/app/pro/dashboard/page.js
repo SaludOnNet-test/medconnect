@@ -3,8 +3,9 @@
 // Authenticated page — never statically prerendered
 export const dynamic = 'force-dynamic';
 
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState } from 'react';
 import Link from 'next/link';
+import { useUser } from '@clerk/nextjs';
 import Header from '@/components/Header';
 import Footer from '@/components/Footer';
 import ReferralModal from '@/components/ReferralModal';
@@ -15,21 +16,13 @@ import { createReferral, generateReferralId, REFERRAL_STATES, getReferralStatusD
 const HAS_CLERK_KEYS = !!(process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY);
 import './dashboard.css';
 
-// Bridge component — renders nothing, just reads Clerk user and passes data up.
-// Only mounted when ClerkProvider is present (HAS_CLERK_KEYS === true).
-function ClerkUserBridge({ onUser }) {
-  const { useUser } = require('@clerk/nextjs');
-  const { user, isLoaded } = useUser();
-  useEffect(() => {
-    if (isLoaded && user) {
-      onUser({
-        email: user.primaryEmailAddress?.emailAddress || '',
-        name: user.fullName || user.firstName || '',
-      });
-    }
-  }, [user, isLoaded, onUser]);
-  return null;
-}
+// Note: this page is gated by middleware (src/proxy.js) — only signed-in
+// pros land here. We previously deferred the Clerk hook through an inline
+// `require('@clerk/nextjs')` bridge, but that pattern breaks hydration on
+// the production Clerk instance (same bug as /search-v2, /book and
+// /pro/onboarding). Static import is the safe path; in local dev without
+// Clerk keys the layout doesn't mount ClerkProvider so this page just
+// shows the mock fallback.
 
 const sendEmail = (templateName, data) =>
   fetch('/api/email/send', {
@@ -53,7 +46,11 @@ export default function ProDashboard() {
   const [timerOverrides, setTimerOverrides] = useState({}); // { [referralId]: isoString }
   const [referrals, setReferrals] = useState([]);
   const [serverCommissions, setServerCommissions] = useState(null);
-  const [clerkUser, setClerkUser] = useState(null);
+  // Read the Clerk user directly. While Clerk JS is loading
+  // (`isLoaded === false`) we hold off on the per-user fetches and let
+  // the rest of the dashboard render with the mock fallbacks. The
+  // useEffects below skip when `professionalEmail` is empty.
+  const { user: clerkUserObj, isLoaded: clerkLoaded } = useUser();
   // The pro user's clinic, fetched from /api/pro/me. null while loading or
   // when the user isn't yet attached (alta pendiente). The ReferralModal
   // uses this to gate "interna" derivation.
@@ -62,12 +59,11 @@ export default function ProDashboard() {
   // pros to /pro/onboarding. 'active' once myClinic resolves; 'pending' /
   // 'rejected' / 'none' otherwise.
   const [altaStatus, setAltaStatus] = useState(null);
-  const handleClerkUser = useCallback((data) => setClerkUser(data), []);
-  const [isMounted, setIsMounted] = useState(false);
-  useEffect(() => setIsMounted(true), []);
 
-  const professionName = (HAS_CLERK_KEYS && clerkUser?.name) ? clerkUser.name : 'Centro Médico San José';
-  const professionalEmail = (HAS_CLERK_KEYS && clerkUser?.email) ? clerkUser.email : 'info@centromedico.es';
+  const clerkEmail = clerkLoaded ? (clerkUserObj?.primaryEmailAddress?.emailAddress || '') : '';
+  const clerkName = clerkLoaded ? (clerkUserObj?.fullName || clerkUserObj?.firstName || '') : '';
+  const professionName = (HAS_CLERK_KEYS && clerkName) ? clerkName : 'Centro Médico San José';
+  const professionalEmail = (HAS_CLERK_KEYS && clerkEmail) ? clerkEmail : 'info@centromedico.es';
 
   // Load referrals — API first, localStorage fallback
   useEffect(() => {
@@ -305,7 +301,6 @@ export default function ProDashboard() {
 
   return (
     <>
-      {isMounted && HAS_CLERK_KEYS && <ClerkUserBridge onUser={handleClerkUser} />}
       <Header />
       <main className="pro-dashboard">
         <div className="container">
