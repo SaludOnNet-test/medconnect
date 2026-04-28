@@ -3,6 +3,7 @@ import Link from 'next/link';
 import Image from 'next/image';
 import { useEffect, useRef, useState } from 'react';
 import { usePathname } from 'next/navigation';
+import { SignedIn, SignedOut, useUser, useClerk } from '@clerk/nextjs';
 import Button from '@/components/brand/Button';
 import Icon from '@/components/icons/Icon';
 import './Header.css';
@@ -12,14 +13,87 @@ import './Header.css';
  *
  * Layout: logo · 4-link primary nav · auth.
  *
- * Auth links are static: Clerk handles the redirect if the user is already
- * signed in (bounced to AFTER_SIGN_IN_URL). NOTE: calling Clerk hooks
- * (useAuth) here causes SSG failures — keep these as plain links.
+ * Auth state — once Clerk JS finishes loading on the client we swap the
+ * "Iniciar sesión / Crear cuenta" CTAs for a user-area dropdown so signed-
+ * in users don't see a header that looks like they're logged out (the
+ * exact bug that came up after we cut over to the prod Clerk instance:
+ * users would create an account, get verified, then see the same
+ * sign-in/sign-up buttons in the header and assume they'd been logged
+ * out). The swap happens only after `isMounted` flips to true so the
+ * static prerender keeps rendering the signed-out shell — avoids the
+ * SSG/hydration mismatch the old comment warned about.
  *
  * Some target routes (/como-funciona, /aseguradoras, /para-clinicas, /faq)
  * are still being built in subsequent brand-redesign PRs. Until then they
  * 404 — that's intentional for the migration window.
  */
+
+// Inline auth dropdown for the signed-in state. Clerk's `<SignedIn>`
+// only mounts this once the user has a real session, so we can read
+// `useUser` here without worrying about the static prerender path.
+function SignedInArea() {
+  const { user } = useUser();
+  const clerk = useClerk();
+  const [open, setOpen] = useState(false);
+  const ref = useRef(null);
+
+  useEffect(() => {
+    if (!open) return;
+    function onDocClick(e) {
+      if (ref.current && !ref.current.contains(e.target)) setOpen(false);
+    }
+    function onEsc(e) { if (e.key === 'Escape') setOpen(false); }
+    document.addEventListener('mousedown', onDocClick);
+    document.addEventListener('keydown', onEsc);
+    return () => {
+      document.removeEventListener('mousedown', onDocClick);
+      document.removeEventListener('keydown', onEsc);
+    };
+  }, [open]);
+
+  // user is guaranteed non-null inside <SignedIn>, but keep a guard for the
+  // brief instant before Clerk has populated the user object.
+  if (!user) return null;
+
+  const initial = (user.firstName?.[0] || user.primaryEmailAddress?.emailAddress?.[0] || '?').toUpperCase();
+  const label = user.fullName || user.primaryEmailAddress?.emailAddress || 'Mi cuenta';
+
+  return (
+    <div className="header-account header-account--signed-in" ref={ref}>
+      <button
+        type="button"
+        className="header-btn-account header-btn-account--avatar"
+        aria-haspopup="menu"
+        aria-expanded={open}
+        onClick={() => setOpen((v) => !v)}
+      >
+        <span className="header-avatar" aria-hidden="true">{initial}</span>
+        <span className="header-account-label">{label}</span>
+        <Icon name={open ? 'chevron-up' : 'chevron-down'} size={14} />
+      </button>
+      {open && (
+        <div className="header-account-menu" role="menu">
+          <Link
+            href="/pro/dashboard"
+            className="header-account-menu-item"
+            role="menuitem"
+            onClick={() => setOpen(false)}
+          >
+            Panel profesional
+          </Link>
+          <button
+            type="button"
+            className="header-account-menu-item header-account-menu-item--danger"
+            role="menuitem"
+            onClick={() => { setOpen(false); clerk.signOut({ redirectUrl: '/' }); }}
+          >
+            Cerrar sesión
+          </button>
+        </div>
+      )}
+    </div>
+  );
+}
 
 const NAV = [
   { href: '/',                          label: 'Inicio' },
@@ -94,45 +168,57 @@ export default function Header() {
             </span>
           </a>
 
-          {/* Desktop: signin link + signup primary button. */}
-          <div className="header-auth">
-            <Link href="/sign-in" className="header-btn-login">Iniciar sesión</Link>
-            <Button href="/sign-up" variant="primary" size="sm">Crear cuenta</Button>
-          </div>
+          {/* Auth area — Clerk swaps between the signed-out CTAs and a
+              user dropdown automatically. <SignedIn> / <SignedOut> only
+              render once Clerk has hydrated, so the static prerender
+              shows nothing here briefly and then the right state paints
+              in. Better than always showing "Iniciar sesión / Crear
+              cuenta" even when the user is already logged in. */}
+          <SignedOut>
+            {/* Desktop: signin link + signup primary button. */}
+            <div className="header-auth">
+              <Link href="/sign-in" className="header-btn-login">Iniciar sesión</Link>
+              <Button href="/sign-up" variant="primary" size="sm">Crear cuenta</Button>
+            </div>
 
-          {/* Mobile: single "Acceder" dropdown. */}
-          <div className="header-account" ref={accountRef}>
-            <button
-              type="button"
-              className="header-btn-account"
-              aria-haspopup="menu"
-              aria-expanded={accountOpen}
-              onClick={() => setAccountOpen((v) => !v)}
-            >
-              Acceder
-              <Icon name={accountOpen ? 'chevron-up' : 'chevron-down'} size={14} />
-            </button>
-            {accountOpen && (
-              <div className="header-account-menu" role="menu">
-                <Link
-                  href="/sign-up"
-                  className="header-account-menu-item"
-                  role="menuitem"
-                  onClick={() => setAccountOpen(false)}
-                >
-                  Crear cuenta
-                </Link>
-                <Link
-                  href="/sign-in"
-                  className="header-account-menu-item"
-                  role="menuitem"
-                  onClick={() => setAccountOpen(false)}
-                >
-                  Iniciar sesión
-                </Link>
-              </div>
-            )}
-          </div>
+            {/* Mobile: single "Acceder" dropdown. */}
+            <div className="header-account" ref={accountRef}>
+              <button
+                type="button"
+                className="header-btn-account"
+                aria-haspopup="menu"
+                aria-expanded={accountOpen}
+                onClick={() => setAccountOpen((v) => !v)}
+              >
+                Acceder
+                <Icon name={accountOpen ? 'chevron-up' : 'chevron-down'} size={14} />
+              </button>
+              {accountOpen && (
+                <div className="header-account-menu" role="menu">
+                  <Link
+                    href="/sign-up"
+                    className="header-account-menu-item"
+                    role="menuitem"
+                    onClick={() => setAccountOpen(false)}
+                  >
+                    Crear cuenta
+                  </Link>
+                  <Link
+                    href="/sign-in"
+                    className="header-account-menu-item"
+                    role="menuitem"
+                    onClick={() => setAccountOpen(false)}
+                  >
+                    Iniciar sesión
+                  </Link>
+                </div>
+              )}
+            </div>
+          </SignedOut>
+
+          <SignedIn>
+            <SignedInArea />
+          </SignedIn>
         </div>
       </div>
     </header>

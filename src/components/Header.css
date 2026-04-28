@@ -183,6 +183,71 @@
   background: var(--bone-200);
 }
 
+.header-account-menu-item--danger {
+  color: var(--coral-500);
+  background: none;
+  border: none;
+  width: 100%;
+  text-align: left;
+  font-family: inherit;
+  cursor: pointer;
+}
+
+.header-account-menu-item--danger:hover {
+  background: var(--coral-100);
+  color: var(--coral-700);
+}
+
+/* ── Signed-in user dropdown — visible on desktop AND mobile ─────────── */
+.header-account--signed-in {
+  display: inline-flex;       /* override the mobile-only `display: none` */
+  position: relative;
+}
+
+.header-btn-account--avatar {
+  /* override the brass styling of the signed-out mobile button so the
+     signed-in pill reads as a neutral identity chip, not a CTA. */
+  background: var(--bone-100);
+  color: var(--fg);
+  border: 1px solid var(--border);
+  padding: 6px 10px 6px 6px;
+  gap: var(--space-1);
+}
+
+.header-btn-account--avatar:hover {
+  background: var(--bone-200);
+}
+
+.header-avatar {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background: var(--accent);
+  color: var(--on-accent);
+  font-family: var(--font-body);
+  font-size: var(--text-sm);
+  font-weight: 700;
+  flex-shrink: 0;
+}
+
+.header-account-label {
+  max-width: 160px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  font-weight: 500;
+}
+
+@media (max-width: 720px) {
+  /* On phones we drop the long display name and keep just the avatar
+     + chevron so the header doesn't wrap. */
+  .header-account-label { display: none; }
+  .header-btn-account--avatar { padding: 4px; }
+}
+
 /* ── Tablet: hide phone block label, keep number + icon ─────────── */
 @media (max-width: 1100px) {
   .header-phone-label {
