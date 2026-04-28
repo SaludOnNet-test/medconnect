@@ -3,7 +3,7 @@
 // Auth-gated onboarding page — never statically prerendered.
 export const dynamic = 'force-dynamic';
 
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useUser } from '@clerk/nextjs';
 import Header from '@/components/Header';
