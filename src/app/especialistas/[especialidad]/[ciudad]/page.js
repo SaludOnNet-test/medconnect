@@ -17,9 +17,16 @@ export function generateStaticParams() {
 }
 
 // ── Per-page metadata ──────────────────────────────────────────────────────
-export function generateMetadata({ params }) {
-  const specialty = SPECIALTY_MAP[params.especialidad];
-  const city      = CITY_MAP[params.ciudad];
+// Next.js 16 changed `params` to a Promise (was a sync object pre-15). The
+// previous code read `params.especialidad` directly, which evaluates to
+// `undefined` on a Promise, so every SEO page silently fell into the
+// not-found branch — the prerendered HTML ended up with the generic title
+// and the "Página no encontrada" body. Async + await fixes both this
+// metadata function and the page component below.
+export async function generateMetadata({ params }) {
+  const { especialidad, ciudad } = await params;
+  const specialty = SPECIALTY_MAP[especialidad];
+  const city      = CITY_MAP[ciudad];
 
   if (!specialty || !city) {
     return { title: 'Especialistas médicos | Med Connect' };
@@ -27,7 +34,7 @@ export function generateMetadata({ params }) {
 
   const title       = `${specialty.plural} en ${city} — Cita privada sin esperas | Med Connect`;
   const description = specialty.shortDesc(city);
-  const canonical   = specialtyPageUrl(params.especialidad, params.ciudad);
+  const canonical   = specialtyPageUrl(especialidad, ciudad);
 
   return {
     title,
@@ -50,9 +57,12 @@ export function generateMetadata({ params }) {
 }
 
 // ── Page component ─────────────────────────────────────────────────────────
-export default function EspecialistasCiudadPage({ params }) {
-  const specialty = SPECIALTY_MAP[params.especialidad];
-  const city      = CITY_MAP[params.ciudad];
+export default async function EspecialistasCiudadPage({ params }) {
+  // Next.js 16 — `params` is a Promise. See the note on generateMetadata
+  // above for the regression this fixes.
+  const { especialidad, ciudad } = await params;
+  const specialty = SPECIALTY_MAP[especialidad];
+  const city      = CITY_MAP[ciudad];
 
   // Graceful 404 for unknown slugs (shouldn't happen with generateStaticParams)
   if (!specialty || !city) {
@@ -70,7 +80,7 @@ export default function EspecialistasCiudadPage({ params }) {
     );
   }
 
-  const canonicalUrl = specialtyPageUrl(params.especialidad, params.ciudad);
+  const canonicalUrl = specialtyPageUrl(especialidad, ciudad);
 
   // JSON-LD: MedicalBusiness + FAQPage schema
   const jsonLd = {
@@ -108,7 +118,7 @@ export default function EspecialistasCiudadPage({ params }) {
         itemListElement: [
           { '@type': 'ListItem', position: 1, name: 'Inicio',        item: BASE_URL },
           { '@type': 'ListItem', position: 2, name: 'Especialistas', item: `${BASE_URL}/search-v2` },
-          { '@type': 'ListItem', position: 3, name: specialty.name,  item: `${BASE_URL}/especialistas/${params.especialidad}` },
+          { '@type': 'ListItem', position: 3, name: specialty.name,  item: `${BASE_URL}/especialistas/${especialidad}` },
           { '@type': 'ListItem', position: 4, name: city,            item: canonicalUrl },
         ],
       },
@@ -117,12 +127,12 @@ export default function EspecialistasCiudadPage({ params }) {
 
   // Quick-links to other cities for this specialty (internal linking)
   const otherCities = Object.entries(CITY_MAP)
-    .filter(([slug]) => slug !== params.ciudad)
+    .filter(([slug]) => slug !== ciudad)
     .map(([slug, name]) => ({ slug, name }));
 
   // Quick-links to other specialties in this city
   const otherSpecialties = Object.entries(SPECIALTY_MAP)
-    .filter(([slug]) => slug !== params.especialidad)
+    .filter(([slug]) => slug !== especialidad)
     .map(([slug, data]) => ({ slug, name: data.name }));
 
   return (
@@ -342,7 +352,7 @@ export default function EspecialistasCiudadPage({ params }) {
               {otherCities.map(({ slug, name }) => (
                 <li key={slug}>
                   <Link
-                    href={`/especialistas/${params.especialidad}/${slug}`}
+                    href={`/especialistas/${especialidad}/${slug}`}
                     style={{ color: '#2563eb', fontSize: '0.9rem', textDecoration: 'none' }}
                   >
                     → {specialty.plural} en {name}
@@ -370,7 +380,7 @@ export default function EspecialistasCiudadPage({ params }) {
               {otherSpecialties.map(({ slug, name }) => (
                 <li key={slug}>
                   <Link
-                    href={`/especialistas/${slug}/${params.ciudad}`}
+                    href={`/especialistas/${slug}/${ciudad}`}
                     style={{ color: '#2563eb', fontSize: '0.9rem', textDecoration: 'none' }}
                   >
                     → {name} en {city}
