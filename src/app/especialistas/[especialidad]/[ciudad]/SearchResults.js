@@ -25,6 +25,7 @@ import { useState, useMemo, useEffect } from 'react';
 import dynamic from 'next/dynamic';
 import ClinicCardV2 from '@/components/ClinicCardV2';
 import ClinicBookingModal from '@/components/ClinicBookingModal';
+import Icon from '@/components/icons/Icon';
 import { insuranceCompanies } from '@/data/mock';
 import '../../../search-v2/search-v2.css';
 
@@ -220,8 +221,13 @@ export default function SearchResults({ specialtySlug, city }) {
               type="button"
               className="sv2-map-toggle"
               onClick={() => setShowMap((v) => !v)}
+              style={{ display: 'inline-flex', alignItems: 'center', gap: '0.4rem' }}
             >
-              {showMap ? '🗺️ Ocultar mapa' : '🗺️ Ver mapa'}
+              {/* Lucide `map` instead of 🗺️ — the emoji doesn't render on
+                  Edge/Chromium on Windows without a colour-emoji font, so
+                  the toggle looked unlabelled in production. */}
+              <Icon name="map" size={16} />
+              {showMap ? 'Ocultar mapa' : 'Ver mapa'}
             </button>
           </div>
         </div>
