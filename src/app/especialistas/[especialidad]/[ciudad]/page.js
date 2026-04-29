@@ -149,86 +149,119 @@ export default async function EspecialistasCiudadPage({ params }) {
       <nav
         aria-label="breadcrumb"
         style={{
-          background: '#f9fafb',
-          borderBottom: '1px solid #e5e7eb',
-          padding: '0.6rem 0',
+          background: 'var(--bone-200)',
+          borderBottom: '1px solid var(--border)',
+          padding: 'var(--space-2) 0',
           fontSize: '0.8rem',
-          color: '#6b7280',
+          color: 'var(--fg-muted)',
         }}
       >
         <div className="container" style={{ display: 'flex', gap: '0.4rem', alignItems: 'center', flexWrap: 'wrap' }}>
-          <Link href="/" style={{ color: '#1a3c5e' }}>Inicio</Link>
-          <span>›</span>
-          <Link href="/search-v2" style={{ color: '#1a3c5e' }}>Especialistas</Link>
-          <span>›</span>
+          <Link href="/" style={{ color: 'var(--ink-900)' }}>Inicio</Link>
+          <span aria-hidden="true">›</span>
+          <Link href="/search-v2" style={{ color: 'var(--ink-900)' }}>Especialistas</Link>
+          <span aria-hidden="true">›</span>
           <Link
             href={`/search-v2?specialty=${specialty.id}`}
-            style={{ color: '#1a3c5e' }}
+            style={{ color: 'var(--ink-900)' }}
           >
             {specialty.name}
           </Link>
-          <span>›</span>
-          <span style={{ color: '#374151', fontWeight: 600 }}>{city}</span>
+          <span aria-hidden="true">›</span>
+          <span style={{ color: 'var(--ink-1000)', fontWeight: 600 }}>{city}</span>
         </div>
       </nav>
 
-      {/* ── Hero / SEO header ────────────────────────────────────────── */}
+      {/* ── Hero / SEO header (brand-aligned bone variant — Option A) ──
+          Was a hardcoded navy gradient (#1a3c5e → #245082) from the
+          pre-redesign palette. Now bone-100 bg with ink text and brass
+          left-border on the stat pills, matching /faq, /aseguradoras,
+          /como-funciona's PageHeader style. */}
       <section
         style={{
-          background: 'linear-gradient(135deg, #1a3c5e 0%, #245082 100%)',
-          color: '#fff',
-          padding: '2.5rem 0 2rem',
+          background: 'var(--bone-100)',
+          color: 'var(--ink-1000)',
+          borderBottom: '1px solid var(--border)',
+          padding: 'var(--space-7) 0 var(--space-6)',
         }}
       >
         <div className="container">
           <h1
             style={{
-              fontSize: 'clamp(1.5rem, 4vw, 2.2rem)',
-              fontWeight: '800',
-              marginBottom: '0.6rem',
-              lineHeight: 1.2,
+              fontFamily: 'var(--font-display)',
+              fontSize: 'clamp(1.75rem, 4vw, 2.6rem)',
+              fontWeight: 800,
+              color: 'var(--ink-1000)',
+              marginBottom: 'var(--space-3)',
+              lineHeight: 1.15,
+              letterSpacing: '-0.02em',
             }}
           >
             {specialty.plural} privados en {city}
           </h1>
           <p
             style={{
-              color: 'rgba(255,255,255,0.85)',
-              fontSize: '1rem',
-              maxWidth: '600px',
+              color: 'var(--fg-muted)',
+              fontSize: '1.05rem',
+              maxWidth: '640px',
               lineHeight: 1.6,
-              marginBottom: '1.25rem',
+              marginBottom: 'var(--space-5)',
             }}
           >
             {specialty.shortDesc(city)}
           </p>
 
-          {/* Key stats row */}
+          {/* Key stats — brass-accented pill chips. Emojis kept for
+              scanability, framed in a brand-tokened pill so they don't
+              read as a free-floating emoji row. */}
           <div
             style={{
               display: 'flex',
-              gap: '1.5rem',
+              gap: '0.6rem',
               flexWrap: 'wrap',
               fontSize: '0.85rem',
-              color: 'rgba(255,255,255,0.8)',
             }}
           >
-            <span>✅ Sin lista de espera</span>
-            <span>📅 Cita en 24-72 h</span>
-            <span>🏥 Centros verificados</span>
-            <span>💳 Con y sin seguro</span>
+            {[
+              ['✅', 'Sin lista de espera'],
+              ['📅', 'Cita en 24-72 h'],
+              ['🏥', 'Centros verificados'],
+              ['💳', 'Con y sin seguro'],
+            ].map(([icon, label]) => (
+              <span
+                key={label}
+                style={{
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '0.4rem',
+                  background: 'var(--bone-50)',
+                  color: 'var(--ink-900)',
+                  padding: '0.4rem 0.85rem 0.4rem 0.6rem',
+                  borderRadius: '999px',
+                  border: '1px solid var(--border)',
+                  borderLeft: '3px solid var(--brass-500)',
+                  fontWeight: 600,
+                }}
+              >
+                <span aria-hidden="true">{icon}</span>
+                {label}
+              </span>
+            ))}
           </div>
         </div>
       </section>
 
       {/* ── Search results (client component) ───────────────────────── */}
-      <SearchResults specialtyId={specialty.id} city={city} />
+      {/* Pass the URL slug (e.g. "cardiologia") instead of the numeric
+          mock id — the new SearchResults uses /api/clinics/search which
+          accepts `specialtySlug` natively, no slug→id round-trip needed. */}
+      <SearchResults specialtySlug={especialidad} city={city} />
 
       {/* ── SEO content: about section ───────────────────────────────── */}
       <section
         style={{
-          background: '#f9fafb',
-          borderTop: '1px solid #e5e7eb',
+          background: 'var(--bone-200)',
+          borderTop: '1px solid var(--border)',
           padding: '3rem 0',
         }}
       >
@@ -242,13 +275,13 @@ export default async function EspecialistasCiudadPage({ params }) {
               style={{
                 fontSize: '1.2rem',
                 fontWeight: '700',
-                color: '#1a3c5e',
+                color: 'var(--ink-1000)',
                 marginBottom: '0.75rem',
               }}
             >
               ¿Por qué elegir {specialty.articleName} privada en {city}?
             </h2>
-            <p style={{ color: '#4b5563', lineHeight: 1.8, fontSize: '0.95rem' }}>
+            <p style={{ color: 'var(--fg-muted)', lineHeight: 1.8, fontSize: '0.95rem' }}>
               La sanidad pública en España presenta tiempos de espera que pueden superar los{' '}
               <strong>3-6 meses</strong> para especialidades como {specialty.name}. Con Med Connect
               accedes a los mejores centros privados de {city} con cita disponible en{' '}
@@ -263,13 +296,13 @@ export default async function EspecialistasCiudadPage({ params }) {
               style={{
                 fontSize: '1.2rem',
                 fontWeight: '700',
-                color: '#1a3c5e',
+                color: 'var(--ink-1000)',
                 marginBottom: '0.75rem',
               }}
             >
               Cómo reservar tu cita de {specialty.name.toLowerCase()} en {city}
             </h2>
-            <ol style={{ paddingLeft: '1.25rem', color: '#4b5563', lineHeight: 2, fontSize: '0.95rem' }}>
+            <ol style={{ paddingLeft: '1.25rem', color: 'var(--fg-muted)', lineHeight: 2, fontSize: '0.95rem' }}>
               <li>Elige el centro que más te conviene en el listado de arriba.</li>
               <li>Selecciona el día y la hora disponibles.</li>
               <li>Completa tus datos y paga la tarifa de prioridad (desde 4,99&nbsp;€).</li>
@@ -280,13 +313,13 @@ export default async function EspecialistasCiudadPage({ params }) {
       </section>
 
       {/* ── FAQ section ──────────────────────────────────────────────── */}
-      <section style={{ padding: '3rem 0', borderTop: '1px solid #e5e7eb' }}>
+      <section style={{ padding: '3rem 0', borderTop: '1px solid var(--border)' }}>
         <div className="container" style={{ maxWidth: '780px' }}>
           <h2
             style={{
               fontSize: '1.4rem',
               fontWeight: '800',
-              color: '#1a3c5e',
+              color: 'var(--ink-1000)',
               marginBottom: '1.5rem',
             }}
           >
@@ -298,7 +331,7 @@ export default async function EspecialistasCiudadPage({ params }) {
                 key={i}
                 style={{
                   background: '#fff',
-                  border: '1px solid #e5e7eb',
+                  border: '1px solid var(--border)',
                   borderRadius: '10px',
                   padding: '1.25rem 1.5rem',
                 }}
@@ -307,13 +340,13 @@ export default async function EspecialistasCiudadPage({ params }) {
                   style={{
                     fontSize: '1rem',
                     fontWeight: '700',
-                    color: '#1a3c5e',
+                    color: 'var(--ink-1000)',
                     marginBottom: '0.5rem',
                   }}
                 >
                   {q}
                 </h3>
-                <p style={{ color: '#4b5563', lineHeight: 1.7, fontSize: '0.925rem', margin: 0 }}>
+                <p style={{ color: 'var(--fg-muted)', lineHeight: 1.7, fontSize: '0.925rem', margin: 0 }}>
                   {a}
                 </p>
               </div>
@@ -325,8 +358,8 @@ export default async function EspecialistasCiudadPage({ params }) {
       {/* ── Internal links: other cities + other specialties ─────────── */}
       <section
         style={{
-          background: '#f9fafb',
-          borderTop: '1px solid #e5e7eb',
+          background: 'var(--bone-200)',
+          borderTop: '1px solid var(--border)',
           padding: '2.5rem 0',
         }}
       >
@@ -340,7 +373,7 @@ export default async function EspecialistasCiudadPage({ params }) {
               style={{
                 fontSize: '0.95rem',
                 fontWeight: '700',
-                color: '#1a3c5e',
+                color: 'var(--ink-1000)',
                 textTransform: 'uppercase',
                 letterSpacing: '0.05em',
                 marginBottom: '0.75rem',
@@ -368,7 +401,7 @@ export default async function EspecialistasCiudadPage({ params }) {
               style={{
                 fontSize: '0.95rem',
                 fontWeight: '700',
-                color: '#1a3c5e',
+                color: 'var(--ink-1000)',
                 textTransform: 'uppercase',
                 letterSpacing: '0.05em',
                 marginBottom: '0.75rem',
