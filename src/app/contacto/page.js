@@ -23,7 +23,7 @@ const ROWS = [
     label: 'Teléfono',
     value: '91 197 70 52',
     href: 'tel:+34911977052',
-    sub: 'Lunes a viernes de 9:00 a 20:00',
+    sub: 'Lunes a viernes de 10:00 a 18:00 · Cerrado festivos en Madrid',
   },
   {
     icon: 'map-pin',
