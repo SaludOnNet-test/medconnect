@@ -34,7 +34,7 @@ const CARD_ELEMENT_OPTIONS = {
   },
 };
 
-function PaymentFormContent({ totalPrice, providerName, slotDate, slotTime, patientName, onPaymentSuccess, onBack }) {
+function PaymentFormContent({ totalPrice, providerName, slotDate, slotTime, patientName, patientEmail, onPaymentSuccess, onBack }) {
   const [cardNumber, setCardNumber] = useState('4242 4242 4242 4242'); // Mock fallback
   const [expiry, setExpiry] = useState('12/28');
   const [cvv, setCvv] = useState('123');
@@ -75,13 +75,24 @@ function PaymentFormContent({ totalPrice, providerName, slotDate, slotTime, pati
     const cardElement = elements.getElement(CardElement);
 
     try {
-      // Create Payment Method
+      // Create Payment Method.
+      // billing_details.email MUST be a real RFC-5321 email, otherwise Stripe
+      // returns "email_invalid" with the message "Dirección de correo
+      // electrónico no válida". Earlier this code was incorrectly passing
+      // `patientName` here (e.g. "Juan Pérez"), which Stripe rejected for
+      // every booking attempt. Now we receive the real email from /book
+      // (`patientEmail` prop, derived from the lock-in or the form input)
+      // and validate it before sending so we never trigger that error.
+      const safeEmail =
+        typeof patientEmail === 'string' && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(patientEmail.trim())
+          ? patientEmail.trim()
+          : undefined;
       const { error, paymentMethod } = await stripe.createPaymentMethod({
         type: 'card',
         card: cardElement,
         billing_details: {
           name: cardName,
-          email: patientName, // Using patientName as fallback (should be email in real scenario)
+          ...(safeEmail ? { email: safeEmail } : {}),
         },
       });
 
@@ -91,14 +102,19 @@ function PaymentFormContent({ totalPrice, providerName, slotDate, slotTime, pati
         return;
       }
 
-      // Call our backend payment endpoint
+      // Call our backend payment endpoint. Same email-vs-name confusion was
+      // here too — `email: cardName` was sending the cardholder name as the
+      // email. Now passes the validated patient email; falls back to undefined
+      // if absent so the server can still create the intent (email is
+      // optional on Stripe's side, the breakage was only when we sent a
+      // non-email string).
       const response = await fetch('/api/payments', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           amount: totalPrice,
           paymentMethodId: paymentMethod.id,
-          email: cardName,
+          email: safeEmail,
           description: `Med Connect - ${providerName} on ${slotDate} at ${slotTime}`,
           name: cardName,
         }),
@@ -308,7 +324,7 @@ function PaymentFormContent({ totalPrice, providerName, slotDate, slotTime, pati
   );
 }
 
-export default function PaymentForm({ totalPrice, providerName, slotDate, slotTime, patientName, onPaymentSuccess, onBack }) {
+export default function PaymentForm({ totalPrice, providerName, slotDate, slotTime, patientName, patientEmail, onPaymentSuccess, onBack }) {
   return stripePromise ? (
     <Elements stripe={stripePromise}>
       <PaymentFormContent
@@ -317,6 +333,7 @@ export default function PaymentForm({ totalPrice, providerName, slotDate, slotTi
         slotDate={slotDate}
         slotTime={slotTime}
         patientName={patientName}
+        patientEmail={patientEmail}
         onPaymentSuccess={onPaymentSuccess}
         onBack={onBack}
       />
@@ -328,6 +345,7 @@ export default function PaymentForm({ totalPrice, providerName, slotDate, slotTi
       slotDate={slotDate}
       slotTime={slotTime}
       patientName={patientName}
+      patientEmail={patientEmail}
       onPaymentSuccess={onPaymentSuccess}
       onBack={onBack}
     />
