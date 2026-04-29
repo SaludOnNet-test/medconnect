@@ -215,6 +215,18 @@ export const CITY_MAP = {
   valencia:  'Valencia',
   sevilla:   'Sevilla',
   malaga:    'Málaga',
+  // Second wave (2026-04-29). All six confirmed to exist verbatim in
+  // clinics.city in the DB — verified via /api/clinics/filters before
+  // adding so the SEO page actually has providers to render. Alicante
+  // and Pamplona are intentionally excluded for now because they live
+  // in the DB under bilingual names ("Alicante/Alacant", "Pamplona/Iruña")
+  // and would need a fuzzy match in the search query — follow-up.
+  bilbao:    'Bilbao',
+  zaragoza:  'Zaragoza',
+  granada:   'Granada',
+  murcia:    'Murcia',
+  vigo:      'Vigo',
+  cordoba:   'Córdoba',
 };
 
 // ── All slug combinations ──────────────────────────────────────────────────
@@ -225,7 +237,7 @@ export function getAllSpecialtyCityCombinations() {
       combos.push({ especialidad, ciudad });
     }
   }
-  return combos; // 8 × 5 = 40
+  return combos; // 8 specialties × 11 cities = 88 (was 40 before 2026-04-29)
 }
 
 // ── Canonical URL builder ──────────────────────────────────────────────────
