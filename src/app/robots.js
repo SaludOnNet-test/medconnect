@@ -14,11 +14,21 @@ export default function robots() {
     rules: [
       {
         userAgent: '*',
+        // The leading wildcard `/` already allows everything — these
+        // explicit entries are for clarity / signal to crawlers about the
+        // pages we actively want indexed. Keep `/derivadores` for the
+        // existing 308 → /para-clinicas-o-medicos redirect link equity.
         allow: [
           '/',
           '/search-v2',
           '/book',
           '/suscripcion',
+          '/como-funciona',
+          '/aseguradoras',
+          '/sin-seguro',
+          '/faq',
+          '/para-clinicas-o-medicos',
+          '/contacto',
           '/derivadores',
           '/privacidad',
           '/legal',
