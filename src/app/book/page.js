@@ -1,6 +1,7 @@
 'use client';
-import { useState, useEffect, Suspense } from 'react';
+import { useState, useEffect, useCallback, Suspense } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
+import dynamic from 'next/dynamic';
 import Link from 'next/link';
 import Header from '@/components/Header';
 import Footer from '@/components/Footer';
@@ -11,12 +12,17 @@ import { formatEUR } from '@/lib/format';
 import Icon from '@/components/icons/Icon';
 import './book.css';
 
-// 2026-04-28 — Clerk auto-detection pulled. The pro toggle is still
-// pre-checked when an entry-point deep-links here with
-// `?asProfessional=true`; pros logged into Clerk currently have to flip
-// the checkbox themselves until we understand why the inline
-// `require('@clerk/nextjs')` bridge broke hydration in production after
-// switching to the production Clerk instance.
+// 2026-04-29 — Clerk auto-detection restored via `ClerkProBridge`.
+// The earlier inline `require('@clerk/nextjs')` bridge broke production
+// hydration after the live-keys swap (commented out 2026-04-28). Now we
+// load the bridge with `next/dynamic({ ssr: false })`, which keeps Clerk's
+// hooks fully out of the SSR pass — no server-vs-client mismatch is even
+// possible. The `?asProfessional=true` deep-link path still works in
+// addition to this for callers that don't depend on a Clerk session.
+const HAS_CLERK_KEYS = !!process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY;
+const ClerkProBridge = HAS_CLERK_KEYS
+  ? dynamic(() => import('@/components/ClerkProBridge'), { ssr: false })
+  : null;
 
 function BookContent() {
   const searchParams = useSearchParams();
@@ -114,17 +120,29 @@ function BookContent() {
   const [selectedInsurance, setSelectedInsurance] = useState(insuranceParam || '');
 
   // Referral states. Initial value comes from ?asProfessional=true (the
-  // explicit deep-link case); the Clerk bridge below can flip it on too
-  // when a pro user is signed in but didn't deep-link.
+  // explicit deep-link case); the Clerk bridge below also flips it on
+  // when a signed-in user has a `professional`/`admin` role but didn't
+  // deep-link with the URL param.
   const [isReferral, setIsReferral] = useState(asProfessionalParam);
   const [proData, setProData] = useState({
     clinicName: '',
     medicId: '', // Num colegiado
     email: '',
   });
-  // (Clerk-driven auto-fill of clinicName / email used to live here —
-  // removed with the bridge above; deep-link callers can still pre-fill
-  // via URL params if needed.)
+
+  // Clerk-driven auto-fill: only fires for signed-in pros (the bridge
+  // doesn't call us back for patients or signed-out users). Deliberately
+  // additive — never overrides a value the user has already typed, so a
+  // pro who manually unchecks the toggle stays unchecked and a pre-typed
+  // email isn't clobbered.
+  const handleClerkPro = useCallback(({ email, name }) => {
+    setIsReferral(true);
+    setProData((prev) => ({
+      clinicName: prev.clinicName || name || '',
+      medicId: prev.medicId,
+      email: prev.email || email || '',
+    }));
+  }, []);
 
   const [form, setForm] = useState({
     name: '',
@@ -566,6 +584,7 @@ function BookContent() {
   return (
     <>
       <Header />
+      {ClerkProBridge && <ClerkProBridge onSignedInPro={handleClerkPro} />}
       <main className="book-page">
         <div className="book-container">
           <div className="book-header">
