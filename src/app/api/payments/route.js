@@ -23,6 +23,17 @@ export async function POST(request) {
       );
     }
 
+    // Defensive email validation. The previous client code accidentally sent
+    // the cardholder name in this field (e.g. "Juan Pérez"), which made
+    // stripe.paymentIntents.create reject the call with email_invalid
+    // ("Dirección de correo electrónico no válida"). Client is fixed, but
+    // strip anything that doesn't look like an email here too so a stale
+    // cached bundle never blows up checkout.
+    const safeReceiptEmail =
+      typeof email === 'string' && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())
+        ? email.trim()
+        : undefined;
+
     // Create Payment Intent
     const paymentIntent = await stripe.paymentIntents.create({
       amount: Math.round(amount * 100), // Convert to cents
@@ -33,11 +44,11 @@ export async function POST(request) {
         enabled: true,
         allow_redirects: 'never',
       },
-      receipt_email: email,
+      ...(safeReceiptEmail ? { receipt_email: safeReceiptEmail } : {}),
       description: description || `Med Connect Booking - ${name}`,
       metadata: {
-        email,
-        name,
+        email: safeReceiptEmail || '',
+        name: typeof name === 'string' ? name : '',
         type: 'booking',
       },
     });

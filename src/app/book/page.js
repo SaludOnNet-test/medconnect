@@ -389,6 +389,7 @@ function BookContent() {
     const slotTimeToUse = lockInData?.slotTime || time;
     const clinicName = lockInData?.providerName || providerName;
     const patientName = lockInData?.patientName || `${form.name} ${form.surname}`.trim();
+    const patientEmailForPayment = lockInData?.patientEmail || form.email;
 
     // Loading skeleton while we fetch the referral row from the lock-in
     // redirect. We avoid rendering PaymentForm until lockInData lands so
@@ -452,6 +453,7 @@ function BookContent() {
               slotDate={slotDateToUse}
               slotTime={slotTimeToUse}
               patientName={patientName}
+              patientEmail={patientEmailForPayment}
               onPaymentSuccess={handlePaymentSuccess}
               onBack={() => setStep('form')}
             />
