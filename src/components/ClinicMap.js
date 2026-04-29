@@ -29,6 +29,14 @@ export default function ClinicMap({ providers, highlightedId, onPinClick, city, 
     'Valencia':  [39.4699, -0.3763],
     'Sevilla':   [37.3891, -5.9845],
     'Málaga':    [36.7213, -4.4214],
+    // Second wave (added 2026-04-29 alongside the F6 city expansion).
+    // All six are exact matches of CITY_MAP display names in seoData.js.
+    'Bilbao':    [43.2630, -2.9350],
+    'Zaragoza':  [41.6488, -0.8891],
+    'Granada':   [37.1773, -3.5986],
+    'Murcia':    [37.9838, -1.1280],
+    'Vigo':      [42.2406, -8.7207],
+    'Córdoba':   [37.8847, -4.7791],
   };
 
   useEffect(() => {

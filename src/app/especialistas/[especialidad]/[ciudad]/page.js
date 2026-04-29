@@ -252,7 +252,10 @@ export default async function EspecialistasCiudadPage({ params }) {
       </section>
 
       {/* ── Search results (client component) ───────────────────────── */}
-      <SearchResults specialtyId={specialty.id} city={city} />
+      {/* Pass the URL slug (e.g. "cardiologia") instead of the numeric
+          mock id — the new SearchResults uses /api/clinics/search which
+          accepts `specialtySlug` natively, no slug→id round-trip needed. */}
+      <SearchResults specialtySlug={especialidad} city={city} />
 
       {/* ── SEO content: about section ───────────────────────────────── */}
       <section
