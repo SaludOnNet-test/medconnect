@@ -27,9 +27,11 @@ const LAUNCH = {
   public: '12–15 mayo 2026',
 };
 const DIRECTORS = {
-  // Replace these placeholders with real names + roles before the meeting.
-  comercial: { name: '[Director Comercial]', role: 'Dirección Comercial' },
-  operaciones: { name: '[Director Operaciones]', role: 'Dirección de Operaciones' },
+  // Carlos + Guillermo are the two directors attending. Role assignment
+  // here is a best guess (alphabetical → first card / second card); flip
+  // these two lines if the responsibilities are reversed.
+  comercial: { name: 'Carlos', role: 'Dirección Comercial' },
+  operaciones: { name: 'Guillermo', role: 'Dirección de Operaciones' },
 };
 
 const PROD_BASE = 'https://www.medconnect.es';
