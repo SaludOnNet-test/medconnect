@@ -2,20 +2,25 @@ import { NextResponse } from 'next/server';
 import { getPool, sql, DB_AVAILABLE } from '@/lib/db';
 import { requireRole } from '@/lib/adminAuth';
 import { sendEmail } from '@/lib/email';
-import { clinicAltaApproved, clinicAltaRejected } from '@/lib/emailTemplates';
+import { clinicAltaApproved, clinicAltaRejected, clinicAltaMoreInfo } from '@/lib/emailTemplates';
 
 /**
  * PATCH /api/admin/clinic-alta-requests/[id]
  *
- * Body: { action: 'approve' | 'reject' | 'link', opsNotes?, linkedClinicId? }
+ * Body: { action: 'approve' | 'reject' | 'link' | 'request_info',
+ *         opsNotes?, linkedClinicId?, message? }
  *
- * - approve: creates a new clinics row from the request data, sets
- *            admin_users.clinic_id = newClinicId for the requester,
- *            marks the request 'approved', emails the user.
- * - link:    same as approve but reuses an existing clinic instead of
- *            creating a new one (e.g. ops noticed it's already in the DB).
- *            Body must include linkedClinicId.
- * - reject:  marks 'rejected', persists ops_notes, emails the user.
+ * - approve:      creates a new clinics row from the request data, sets
+ *                 admin_users.clinic_id = newClinicId for the requester,
+ *                 marks the request 'approved', emails the user.
+ * - link:         same as approve but reuses an existing clinic instead of
+ *                 creating a new one (e.g. ops noticed it's already in the DB).
+ *                 Body must include linkedClinicId.
+ * - reject:       marks 'rejected', persists ops_notes, emails the user.
+ * - request_info: keeps the request open but marks 'more_info_requested' and
+ *                 stores ops's message in info_request_message. Emails the pro
+ *                 with the message + CTA to /pro/dashboard.
+ *                 Allowed when current status is 'pending' OR 'more_info_requested'.
  */
 export async function PATCH(request, { params }) {
   const rr = requireRole(request, ['admin', 'ops']);
@@ -39,12 +44,16 @@ export async function PATCH(request, { params }) {
   const action = String(body?.action || '').toLowerCase();
   const opsNotes = body?.opsNotes ? String(body.opsNotes).trim() : null;
   const linkedClinicId = body?.linkedClinicId ? Number(body.linkedClinicId) : null;
+  const message = body?.message ? String(body.message).trim() : null;
 
-  if (!['approve', 'reject', 'link'].includes(action)) {
-    return NextResponse.json({ error: 'action must be approve, reject or link' }, { status: 400 });
+  if (!['approve', 'reject', 'link', 'request_info'].includes(action)) {
+    return NextResponse.json({ error: 'action must be approve, reject, link or request_info' }, { status: 400 });
   }
   if (action === 'link' && !linkedClinicId) {
     return NextResponse.json({ error: 'linkedClinicId required for action=link' }, { status: 400 });
+  }
+  if (action === 'request_info' && !message) {
+    return NextResponse.json({ error: 'message required for request_info' }, { status: 400 });
   }
 
   try {
@@ -58,10 +67,37 @@ export async function PATCH(request, { params }) {
     if (!altaRequest) {
       return NextResponse.json({ error: 'request not found' }, { status: 404 });
     }
-    if (altaRequest.status !== 'pending') {
+    const acceptableForAction = action === 'request_info'
+      ? ['pending', 'more_info_requested']
+      : ['pending'];
+    if (!acceptableForAction.includes(altaRequest.status)) {
       return NextResponse.json({
         error: `request already ${altaRequest.status} — refresh the dashboard`,
       }, { status: 409 });
+    }
+
+    if (action === 'request_info') {
+      await pool.request()
+        .input('id', sql.Int, id)
+        .input('message', sql.NVarChar(sql.MAX), message)
+        .query(`
+          UPDATE clinic_alta_requests
+          SET status = 'more_info_requested',
+              info_request_message = @message,
+              info_request_at = SYSDATETIMEOFFSET(),
+              info_response_at = NULL
+          WHERE id = @id
+        `);
+
+      const tpl = clinicAltaMoreInfo({
+        requestedByName: altaRequest.requested_by_name,
+        clinicName: altaRequest.clinic_name,
+        message,
+      });
+      sendEmail({ to: altaRequest.requested_by_email, subject: tpl.subject, html: tpl.html })
+        .catch((e) => console.error('[clinic-alta-requests request_info] email failed', e));
+
+      return NextResponse.json({ ok: true, status: 'more_info_requested' });
     }
 
     if (action === 'reject') {

@@ -895,3 +895,114 @@ export function proVerificationRejected({ requestedByName, opsNotes }) {
     html,
   };
 }
+
+// ─────────────────────────────────────────────
+// 22. Pro user — ops requested more info on verification.
+// ─────────────────────────────────────────────
+export function proVerificationMoreInfo({ requestedByName, message }) {
+  const dashboardUrl = `${BASE_URL}/pro/dashboard`;
+  const html = baseWrapper(bodySection(`
+    <h2 style="margin:0 0 8px;font-size:22px;font-weight:800;color:#1a3c5e;">Necesitamos un poco más de información</h2>
+    <p style="margin:0 0 16px;font-size:15px;color:#374151;line-height:1.55;">
+      Hola <strong>${requestedByName || ''}</strong>,
+    </p>
+    <p style="margin:0 0 16px;font-size:15px;color:#374151;line-height:1.55;">
+      Hemos empezado a revisar tu solicitud de verificación, pero antes de
+      aprobarla nuestro equipo de operaciones necesita que nos amplíes algún dato
+      o documento.
+    </p>
+    <div style="background:#eff6ff;border:1px solid #93c5fd;border-radius:8px;padding:16px;margin-bottom:20px;">
+      <p style="margin:0 0 8px;font-size:13px;color:#1e40af;font-weight:700;">Lo que pedimos</p>
+      <p style="margin:0;font-size:14px;color:#1e3a8a;line-height:1.5;white-space:pre-line;">${message || ''}</p>
+    </div>
+    <p style="margin:0 0 16px;font-size:14px;color:#374151;line-height:1.55;">
+      Puedes responder y reenviar la documentación desde tu panel profesional.
+      Tu solicitud sigue activa — sólo cambia el estado a "esperando tu respuesta".
+    </p>
+    <div style="text-align:center;margin:28px 0;">
+      ${ctaButton(dashboardUrl, 'Responder en mi panel', '#c9a84c', '#1a3c5e')}
+    </div>
+  `));
+  return {
+    subject: `Tu verificación necesita más información — Med Connect`,
+    html,
+  };
+}
+
+// ─────────────────────────────────────────────
+// 23. Ops — pro responded with the requested info on verification.
+// ─────────────────────────────────────────────
+export function proVerificationInfoResponded({ requestId, requestedByEmail, documentCount }) {
+  const reviewUrl = `${BASE_URL}/admin/pro-verifications`;
+  const html = baseWrapper(bodySection(`
+    <h2 style="margin:0 0 8px;font-size:22px;font-weight:800;color:#1a3c5e;">El pro respondió a la solicitud</h2>
+    <p style="margin:0 0 24px;font-size:15px;color:#6b7280;">
+      <strong>${requestedByEmail}</strong> envió la información extra que pediste.
+      La solicitud #${requestId} vuelve a estado <strong>pendiente</strong> para tu revisión.
+    </p>
+    ${typeof documentCount === 'number' ? `
+    <p style="margin:0 0 24px;font-size:14px;color:#374151;">
+      Documentos totales en la solicitud: <strong>${documentCount}</strong>.
+    </p>` : ''}
+    <div style="text-align:center;margin:28px 0;">
+      ${ctaButton(reviewUrl, 'Revisar en el panel', '#c9a84c', '#1a3c5e')}
+    </div>
+  `));
+  return {
+    subject: `🔁 Verificación actualizada — el pro respondió #${requestId}`,
+    html,
+  };
+}
+
+// ─────────────────────────────────────────────
+// 24. Pro user — ops requested more info on clinic alta.
+// ─────────────────────────────────────────────
+export function clinicAltaMoreInfo({ requestedByName, clinicName, message }) {
+  const dashboardUrl = `${BASE_URL}/pro/dashboard`;
+  const html = baseWrapper(bodySection(`
+    <h2 style="margin:0 0 8px;font-size:22px;font-weight:800;color:#1a3c5e;">Necesitamos un poco más de información</h2>
+    <p style="margin:0 0 16px;font-size:15px;color:#374151;line-height:1.55;">
+      Hola <strong>${requestedByName || ''}</strong>,
+    </p>
+    <p style="margin:0 0 16px;font-size:15px;color:#374151;line-height:1.55;">
+      Estamos revisando la solicitud de alta de <strong>${clinicName || 'tu clínica'}</strong>,
+      pero antes de aprobarla necesitamos que nos amplíes algún dato.
+    </p>
+    <div style="background:#eff6ff;border:1px solid #93c5fd;border-radius:8px;padding:16px;margin-bottom:20px;">
+      <p style="margin:0 0 8px;font-size:13px;color:#1e40af;font-weight:700;">Lo que pedimos</p>
+      <p style="margin:0;font-size:14px;color:#1e3a8a;line-height:1.5;white-space:pre-line;">${message || ''}</p>
+    </div>
+    <p style="margin:0 0 16px;font-size:14px;color:#374151;line-height:1.55;">
+      Responde desde tu panel profesional para que tu alta avance.
+    </p>
+    <div style="text-align:center;margin:28px 0;">
+      ${ctaButton(dashboardUrl, 'Responder en mi panel', '#c9a84c', '#1a3c5e')}
+    </div>
+  `));
+  return {
+    subject: `Tu alta de clínica necesita más información — Med Connect`,
+    html,
+  };
+}
+
+// ─────────────────────────────────────────────
+// 25. Ops — pro responded with the requested info on clinic alta.
+// ─────────────────────────────────────────────
+export function clinicAltaInfoResponded({ requestId, requestedByEmail, clinicName }) {
+  const reviewUrl = `${BASE_URL}/admin/clinic-alta`;
+  const html = baseWrapper(bodySection(`
+    <h2 style="margin:0 0 8px;font-size:22px;font-weight:800;color:#1a3c5e;">El pro respondió a la solicitud</h2>
+    <p style="margin:0 0 24px;font-size:15px;color:#6b7280;">
+      <strong>${requestedByEmail}</strong> actualizó la información de
+      <strong>${clinicName || 'su clínica'}</strong>. La solicitud #${requestId}
+      vuelve a estado <strong>pendiente</strong>.
+    </p>
+    <div style="text-align:center;margin:28px 0;">
+      ${ctaButton(reviewUrl, 'Revisar en el panel', '#c9a84c', '#1a3c5e')}
+    </div>
+  `));
+  return {
+    subject: `🔁 Alta de clínica actualizada — el pro respondió #${requestId}`,
+    html,
+  };
+}

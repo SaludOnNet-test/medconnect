@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { getPool, query, sql, DB_AVAILABLE } from '@/lib/db';
 import { sendEmail } from '@/lib/email';
-import { clinicAltaRequestOps, clinicAltaRequestReceived } from '@/lib/emailTemplates';
+import { clinicAltaRequestOps, clinicAltaRequestReceived, clinicAltaInfoResponded } from '@/lib/emailTemplates';
 
 const OPERATIONS_EMAIL = process.env.OPERATIONS_EMAIL || 'operaciones@medconnect.es';
 
@@ -64,51 +64,91 @@ export async function POST(request) {
       .query(`SELECT TOP 1 id, username FROM admin_users WHERE LOWER(username) = LOWER(@email)`);
     const userRow = userResult.recordset[0];
 
-    // If the user already has an open pending request, return it instead
-    // of creating duplicates. This lets the onboarding form be retried
-    // safely (e.g. user reloaded the page).
+    // Look up any open request (pending OR more_info_requested). Pending
+    // is idempotent — return as-is. more_info_requested means the pro is
+    // answering ops's question: UPDATE the row with the new fields, flip
+    // status back to pending, stamp info_response_at, and notify ops.
+    let existingOpen = null;
     if (userRow) {
       const existing = await safeQuery(
         pool.request().input('id', sql.Int, userRow.id),
         `SELECT TOP 1 r.id, r.status
          FROM admin_users u
          JOIN clinic_alta_requests r ON r.id = u.alta_request_id
-         WHERE u.id = @id AND r.status = 'pending'`,
+         WHERE u.id = @id AND r.status IN ('pending', 'more_info_requested')`,
       );
-      if (existing?.recordset?.[0]) {
-        return NextResponse.json({
-          ok: true,
-          requestId: existing.recordset[0].id,
-          status: 'pending',
-          alreadyPending: true,
-        });
-      }
+      existingOpen = existing?.recordset?.[0] || null;
     }
 
-    // Insert the request.
-    const insertResult = await pool.request()
-      .input('email', sql.NVarChar(255), requestedByEmail)
-      .input('name', sql.NVarChar(255), fields.requestedByName)
-      .input('clinicName', sql.NVarChar(255), clinicName)
-      .input('city', sql.NVarChar(120), fields.city)
-      .input('province', sql.NVarChar(120), fields.province)
-      .input('address', sql.NVarChar(500), fields.address)
-      .input('telephone', sql.NVarChar(40), fields.telephone)
-      .input('contactEmail', sql.NVarChar(255), fields.contactEmail)
-      .input('specialties', sql.NVarChar(sql.MAX), fields.specialties)
-      .input('aseguradoras', sql.NVarChar(sql.MAX), fields.aseguradoras)
-      .input('notes', sql.NVarChar(sql.MAX), fields.notes)
-      .query(`
-        INSERT INTO clinic_alta_requests
-          (requested_by_email, requested_by_name, clinic_name,
-           city, province, address, telephone, contact_email,
-           specialties, aseguradoras, notes, status)
-        OUTPUT INSERTED.id
-        VALUES (@email, @name, @clinicName,
-                @city, @province, @address, @telephone, @contactEmail,
-                @specialties, @aseguradoras, @notes, 'pending')
-      `);
-    const requestId = insertResult.recordset[0].id;
+    if (existingOpen?.status === 'pending') {
+      return NextResponse.json({
+        ok: true,
+        requestId: existingOpen.id,
+        status: 'pending',
+        alreadyPending: true,
+      });
+    }
+
+    let requestId;
+    let isInfoResponse = false;
+
+    if (existingOpen?.status === 'more_info_requested') {
+      isInfoResponse = true;
+      requestId = existingOpen.id;
+      await pool.request()
+        .input('id', sql.Int, requestId)
+        .input('name', sql.NVarChar(255), fields.requestedByName)
+        .input('clinicName', sql.NVarChar(255), clinicName)
+        .input('city', sql.NVarChar(120), fields.city)
+        .input('province', sql.NVarChar(120), fields.province)
+        .input('address', sql.NVarChar(500), fields.address)
+        .input('telephone', sql.NVarChar(40), fields.telephone)
+        .input('contactEmail', sql.NVarChar(255), fields.contactEmail)
+        .input('specialties', sql.NVarChar(sql.MAX), fields.specialties)
+        .input('aseguradoras', sql.NVarChar(sql.MAX), fields.aseguradoras)
+        .input('notes', sql.NVarChar(sql.MAX), fields.notes)
+        .query(`
+          UPDATE clinic_alta_requests
+          SET requested_by_name = COALESCE(@name, requested_by_name),
+              clinic_name = @clinicName,
+              city = COALESCE(@city, city),
+              province = COALESCE(@province, province),
+              address = COALESCE(@address, address),
+              telephone = COALESCE(@telephone, telephone),
+              contact_email = COALESCE(@contactEmail, contact_email),
+              specialties = COALESCE(@specialties, specialties),
+              aseguradoras = COALESCE(@aseguradoras, aseguradoras),
+              notes = COALESCE(@notes, notes),
+              status = 'pending',
+              info_response_at = SYSDATETIMEOFFSET()
+          WHERE id = @id
+        `);
+    } else {
+      // Insert a fresh request.
+      const insertResult = await pool.request()
+        .input('email', sql.NVarChar(255), requestedByEmail)
+        .input('name', sql.NVarChar(255), fields.requestedByName)
+        .input('clinicName', sql.NVarChar(255), clinicName)
+        .input('city', sql.NVarChar(120), fields.city)
+        .input('province', sql.NVarChar(120), fields.province)
+        .input('address', sql.NVarChar(500), fields.address)
+        .input('telephone', sql.NVarChar(40), fields.telephone)
+        .input('contactEmail', sql.NVarChar(255), fields.contactEmail)
+        .input('specialties', sql.NVarChar(sql.MAX), fields.specialties)
+        .input('aseguradoras', sql.NVarChar(sql.MAX), fields.aseguradoras)
+        .input('notes', sql.NVarChar(sql.MAX), fields.notes)
+        .query(`
+          INSERT INTO clinic_alta_requests
+            (requested_by_email, requested_by_name, clinic_name,
+             city, province, address, telephone, contact_email,
+             specialties, aseguradoras, notes, status)
+          OUTPUT INSERTED.id
+          VALUES (@email, @name, @clinicName,
+                  @city, @province, @address, @telephone, @contactEmail,
+                  @specialties, @aseguradoras, @notes, 'pending')
+        `);
+      requestId = insertResult.recordset[0].id;
+    }
 
     // Link the request from admin_users so /api/pro/me can surface
     // altaStatus = 'pending'. Best-effort: if the column doesn't exist
@@ -130,22 +170,32 @@ export async function POST(request) {
 
     // Emails — ops alert + pro confirmation. Failures don't block the
     // response (the request is already persisted).
-    const opsTpl = clinicAltaRequestOps({
-      requestId,
-      requestedByEmail,
-      requestedByName: fields.requestedByName,
-      clinicName,
-      city: fields.city,
-      province: fields.province,
-      address: fields.address,
-      telephone: fields.telephone,
-      contactEmail: fields.contactEmail,
-      specialties: fields.specialties,
-      aseguradoras: fields.aseguradoras,
-      notes: fields.notes,
-    });
-    sendEmail({ to: OPERATIONS_EMAIL, subject: opsTpl.subject, html: opsTpl.html })
-      .catch((e) => console.error('[clinic-alta-request] ops email failed', e));
+    if (isInfoResponse) {
+      const opsTpl = clinicAltaInfoResponded({
+        requestId,
+        requestedByEmail,
+        clinicName,
+      });
+      sendEmail({ to: OPERATIONS_EMAIL, subject: opsTpl.subject, html: opsTpl.html })
+        .catch((e) => console.error('[clinic-alta-request info-response] ops email failed', e));
+    } else {
+      const opsTpl = clinicAltaRequestOps({
+        requestId,
+        requestedByEmail,
+        requestedByName: fields.requestedByName,
+        clinicName,
+        city: fields.city,
+        province: fields.province,
+        address: fields.address,
+        telephone: fields.telephone,
+        contactEmail: fields.contactEmail,
+        specialties: fields.specialties,
+        aseguradoras: fields.aseguradoras,
+        notes: fields.notes,
+      });
+      sendEmail({ to: OPERATIONS_EMAIL, subject: opsTpl.subject, html: opsTpl.html })
+        .catch((e) => console.error('[clinic-alta-request] ops email failed', e));
+    }
 
     const userTpl = clinicAltaRequestReceived({
       requestedByName: fields.requestedByName,
@@ -154,7 +204,7 @@ export async function POST(request) {
     sendEmail({ to: requestedByEmail, subject: userTpl.subject, html: userTpl.html })
       .catch((e) => console.error('[clinic-alta-request] user email failed', e));
 
-    return NextResponse.json({ ok: true, requestId, status: 'pending' });
+    return NextResponse.json({ ok: true, requestId, status: 'pending', infoResponse: isInfoResponse });
   } catch (err) {
     console.error('[POST /api/pro/clinic-alta-request]', err);
     if (String(err?.message || '').includes('Invalid object name')) {

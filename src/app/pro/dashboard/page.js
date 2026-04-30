@@ -33,10 +33,13 @@ const sendEmail = (templateName, data) =>
 
 export default function ProDashboard() {
   // Verification state — read from /api/pro/me. `verificationStatus` is
-  // one of 'none' | 'pending' | 'rejected' | 'approved'. The banner +
-  // "Solicitar Liquidación" gate consume `isVerified`.
+  // one of 'none' | 'pending' | 'more_info_requested' | 'rejected' | 'approved'.
+  // When status is 'more_info_requested', `verificationInfoMessage` carries
+  // ops's question for the pro (rendered in the banner).
   const [isVerified, setIsVerified] = useState(false);
   const [verificationStatus, setVerificationStatus] = useState('none');
+  const [verificationInfoMessage, setVerificationInfoMessage] = useState(null);
+  const [altaInfoMessage, setAltaInfoMessage] = useState(null);
   const [verifyOpen, setVerifyOpen] = useState(false);
   const [activeTab, setActiveTab] = useState('pending'); // 'pending', 'interna', 'externa'
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -131,6 +134,8 @@ export default function ProDashboard() {
         setAltaStatus(data?.altaStatus || 'none');
         setIsVerified(!!data?.isVerified);
         setVerificationStatus(data?.verificationStatus || 'none');
+        setVerificationInfoMessage(data?.verificationInfoRequestMessage || null);
+        setAltaInfoMessage(data?.altaInfoRequestMessage || null);
       } catch { /* ignore */ }
     })();
     return () => { cancelled = true; };
@@ -340,10 +345,11 @@ export default function ProDashboard() {
           </div>
 
           {/* Verification banner — copy + CTA shift with the lifecycle:
-                  - 'none'     : nudge to start verification
-                  - 'pending'  : in-review, no CTA
-                  - 'rejected' : explain + invite re-submission
-                  - 'approved' : nothing (banner hidden) */}
+                  - 'none'                 : nudge to start verification
+                  - 'pending'              : in-review, no CTA
+                  - 'more_info_requested'  : ops asked a question, show it + invite reply
+                  - 'rejected'             : explain + invite re-submission
+                  - 'approved'             : nothing (banner hidden) */}
           {!isVerified && verificationStatus !== 'approved' && (
             <div className="pro-alert animate-fade-in-up">
               <div className="pro-alert-text">
@@ -352,6 +358,16 @@ export default function ProDashboard() {
                     <strong>⏳ Verificación en revisión</strong>
                     Hemos recibido tu documentación. El equipo de operaciones la valida en
                     menos de 48 h hábiles — te avisamos por email en cuanto esté lista.
+                  </>
+                ) : verificationStatus === 'more_info_requested' ? (
+                  <>
+                    <strong>🔁 Operaciones necesita más información</strong>
+                    {verificationInfoMessage && (
+                      <span style={{ display: 'block', marginTop: 4, padding: '8px 10px', background: '#eff6ff', border: '1px solid #93c5fd', borderRadius: 6, color: '#1e3a8a', whiteSpace: 'pre-line', fontSize: 13 }}>
+                        {verificationInfoMessage}
+                      </span>
+                    )}
+                    Adjunta los documentos extra desde el botón y reenviamos tu solicitud al equipo.
                   </>
                 ) : verificationStatus === 'rejected' ? (
                   <>
@@ -369,7 +385,9 @@ export default function ProDashboard() {
               </div>
               {verificationStatus !== 'pending' && (
                 <button className="btn btn-navy btn-sm" onClick={() => setVerifyOpen(true)}>
-                  {verificationStatus === 'rejected' ? 'Volver a enviar' : 'Verificar cuenta ahora'}
+                  {verificationStatus === 'rejected' ? 'Volver a enviar'
+                    : verificationStatus === 'more_info_requested' ? 'Adjuntar más documentos'
+                    : 'Verificar cuenta ahora'}
                 </button>
               )}
             </div>
@@ -396,6 +414,17 @@ export default function ProDashboard() {
                     Mientras tanto las derivaciones externas siguen funcionando.
                   </>
                 )}
+                {altaStatus === 'more_info_requested' && (
+                  <>
+                    <strong>🔁 Operaciones necesita más información sobre tu clínica</strong>
+                    {altaInfoMessage && (
+                      <span style={{ display: 'block', marginTop: 4, padding: '8px 10px', background: '#eff6ff', border: '1px solid #93c5fd', borderRadius: 6, color: '#1e3a8a', whiteSpace: 'pre-line', fontSize: 13 }}>
+                        {altaInfoMessage}
+                      </span>
+                    )}
+                    Completa los datos pedidos desde el panel de onboarding y reenviamos tu solicitud.
+                  </>
+                )}
                 {altaStatus === 'rejected' && (
                   <>
                     <strong>⚠️ No pudimos completar tu alta</strong>
@@ -405,7 +434,9 @@ export default function ProDashboard() {
                 )}
               </div>
               <Link href="/pro/onboarding" className="btn btn-primary btn-sm">
-                {altaStatus === 'pending' ? 'Ver estado' : 'Ir al onboarding'}
+                {altaStatus === 'pending' ? 'Ver estado'
+                  : altaStatus === 'more_info_requested' ? 'Responder en onboarding'
+                  : 'Ir al onboarding'}
               </Link>
             </div>
           )}
@@ -677,8 +708,11 @@ export default function ProDashboard() {
         isOpen={verifyOpen}
         onClose={() => setVerifyOpen(false)}
         professionalEmail={professionalEmail}
+        responseMode={verificationStatus === 'more_info_requested'}
+        responseMessage={verificationInfoMessage}
         onSubmitted={() => {
           setVerificationStatus('pending');
+          setVerificationInfoMessage(null);
         }}
       />
 

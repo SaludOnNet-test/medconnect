@@ -27,11 +27,13 @@ import { query, sql, DB_AVAILABLE } from '@/lib/db';
  *   { clinicId: number | null,
  *     clinicName: string | null,
  *     clinicCity: string | null,
- *     altaStatus: 'active' | 'pending' | 'rejected' | 'none',
+ *     altaStatus: 'active' | 'pending' | 'more_info_requested' | 'rejected' | 'none',
  *     altaRequestId: number | null,
+ *     altaInfoRequestMessage: string | null,    // set when altaStatus === 'more_info_requested'
  *     isVerified: boolean,
- *     verificationStatus: 'approved' | 'pending' | 'rejected' | 'none',
+ *     verificationStatus: 'approved' | 'pending' | 'more_info_requested' | 'rejected' | 'none',
  *     verificationRequestId: number | null,
+ *     verificationInfoRequestMessage: string | null,
  *     username: string | null,
  *     role: string | null }
  */
@@ -55,8 +57,8 @@ export async function GET(request) {
               u.clinic_id, u.alta_request_id,
               u.is_verified, u.verification_request_id,
               c.name AS clinic_name, c.city AS clinic_city,
-              r.status AS request_status,
-              v.status AS verification_status
+              r.status AS request_status, r.info_request_message AS alta_info_msg,
+              v.status AS verification_status, v.info_request_message AS verification_info_msg
        FROM admin_users u
        LEFT JOIN clinics c ON c.id = u.clinic_id
        LEFT JOIN clinic_alta_requests r ON r.id = u.alta_request_id
@@ -72,6 +74,7 @@ export async function GET(request) {
     let altaStatus = 'none';
     if (row.clinic_id) altaStatus = 'active';
     else if (row.request_status === 'pending') altaStatus = 'pending';
+    else if (row.request_status === 'more_info_requested') altaStatus = 'more_info_requested';
     else if (row.request_status === 'rejected') altaStatus = 'rejected';
 
     // Verification status takes the persisted is_verified flag as truth
@@ -81,6 +84,7 @@ export async function GET(request) {
     let verificationStatus = 'none';
     if (isVerified) verificationStatus = 'approved';
     else if (row.verification_status === 'pending') verificationStatus = 'pending';
+    else if (row.verification_status === 'more_info_requested') verificationStatus = 'more_info_requested';
     else if (row.verification_status === 'rejected') verificationStatus = 'rejected';
 
     return NextResponse.json({
@@ -89,9 +93,11 @@ export async function GET(request) {
       clinicCity: row.clinic_city || null,
       altaStatus,
       altaRequestId: row.alta_request_id || null,
+      altaInfoRequestMessage: altaStatus === 'more_info_requested' ? (row.alta_info_msg || null) : null,
       isVerified,
       verificationStatus,
       verificationRequestId: row.verification_request_id || null,
+      verificationInfoRequestMessage: verificationStatus === 'more_info_requested' ? (row.verification_info_msg || null) : null,
       username: row.username,
       role: row.role,
     });
@@ -138,9 +144,11 @@ function emptyResponse() {
     clinicCity: null,
     altaStatus: 'none',
     altaRequestId: null,
+    altaInfoRequestMessage: null,
     isVerified: false,
     verificationStatus: 'none',
     verificationRequestId: null,
+    verificationInfoRequestMessage: null,
     username: null,
     role: null,
   };
