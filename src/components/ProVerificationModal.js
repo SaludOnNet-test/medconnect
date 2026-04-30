@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import Icon from '@/components/icons/Icon';
 // Reuses the existing ReferralModal CSS for the chrome (overlay/header/
 // footer); the local additions live in ./ProVerificationModal.css.
@@ -29,9 +29,16 @@ const MAX_FILE_BYTES = 10 * 1024 * 1024;  // 10 MB
 const MAX_FILES = 5;
 const ACCEPT = 'application/pdf,image/jpeg,image/png,image/webp';
 
-export default function ProVerificationModal({ isOpen, onClose, onSubmitted, professionalEmail }) {
-  const [step, setStep] = useState(1); // 1=type, 2=data, 3=docs, 4=success
-  const [profileType, setProfileType] = useState(null); // 'doctor' | 'clinic'
+export default function ProVerificationModal({
+  isOpen, onClose, onSubmitted, professionalEmail,
+  // When the pro is responding to ops's "request more info", we skip
+  // profileType + identity data (already on file) and jump straight to
+  // the document upload step. The ops question is shown at the top.
+  responseMode = false,
+  responseMessage = null,
+}) {
+  const [step, setStep] = useState(responseMode ? 3 : 1); // 1=type, 2=data, 3=docs, 4=success
+  const [profileType, setProfileType] = useState(responseMode ? 'doctor' : null); // ignored server-side in response mode
   const [data, setData] = useState({
     fullName: '',
     licenseNumber: '',
@@ -42,6 +49,18 @@ export default function ProVerificationModal({ isOpen, onClose, onSubmitted, pro
   const [files, setFiles] = useState([]);
   const [error, setError] = useState(null);
   const [submitting, setSubmitting] = useState(false);
+
+  // Re-sync the starting step if the modal is reopened in a different mode.
+  useEffect(() => {
+    if (!isOpen) return;
+    if (responseMode) {
+      setStep(3);
+      setProfileType('doctor'); // placeholder — server ignores it for response submissions
+    } else {
+      setStep(1);
+      setProfileType(null);
+    }
+  }, [isOpen, responseMode]);
 
   if (!isOpen) return null;
 
@@ -105,6 +124,7 @@ export default function ProVerificationModal({ isOpen, onClose, onSubmitted, pro
     fd.append('clinicName', data.clinicName);
     fd.append('taxId', data.taxId);
     fd.append('notes', data.notes);
+    if (responseMode) fd.append('infoResponse', 'true');
     for (const f of files) fd.append('documents', f);
 
     try {
@@ -138,9 +158,11 @@ export default function ProVerificationModal({ isOpen, onClose, onSubmitted, pro
       <div className="modal-content modal-referral" onClick={(e) => e.stopPropagation()}>
         <div className="modal-header">
           <div>
-            <h2>Verificar cuenta</h2>
+            <h2>{responseMode ? 'Adjuntar más documentos' : 'Verificar cuenta'}</h2>
             <p style={{ fontFamily: 'var(--font-body)', fontSize: 'var(--text-xs)', color: 'var(--fg-muted)', margin: '2px 0 0' }}>
-              {step < 4 ? `Paso ${step} de 3` : '¡Solicitud enviada!'}
+              {step < 4
+                ? (responseMode ? 'Responde a la solicitud de operaciones' : `Paso ${step} de 3`)
+                : '¡Solicitud enviada!'}
             </p>
           </div>
           <button className="modal-close" onClick={handleClose} aria-label="Cerrar">
@@ -252,10 +274,18 @@ export default function ProVerificationModal({ isOpen, onClose, onSubmitted, pro
           {/* ── Step 3 — document upload ── */}
           {step === 3 && profileType && (
             <div className="referral-step">
-              <button className="btn-back" onClick={() => setStep(2)}>← Atrás</button>
-              <h3>3. Sube la documentación</h3>
+              {!responseMode && <button className="btn-back" onClick={() => setStep(2)}>← Atrás</button>}
+              <h3>{responseMode ? 'Documentos adicionales' : '3. Sube la documentación'}</h3>
+              {responseMode && responseMessage && (
+                <div style={{ background: '#eff6ff', border: '1px solid #93c5fd', borderRadius: 8, padding: 12, marginBottom: 16, color: '#1e3a8a', whiteSpace: 'pre-line', fontSize: 13 }}>
+                  <strong style={{ display: 'block', marginBottom: 4, color: '#1e40af' }}>Operaciones pidió</strong>
+                  {responseMessage}
+                </div>
+              )}
               <p className="pv-step-lede">
-                {profileType === 'doctor'
+                {responseMode
+                  ? 'Adjunta los documentos que pidió operaciones. Tu solicitud original se mantiene; sólo añadimos lo nuevo.'
+                  : profileType === 'doctor'
                   ? 'Adjunta tu licencia médica (PDF o foto). Aceptamos PDF, JPEG, PNG y WebP, hasta 10 MB por archivo.'
                   : 'Adjunta la documentación de la clínica: escritura/CIF, registro sanitario, foto fachada. Hasta 5 archivos, 10 MB cada uno.'}
               </p>

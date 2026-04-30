@@ -14,10 +14,12 @@ const STATUS_LABEL = {
   approved: 'Aprobada',
   rejected: 'Rechazada',
   cancelled: 'Cancelada',
+  more_info_requested: 'Esperando al pro',
 };
 
 const STATUS_FILTERS = [
   { value: 'pending', label: 'Pendientes' },
+  { value: 'more_info_requested', label: 'Esperando pro' },
   { value: 'approved', label: 'Aprobadas' },
   { value: 'rejected', label: 'Rechazadas' },
   { value: 'all', label: 'Todas' },
@@ -41,6 +43,7 @@ export default function ClinicAltaPage() {
   // Per-row UI state
   const [actingId, setActingId] = useState(null);
   const [opsNotesById, setOpsNotesById] = useState({});
+  const [infoMessageById, setInfoMessageById] = useState({});
   const [actionError, setActionError] = useState(null);
 
   useEffect(() => {
@@ -73,10 +76,19 @@ export default function ClinicAltaPage() {
     setActingId(id);
     setActionError(null);
     try {
-      const opsNotes = opsNotesById[id] || null;
+      const payload = { action };
+      if (action === 'request_info') {
+        const message = (infoMessageById[id] || '').trim();
+        if (!message) {
+          throw new Error('Escribe el mensaje al pro antes de solicitar más información.');
+        }
+        payload.message = message;
+      } else {
+        payload.opsNotes = opsNotesById[id] || null;
+      }
       const res = await adminFetch(`/api/admin/clinic-alta-requests/${id}`, {
         method: 'PATCH',
-        body: JSON.stringify({ action, opsNotes }),
+        body: JSON.stringify(payload),
       });
       const data = await res.json();
       if (!res.ok) {
@@ -174,25 +186,59 @@ export default function ClinicAltaPage() {
                 {req.resolved_at && (<><dt>Resuelta</dt><dd>{fmtDate(req.resolved_at)} {req.resolved_by ? `(${req.resolved_by})` : ''}</dd></>)}
                 {req.linked_clinic_id && (<><dt>Clinic ID</dt><dd>#{req.linked_clinic_id}</dd></>)}
                 {req.ops_notes && (<><dt>Notas ops</dt><dd>{req.ops_notes}</dd></>)}
+                {req.info_request_message && (
+                  <>
+                    <dt>Más info pedida</dt>
+                    <dd style={{ whiteSpace: 'pre-line', color: '#1e3a8a' }}>
+                      {req.info_request_message}
+                      {req.info_request_at && <div style={{ fontSize: 11, color: '#6b7280', marginTop: 2 }}>Enviado: {fmtDate(req.info_request_at)}</div>}
+                    </dd>
+                  </>
+                )}
               </dl>
 
-              {req.status === 'pending' && (
-                <div className="ops-action-row" style={{ flexDirection: 'column', alignItems: 'stretch', gap: 8 }}>
-                  <textarea
-                    placeholder="Notas internas (visibles para el solicitante si rechazas)"
-                    value={opsNotesById[req.id] || ''}
-                    onChange={(e) => setOpsNotesById((prev) => ({ ...prev, [req.id]: e.target.value }))}
-                    rows={2}
-                    style={{
-                      width: '100%',
-                      padding: '8px 10px',
-                      border: '1px solid #e5e7eb',
-                      borderRadius: 6,
-                      fontFamily: 'inherit',
-                      fontSize: 13,
-                      resize: 'vertical',
-                    }}
-                  />
+              {(req.status === 'pending' || req.status === 'more_info_requested') && (
+                <div className="ops-action-row" style={{ flexDirection: 'column', alignItems: 'stretch', gap: 12 }}>
+                  <div>
+                    <label style={{ display: 'block', fontSize: 12, color: '#6b7280', marginBottom: 4, fontWeight: 600 }}>
+                      Notas para rechazo (visibles al pro si rechazas)
+                    </label>
+                    <textarea
+                      placeholder="Motivo del rechazo…"
+                      value={opsNotesById[req.id] || ''}
+                      onChange={(e) => setOpsNotesById((prev) => ({ ...prev, [req.id]: e.target.value }))}
+                      rows={2}
+                      style={{
+                        width: '100%',
+                        padding: '8px 10px',
+                        border: '1px solid #e5e7eb',
+                        borderRadius: 6,
+                        fontFamily: 'inherit',
+                        fontSize: 13,
+                        resize: 'vertical',
+                      }}
+                    />
+                  </div>
+                  <div>
+                    <label style={{ display: 'block', fontSize: 12, color: '#6b7280', marginBottom: 4, fontWeight: 600 }}>
+                      Mensaje al pro (para "Solicitar más información")
+                    </label>
+                    <textarea
+                      placeholder="Ej.: ¿podrías confirmar la dirección exacta y el número de licencia sanitaria?"
+                      value={infoMessageById[req.id] || req.info_request_message || ''}
+                      onChange={(e) => setInfoMessageById((prev) => ({ ...prev, [req.id]: e.target.value }))}
+                      rows={2}
+                      style={{
+                        width: '100%',
+                        padding: '8px 10px',
+                        border: '1px solid #e5e7eb',
+                        borderRadius: 6,
+                        fontFamily: 'inherit',
+                        fontSize: 13,
+                        resize: 'vertical',
+                      }}
+                    />
+                  </div>
                   <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
                     <button
                       className="ops-action-btn ops-action-success"
@@ -200,6 +246,14 @@ export default function ClinicAltaPage() {
                       onClick={() => handleAction(req.id, 'approve')}
                     >
                       {actingId === req.id ? '…' : '✓ Aprobar y crear clínica'}
+                    </button>
+                    <button
+                      className="ops-action-btn"
+                      disabled={actingId === req.id}
+                      onClick={() => handleAction(req.id, 'request_info')}
+                      style={{ background: '#dbeafe', color: '#1e40af', border: '1px solid #93c5fd' }}
+                    >
+                      {actingId === req.id ? '…' : '🔁 Solicitar más información'}
                     </button>
                     <button
                       className="ops-action-btn ops-action-danger"

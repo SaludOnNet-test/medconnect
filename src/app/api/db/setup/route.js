@@ -291,6 +291,26 @@ export async function GET(request) {
       CREATE INDEX IX_pro_verification_requests_email ON pro_verification_requests(requested_by_email);
     `);
 
+    // ── Migration: "request more info" flow ────────────────────────────
+    // Adds the columns both ops review tables need to capture an ops
+    // message asking the pro for clarification, and to track when the pro
+    // responded. Status uses the new value 'more_info_requested' (existing
+    // NVARCHAR(20) column fits; no enum to extend).
+    for (const tbl of ['clinic_alta_requests', 'pro_verification_requests']) {
+      await pool.request().query(`
+        IF NOT EXISTS (SELECT * FROM sys.columns WHERE Name = 'info_request_message' AND Object_ID = Object_ID('${tbl}'))
+        ALTER TABLE ${tbl} ADD info_request_message NVARCHAR(MAX) NULL;
+      `);
+      await pool.request().query(`
+        IF NOT EXISTS (SELECT * FROM sys.columns WHERE Name = 'info_request_at' AND Object_ID = Object_ID('${tbl}'))
+        ALTER TABLE ${tbl} ADD info_request_at DATETIMEOFFSET NULL;
+      `);
+      await pool.request().query(`
+        IF NOT EXISTS (SELECT * FROM sys.columns WHERE Name = 'info_response_at' AND Object_ID = Object_ID('${tbl}'))
+        ALTER TABLE ${tbl} ADD info_response_at DATETIMEOFFSET NULL;
+      `);
+    }
+
     return NextResponse.json({ success: true, message: 'Schema ready (tables + migrations applied)' });
   } catch (err) {
     console.error('[db/setup]', err);

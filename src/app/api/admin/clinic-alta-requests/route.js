@@ -31,7 +31,8 @@ export async function GET(request) {
       `SELECT id, requested_by_email, requested_by_name, clinic_name,
               city, province, address, telephone, contact_email,
               specialties, aseguradoras, notes, status, linked_clinic_id,
-              ops_notes, resolved_by, resolved_at, created_at
+              ops_notes, resolved_by, resolved_at, created_at,
+              info_request_message, info_request_at, info_response_at
        FROM clinic_alta_requests
        ${where}
        ORDER BY created_at DESC`,
