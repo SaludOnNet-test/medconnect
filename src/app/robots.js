@@ -44,6 +44,10 @@ export default function robots() {
           '/book/confirmed',
           '/book/refund',
           '/_next/',
+          // Private/internal routes — board deck and any future
+          // internal-only pages live under /internal/. The deck is also
+          // gated by ?k=<secret> so this is belt-and-braces.
+          '/internal/',
         ],
       },
     ],

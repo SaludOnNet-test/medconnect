@@ -1,0 +1,976 @@
+/* ──────────────────────────────────────────────────
+   /internal/board — Deck CSS
+
+   Brand-aligned (Bone bg, Ink text, Brass accent, Fraunces display, Inter
+   body, JetBrains mono for codes). Projector-tuned: 16:9 slides that fit
+   inside a 1920×1080 desktop without overflow.
+
+   Print mode (toggle with P key) flattens all slides onto sequential pages
+   so cmd/ctrl+P → "Save as PDF" gives you a one-slide-per-page export.
+   ────────────────────────────────────────────────── */
+
+/* ── Locked-page fallback (when ?k= is missing) ──────────────────────── */
+
+.board-locked {
+  min-height: 100vh;
+  display: grid;
+  place-items: center;
+  background: var(--bone-200);
+  font-family: var(--font-body);
+  color: var(--ink-1000);
+}
+.board-locked-card {
+  background: var(--bone-100);
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  padding: 40px 48px;
+  max-width: 480px;
+  text-align: center;
+  box-shadow: 0 12px 40px rgba(14, 26, 43, 0.08);
+}
+.board-locked-card h1 {
+  font-family: var(--font-display);
+  font-weight: 600;
+  font-size: 24px;
+  margin: 0 0 16px;
+}
+.board-locked-card p {
+  margin: 8px 0;
+  color: var(--fg-muted);
+}
+.board-locked-card code {
+  background: var(--bone-300);
+  padding: 2px 8px;
+  border-radius: 6px;
+  font-family: var(--font-mono);
+}
+
+/* ── Deck shell ──────────────────────────────────────────────────────── */
+
+.deck {
+  --toc-width: 280px;
+  display: grid;
+  grid-template-columns: var(--toc-width) 1fr;
+  min-height: 100vh;
+  background: var(--bone-200);
+  font-family: var(--font-body);
+  color: var(--ink-1000);
+}
+
+/* ── TOC (left rail) ─────────────────────────────────────────────────── */
+
+.deck-toc {
+  background: var(--ink-1000);
+  color: var(--fg-on-inverse);
+  padding: 24px 18px 24px 24px;
+  overflow-y: auto;
+  position: sticky;
+  top: 0;
+  height: 100vh;
+  border-right: 1px solid var(--border-inverse);
+}
+
+.deck-brand {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding-bottom: 24px;
+  border-bottom: 1px solid var(--border-inverse);
+  margin-bottom: 20px;
+}
+.deck-brand-mark {
+  display: grid;
+  place-items: center;
+  width: 36px;
+  height: 36px;
+  border-radius: 10px;
+  background: var(--brass-500);
+  color: var(--ink-1000);
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: 14px;
+}
+.deck-brand-text {
+  display: flex;
+  flex-direction: column;
+  line-height: 1.2;
+}
+.deck-brand-text strong {
+  font-family: var(--font-display);
+  font-weight: 600;
+  font-size: 16px;
+}
+.deck-brand-text em {
+  font-style: normal;
+  font-size: 12px;
+  color: var(--fg-on-inverse-muted);
+  letter-spacing: 0.02em;
+}
+
+.deck-toc nav {
+  margin-bottom: 24px;
+}
+
+.deck-toc-chapter {
+  margin-bottom: 16px;
+}
+.deck-toc-chapter-label {
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--fg-on-inverse-muted);
+  padding: 0 8px 6px;
+}
+.deck-toc-chapter ul {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+.deck-toc-link {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  width: 100%;
+  background: transparent;
+  border: 0;
+  color: var(--fg-on-inverse);
+  padding: 7px 8px;
+  border-radius: 8px;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s;
+}
+.deck-toc-link:hover {
+  background: rgba(244, 239, 230, 0.06);
+}
+.deck-toc-link.is-current {
+  background: var(--brass-500);
+  color: var(--ink-1000);
+}
+.deck-toc-link.is-current .deck-toc-num {
+  color: var(--ink-1000);
+  opacity: 0.7;
+}
+.deck-toc-num {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  width: 22px;
+  flex-shrink: 0;
+  color: var(--fg-on-inverse-muted);
+}
+.deck-toc-label {
+  font-size: 14px;
+  font-weight: 500;
+}
+
+.deck-toc-tip {
+  margin-top: auto;
+  padding: 14px 8px 0;
+  font-size: 11px;
+  color: var(--fg-on-inverse-muted);
+  line-height: 1.6;
+  border-top: 1px solid var(--border-inverse);
+}
+.deck-toc-tip kbd {
+  display: inline-block;
+  padding: 1px 6px;
+  background: rgba(244, 239, 230, 0.08);
+  border: 1px solid var(--border-inverse);
+  border-radius: 4px;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  color: var(--fg-on-inverse);
+}
+
+/* ── Main slide area ─────────────────────────────────────────────────── */
+
+.deck-main {
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+  padding: 28px 36px 80px;
+  position: relative;
+}
+
+.slide {
+  flex: 1;
+  background: var(--bone-100);
+  border-radius: 16px;
+  padding: 48px 56px;
+  box-shadow: 0 8px 28px rgba(14, 26, 43, 0.06);
+  border: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+  gap: 28px;
+  /* Aim for 16:9 visual proportion at projector zoom — content scales but
+     the panel keeps its hero feel. */
+  min-height: calc(100vh - 160px);
+}
+
+.slide-header {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.slide-eyebrow {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--brass-600);
+  font-weight: 500;
+}
+.slide-title {
+  font-family: var(--font-display);
+  font-weight: 600;
+  font-size: clamp(28px, 3vw, 40px);
+  line-height: 1.15;
+  letter-spacing: -0.01em;
+  margin: 0;
+  color: var(--ink-1000);
+}
+.slide-title em {
+  font-style: italic;
+  color: var(--brass-600);
+}
+.slide-lede {
+  font-size: 18px;
+  line-height: 1.55;
+  color: var(--fg-muted);
+  max-width: 70ch;
+  margin: 0;
+}
+
+/* ── Cover slide ─────────────────────────────────────────────────────── */
+
+.slide-cover {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: flex-start;
+  gap: 24px;
+  background:
+    radial-gradient(1100px 600px at 20% 30%, rgba(201, 162, 75, 0.08), transparent 60%),
+    var(--bone-100);
+  border-radius: 12px;
+  padding: 16px 0;
+}
+.slide-cover-eyebrow {
+  font-family: var(--font-mono);
+  font-size: 13px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--brass-600);
+}
+.slide-cover-title {
+  font-family: var(--font-display);
+  font-weight: 600;
+  font-size: clamp(40px, 5vw, 64px);
+  line-height: 1.05;
+  margin: 0;
+  letter-spacing: -0.02em;
+  max-width: 22ch;
+}
+.slide-cover-title em {
+  font-style: italic;
+  color: var(--brass-600);
+}
+.slide-cover-lede {
+  font-size: 20px;
+  line-height: 1.55;
+  color: var(--fg-muted);
+  max-width: 60ch;
+  margin: 0;
+}
+.slide-cover-meta {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 24px;
+  margin-top: 28px;
+  padding-top: 28px;
+  border-top: 1px solid var(--border);
+  width: 100%;
+  max-width: 900px;
+}
+.slide-cover-meta > div {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.slide-cover-meta-key {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--fg-subtle);
+}
+.slide-cover-meta-val {
+  font-family: var(--font-display);
+  font-size: 18px;
+  font-weight: 500;
+  color: var(--ink-1000);
+}
+
+/* ── Layout helpers ──────────────────────────────────────────────────── */
+
+.grid-2 {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 20px;
+}
+.grid-3 {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 20px;
+}
+.grid-3-tight {
+  gap: 14px;
+}
+
+/* ── Card ────────────────────────────────────────────────────────────── */
+
+.board-card {
+  background: var(--bone-50);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 22px 24px;
+}
+.board-card-label {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--brass-600);
+  margin-bottom: 12px;
+}
+.board-card h3 {
+  font-family: var(--font-display);
+  font-size: 22px;
+  font-weight: 600;
+  margin: 0 0 10px;
+  line-height: 1.3;
+}
+.board-card h3 em {
+  color: var(--brass-600);
+  font-style: italic;
+}
+.board-card p {
+  margin: 0 0 12px;
+  line-height: 1.55;
+  color: var(--fg);
+}
+.board-card ul {
+  margin: 8px 0 0;
+  padding-left: 20px;
+  line-height: 1.6;
+  color: var(--fg);
+}
+.board-card-success {
+  border-color: var(--sage-200);
+  background: var(--sage-100);
+}
+.board-card-warn {
+  border-color: var(--coral-200);
+  background: var(--coral-100);
+}
+.board-card-ask {
+  border-left: 4px solid var(--brass-500);
+}
+
+/* MiniCard — tight 3-up */
+.mini-card {
+  background: var(--bone-50);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 16px 18px;
+}
+.mini-card h4 {
+  font-family: var(--font-display);
+  font-size: 16px;
+  font-weight: 600;
+  margin: 0 0 6px;
+}
+.mini-card p {
+  margin: 0;
+  font-size: 14px;
+  line-height: 1.5;
+  color: var(--fg-muted);
+}
+
+/* ── Note (small print at bottom of slide) ───────────────────────────── */
+
+.slide-note {
+  margin-top: auto;
+  background: var(--bone-200);
+  border-left: 3px solid var(--brass-500);
+  padding: 12px 16px;
+  border-radius: 0 8px 8px 0;
+}
+.slide-note-label {
+  display: block;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--brass-600);
+  margin-bottom: 4px;
+}
+.slide-note p {
+  margin: 0;
+  font-size: 14px;
+  line-height: 1.55;
+  color: var(--fg-muted);
+}
+
+/* ── Diagram (slide 3) ───────────────────────────────────────────────── */
+
+.diagram-flow {
+  display: grid;
+  grid-template-columns: 1fr auto 1fr auto 1fr;
+  gap: 16px;
+  align-items: stretch;
+}
+.stage {
+  background: var(--bone-50);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 18px 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.stage-num {
+  font-family: var(--font-mono);
+  width: 28px;
+  height: 28px;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  background: var(--brass-500);
+  color: var(--ink-1000);
+  font-size: 13px;
+  font-weight: 600;
+  margin-bottom: 4px;
+}
+.stage-actor {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--fg-subtle);
+}
+.stage-title {
+  font-family: var(--font-display);
+  font-size: 18px;
+  font-weight: 600;
+  color: var(--ink-1000);
+  line-height: 1.25;
+}
+.stage-body {
+  margin: 4px 0 0;
+  font-size: 14px;
+  line-height: 1.55;
+  color: var(--fg-muted);
+  flex: 1;
+}
+.stage-links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-top: 8px;
+}
+.stage-links a {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 12px;
+  color: var(--clinical-500);
+  text-decoration: none;
+}
+.stage-links a:hover {
+  color: var(--clinical-700);
+  text-decoration: underline;
+}
+.stage-arrow {
+  align-self: center;
+  font-size: 28px;
+  color: var(--brass-500);
+  font-weight: 600;
+  user-select: none;
+}
+
+/* ── Flow steps (slides 4–6) ─────────────────────────────────────────── */
+
+.flow-steps {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 8px;
+  background: var(--bone-50);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 18px;
+}
+.flow-steps li {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 8px;
+  border-radius: 8px;
+  position: relative;
+}
+.flow-steps li:not(:last-child)::after {
+  content: '→';
+  position: absolute;
+  right: -12px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: var(--brass-500);
+  font-weight: 600;
+}
+.flow-step-num {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--fg-subtle);
+}
+.flow-step-label {
+  font-size: 14px;
+  font-weight: 500;
+  line-height: 1.4;
+}
+.flow-step-label a {
+  color: var(--clinical-500);
+  text-decoration: none;
+}
+.flow-step-label a:hover {
+  text-decoration: underline;
+}
+.flow-step-hint {
+  color: var(--fg-subtle);
+  font-size: 12px;
+  font-weight: 400;
+}
+
+/* ── Tier list (slide 5) ─────────────────────────────────────────────── */
+
+.tier-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+.tier-list li {
+  display: flex;
+  justify-content: space-between;
+  padding: 8px 0;
+  border-bottom: 1px solid var(--border);
+  font-size: 15px;
+}
+.tier-list li:last-child {
+  border-bottom: 0;
+}
+.tier-name {
+  font-family: var(--font-display);
+  font-weight: 500;
+}
+.tier-price {
+  font-family: var(--font-mono);
+  color: var(--brass-600);
+}
+
+/* ── State diagram (slide 7) ─────────────────────────────────────────── */
+
+.state-diagram {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  background: var(--ink-1000);
+  color: var(--fg-on-inverse);
+  border-radius: 12px;
+  padding: 20px 24px;
+  font-family: var(--font-mono);
+  font-size: 13px;
+}
+.state-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.state-from,
+.state-to {
+  background: rgba(244, 239, 230, 0.08);
+  padding: 4px 10px;
+  border-radius: 6px;
+  font-size: 12px;
+}
+.state-to {
+  background: var(--brass-500);
+  color: var(--ink-1000);
+}
+.state-arrow {
+  color: var(--brass-400);
+}
+.state-note {
+  font-family: var(--font-body);
+  font-size: 11px;
+  color: var(--fg-on-inverse-muted);
+  margin-left: 8px;
+}
+
+/* ── Status lists (slide 9) ──────────────────────────────────────────── */
+
+.check-list,
+.block-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+.check-list li,
+.block-list li {
+  padding: 6px 0 6px 24px;
+  position: relative;
+  line-height: 1.5;
+  font-size: 14px;
+}
+.check-list li::before {
+  content: '✓';
+  position: absolute;
+  left: 0;
+  color: var(--sage-700);
+  font-weight: 600;
+}
+.block-list li::before {
+  content: '●';
+  position: absolute;
+  left: 4px;
+  color: var(--coral-500);
+}
+.muted {
+  color: var(--fg-subtle);
+  font-family: var(--font-mono);
+  font-size: 11px;
+}
+
+/* ── Swimlane (slide 10) ─────────────────────────────────────────────── */
+
+.swimlane {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.swimlane-row {
+  display: grid;
+  grid-template-columns: 220px 1fr;
+  gap: 16px;
+  align-items: stretch;
+  background: var(--bone-50);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 16px 18px;
+}
+.swimlane-scenario {
+  font-family: var(--font-display);
+  font-weight: 600;
+  font-size: 16px;
+  align-self: center;
+  color: var(--ink-1000);
+  line-height: 1.3;
+}
+.swimlane-steps {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 6px;
+}
+.swimlane-cell {
+  background: var(--bone-200);
+  border-radius: 8px;
+  padding: 8px 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  border-top: 3px solid var(--ink-300);
+}
+.swimlane-cell.area-paciente { border-top-color: var(--clinical-500); }
+.swimlane-cell.area-ops      { border-top-color: var(--brass-500); }
+.swimlane-cell.area-clínica,
+.swimlane-cell.area-clinica  { border-top-color: var(--sage-500); }
+.swimlane-cell.area-sistema  { border-top-color: var(--ink-700); }
+.swimlane-area {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--fg-subtle);
+}
+.swimlane-text {
+  font-size: 13px;
+  line-height: 1.4;
+  color: var(--fg);
+}
+
+/* ── Asks (slide 11) ─────────────────────────────────────────────────── */
+
+.ask-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+.ask-list li {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 12px 0;
+  border-bottom: 1px solid var(--border);
+  font-size: 14px;
+  line-height: 1.5;
+}
+.ask-list li:last-child {
+  border-bottom: 0;
+}
+.ask-tag {
+  align-self: flex-start;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  background: var(--brass-500);
+  color: var(--ink-1000);
+  padding: 2px 8px;
+  border-radius: 4px;
+}
+
+/* ── Tools (slide 12) ────────────────────────────────────────────────── */
+
+.tools-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 12px;
+}
+.tool-card {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 14px 16px;
+  background: var(--bone-50);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  text-decoration: none;
+  color: var(--ink-1000);
+  transition: border-color 0.15s, background 0.15s;
+}
+.tool-card:hover {
+  border-color: var(--brass-500);
+  background: var(--bone-100);
+}
+.tool-role {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--brass-600);
+}
+.tool-url {
+  font-family: var(--font-mono);
+  font-size: 13px;
+  color: var(--ink-1000);
+  word-break: break-all;
+}
+.tool-purpose {
+  font-size: 12px;
+  color: var(--fg-muted);
+  line-height: 1.4;
+}
+
+/* ── Roadmap (slide 13) ──────────────────────────────────────────────── */
+
+.roadmap {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.roadmap-item {
+  display: grid;
+  grid-template-columns: 56px 1fr;
+  gap: 16px;
+  align-items: center;
+  background: var(--bone-50);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 12px 16px;
+}
+.roadmap-code {
+  font-family: var(--font-mono);
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--brass-600);
+  text-align: center;
+  background: var(--brass-100);
+  padding: 6px 0;
+  border-radius: 6px;
+}
+.roadmap-content {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.roadmap-title {
+  font-family: var(--font-display);
+  font-weight: 600;
+  font-size: 15px;
+}
+.roadmap-meta {
+  display: flex;
+  gap: 12px;
+  font-size: 12px;
+  color: var(--fg-subtle);
+}
+.roadmap-timing {
+  font-family: var(--font-mono);
+}
+.roadmap-status {
+  color: var(--fg-muted);
+}
+
+/* ── Bottom controls ─────────────────────────────────────────────────── */
+
+.deck-controls {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 16px 0 0;
+  margin-top: 20px;
+  gap: 16px;
+}
+.deck-btn {
+  background: var(--ink-1000);
+  color: var(--fg-on-inverse);
+  border: 0;
+  padding: 10px 18px;
+  border-radius: 8px;
+  font: inherit;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+.deck-btn:hover:not(:disabled) {
+  background: var(--ink-900);
+}
+.deck-btn:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+}
+.deck-progress {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  font-family: var(--font-mono);
+  color: var(--fg-muted);
+  font-size: 13px;
+}
+.deck-progress-current {
+  color: var(--ink-1000);
+  font-weight: 600;
+  font-size: 16px;
+}
+.deck-progress-total {
+  color: var(--fg-subtle);
+}
+.deck-progress-label {
+  font-family: var(--font-body);
+  margin-left: 12px;
+  color: var(--fg);
+  font-weight: 500;
+}
+
+/* ── Print mode (P key toggles .deck-print) ──────────────────────────── */
+
+/* When the user presses P, every slide stacks. The screen view shows them
+   one after another so you can scroll/screenshot; the @media print rule
+   below puts each slide on its own physical page when you ctrl/cmd+P. */
+.deck-print .deck-controls {
+  display: none;
+}
+.deck-print .deck-all {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+.deck-print .deck-all .slide {
+  page-break-after: always;
+  break-after: page;
+}
+
+@media print {
+  /* Hide chrome, expand to full page. */
+  .deck {
+    grid-template-columns: 1fr;
+  }
+  .deck-toc,
+  .deck-controls {
+    display: none !important;
+  }
+  .deck-main {
+    padding: 0;
+  }
+  .slide {
+    border: 0;
+    border-radius: 0;
+    box-shadow: none;
+    min-height: auto;
+    page-break-inside: avoid;
+    padding: 28px 32px;
+  }
+  .deck-print .deck-all .slide {
+    page-break-after: always;
+    break-after: page;
+  }
+}
+
+/* ── Responsive: collapse TOC under 1100px (preview / mobile) ────────── */
+
+@media (max-width: 1100px) {
+  .deck {
+    grid-template-columns: 1fr;
+  }
+  .deck-toc {
+    position: static;
+    height: auto;
+    border-right: 0;
+    border-bottom: 1px solid var(--border-inverse);
+  }
+  .deck-toc-tip {
+    display: none;
+  }
+  .deck-main {
+    padding: 16px;
+  }
+  .slide {
+    padding: 28px 24px;
+    min-height: auto;
+  }
+  .grid-2,
+  .grid-3,
+  .tools-grid {
+    grid-template-columns: 1fr;
+  }
+  .diagram-flow,
+  .flow-steps {
+    grid-template-columns: 1fr;
+  }
+  .flow-steps li:not(:last-child)::after {
+    display: none;
+  }
+  .swimlane-row {
+    grid-template-columns: 1fr;
+  }
+  .swimlane-steps {
+    grid-template-columns: repeat(2, 1fr);
+  }
+  .slide-cover-meta {
+    grid-template-columns: 1fr;
+  }
+}
