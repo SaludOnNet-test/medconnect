@@ -711,10 +711,21 @@ function RoadmapItem({ code, title, timing, status }) {
 
 // ── Deck shell ───────────────────────────────────────────────────────────
 
+// Read `?print=1` from the URL on first render so a headless Chromium pass
+// (or anyone hitting the URL with that param) lands directly in the
+// flat-all-slides view. Used to generate the "publishable" PDF takeaway
+// for directors who want the deck offline; also handy for ops folks who
+// want to print without remembering the P shortcut.
+function getInitialPrintMode() {
+  if (typeof window === 'undefined') return false;
+  const sp = new URLSearchParams(window.location.search);
+  return sp.get('print') === '1';
+}
+
 export default function Deck() {
   const total = SLIDES.length;
   const [index, setIndex] = useState(0);
-  const [printMode, setPrintMode] = useState(false);
+  const [printMode, setPrintMode] = useState(getInitialPrintMode);
 
   const goTo = useCallback((i) => {
     const next = Math.max(0, Math.min(total - 1, i));
