@@ -15,7 +15,14 @@ export function clearAdminSession() {
 
 export async function adminFetch(url, options = {}) {
   const token = getAdminToken();
-  const headers = { 'Content-Type': 'application/json', ...(options.headers || {}) };
+  // Default to JSON. For multipart uploads (FormData body) we MUST NOT
+  // set Content-Type — the browser injects the right multipart boundary
+  // automatically; setting it here breaks the upload with 400.
+  const isFormData = typeof FormData !== 'undefined' && options.body instanceof FormData;
+  const headers = { ...(options.headers || {}) };
+  if (!isFormData && !headers['Content-Type']) {
+    headers['Content-Type'] = 'application/json';
+  }
   if (token) headers.Authorization = `Bearer ${token}`;
   const res = await fetch(url, { ...options, headers });
   if (res.status === 401) {

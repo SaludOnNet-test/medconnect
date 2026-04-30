@@ -612,9 +612,14 @@ export function patientRefunded({ patientName, providerName, slotDate, slotTime,
 // ─────────────────────────────────────────────
 export function voucherDelivery({
   patientName, providerName, slotDate, slotTime, procedureName,
-  voucherUrl, sonOrderRef, servicePrice,
+  voucherUrl, sonOrderRef, servicePrice, voucherPdfPath,
 }) {
   const fmtDate = slotDate ? new Date(slotDate + 'T00:00:00').toLocaleDateString('es-ES', { weekday: 'long', day: 'numeric', month: 'long' }) : slotDate;
+  // Prefer the externally hosted SON URL when both are present; fall back
+  // to the operator-uploaded PDF. We deliberately render only one CTA so
+  // the patient isn't confused by two competing buttons.
+  const ctaHref = voucherUrl || voucherPdfPath || '';
+  const ctaLabel = voucherUrl ? 'Ver / descargar voucher' : 'Descargar voucher (PDF)';
   const html = baseWrapper(`
     <tr><td style="background:#065f46;padding:24px;text-align:center;">
       <div style="width:60px;height:60px;background:rgba(255,255,255,0.18);border-radius:50%;margin:0 auto 12px;display:flex;align-items:center;justify-content:center;font-size:28px;">🎟️</div>
@@ -628,11 +633,16 @@ export function voucherDelivery({
         ${procedureName ? `<strong>${procedureName}</strong>` : 'tu acto médico'}${servicePrice ? ` (€${Number(servicePrice).toFixed(2)})` : ''}
         en ${providerName}${fmtDate ? ` el ${fmtDate}` : ''}${slotTime ? ` a las ${slotTime}` : ''}.
       </p>
-      ${voucherUrl ? `
+      ${ctaHref ? `
       <div style="text-align:center;margin:20px 0 24px;">
-        <a href="${voucherUrl}" style="display:inline-block;background:#065f46;color:#ffffff;text-decoration:none;font-weight:700;padding:14px 28px;border-radius:8px;font-size:15px;">
-          Ver / descargar voucher
+        <a href="${ctaHref}" style="display:inline-block;background:#065f46;color:#ffffff;text-decoration:none;font-weight:700;padding:14px 28px;border-radius:8px;font-size:15px;">
+          ${ctaLabel}
         </a>
+      </div>` : sonOrderRef ? `
+      <div style="text-align:center;margin:20px 0 24px;padding:16px;background:#ecfdf5;border:1px solid #6ee7b7;border-radius:8px;">
+        <p style="margin:0 0 4px;font-size:13px;color:#065f46;font-weight:700;">Tu código de voucher</p>
+        <p style="margin:0;font-size:20px;font-weight:800;color:#065f46;letter-spacing:0.05em;font-family:monospace;">${sonOrderRef}</p>
+        <p style="margin:6px 0 0;font-size:12px;color:#065f46;">Mostrá este código en la clínica.</p>
       </div>` : ''}
       <div style="background:#ecfdf5;border:1px solid #6ee7b7;border-radius:8px;padding:16px;margin-bottom:20px;">
         <p style="margin:0 0 8px;font-size:14px;color:#065f46;font-weight:700;">📍 Cuando llegues a la clínica</p>
