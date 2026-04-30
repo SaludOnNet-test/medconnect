@@ -53,6 +53,10 @@ export default function ReferralModal({
   const [searchCity, setSearchCity] = useState('');
   const [searchSpecialtySlug, setSearchSpecialtySlug] = useState('');
   const [searchProcedureSlug, setSearchProcedureSlug] = useState('');
+  // Step 2 specialty filter — narrows the per-clinic procedure catalogue
+  // when the clinic offers more than one specialty (multi-spec clinics
+  // can list 50+ procedures otherwise).
+  const [step2SpecialtySlug, setStep2SpecialtySlug] = useState('');
   // Catalogue of specialties + procedures for the step-1 filter dropdowns.
   // Loaded once when the externa flow opens and reused. Source of truth is
   // /api/clinics/filters (same endpoint the patient search uses).
@@ -119,13 +123,35 @@ export default function ReferralModal({
   // ── Step 2 — load procedures for the selected clinic ─────────────────
   useEffect(() => {
     if (!selectedProvider) return;
+    // Carry the step-1 specialty into step 2 as default filter — if the
+    // user just searched for cardiology clinics, they're probably picking
+    // a cardiology procedure next. They can clear it on step 2.
+    setStep2SpecialtySlug(searchSpecialtySlug || '');
     setProceduresLoading(true);
     fetch(`/api/clinics/${selectedProvider.id}/procedures`)
       .then((r) => r.json())
       .then((data) => setProcedures(Array.isArray(data?.procedures) ? data.procedures : []))
       .catch(() => setProcedures([]))
       .finally(() => setProceduresLoading(false));
-  }, [selectedProvider]);
+  }, [selectedProvider, searchSpecialtySlug]);
+
+  // Distinct specialties present in the selected clinic's catalogue —
+  // drives the step-2 dropdown. We only render the filter when there's
+  // more than one option (single-specialty clinics don't need it).
+  const step2Specialties = useMemo(() => {
+    const map = new Map();
+    for (const p of procedures) {
+      if (p.specialtySlug && !map.has(p.specialtySlug)) {
+        map.set(p.specialtySlug, { slug: p.specialtySlug, name: p.specialtyName || p.specialtySlug });
+      }
+    }
+    return [...map.values()].sort((a, b) => a.name.localeCompare(b.name, 'es'));
+  }, [procedures]);
+
+  const step2FilteredProcedures = useMemo(() => {
+    if (!step2SpecialtySlug) return procedures;
+    return procedures.filter((p) => p.specialtySlug === step2SpecialtySlug);
+  }, [procedures, step2SpecialtySlug]);
 
   // Auto-skip step 2 when the pro already picked the service in the
   // step-1 filter. The procedure-slug used in the filter comes from the
@@ -227,6 +253,7 @@ export default function ReferralModal({
     setSearchCity('');
     setSearchSpecialtySlug('');
     setSearchProcedureSlug('');
+    setStep2SpecialtySlug('');
   }
 
   function handleCloseAndReset() {
@@ -415,23 +442,44 @@ export default function ReferralModal({
               ) : procedures.length === 0 ? (
                 <div className="no-slots">Esta clínica aún no tiene catálogo en el sistema.</div>
               ) : (
-                <div className="procedure-list">
-                  {procedures.map((p) => (
-                    <button
-                      key={p.slug}
-                      className={`procedure-row ${selectedProcedure?.slug === p.slug ? 'selected' : ''}`}
-                      onClick={() => handleProcedureSelect(p)}
-                    >
-                      <div>
-                        <div className="procedure-name">{p.name}</div>
-                        {p.specialtyName && <div className="procedure-spec">{p.specialtyName}</div>}
-                      </div>
-                      {p.price != null && (
-                        <div className="procedure-price">{formatEUR(p.price)}</div>
-                      )}
-                    </button>
-                  ))}
-                </div>
+                <>
+                  {step2Specialties.length > 1 && (
+                    <div className="referral-filters">
+                      <select
+                        className="form-input"
+                        value={step2SpecialtySlug}
+                        onChange={(e) => setStep2SpecialtySlug(e.target.value)}
+                        aria-label="Filtrar por especialidad"
+                      >
+                        <option value="">Todas las especialidades</option>
+                        {step2Specialties.map((s) => (
+                          <option key={s.slug} value={s.slug}>{s.name}</option>
+                        ))}
+                      </select>
+                    </div>
+                  )}
+                  {step2FilteredProcedures.length === 0 ? (
+                    <div className="no-slots">No hay servicios de esta especialidad en esta clínica.</div>
+                  ) : (
+                    <div className="procedure-list">
+                      {step2FilteredProcedures.map((p) => (
+                        <button
+                          key={p.slug}
+                          className={`procedure-row ${selectedProcedure?.slug === p.slug ? 'selected' : ''}`}
+                          onClick={() => handleProcedureSelect(p)}
+                        >
+                          <div>
+                            <div className="procedure-name">{p.name}</div>
+                            {p.specialtyName && <div className="procedure-spec">{p.specialtyName}</div>}
+                          </div>
+                          {p.price != null && (
+                            <div className="procedure-price">{formatEUR(p.price)}</div>
+                          )}
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </>
               )}
             </div>
           )}
