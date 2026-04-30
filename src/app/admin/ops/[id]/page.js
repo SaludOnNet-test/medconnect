@@ -34,10 +34,23 @@ export default function OpsCaseDetail({ params }) {
   const [altClinicName, setAltClinicName] = useState('');
   const [altClinicId, setAltClinicId] = useState('');
 
-  // Voucher upload form (sin seguro)
+  // Voucher upload form (sin seguro). Three input paths, any one is
+  // sufficient: external URL, manual SaludOnNet order ref code, or PDF
+  // file upload (uploads to Vercel Blob and the resulting URL becomes the
+  // voucher_pdf_path linked from the patient's email).
   const [voucherUrl, setVoucherUrl] = useState('');
   const [sonOrderRef, setSonOrderRef] = useState('');
+  const [voucherPdfFile, setVoucherPdfFile] = useState(null);
   const [voucherBusy, setVoucherBusy] = useState(false);
+
+  // Email override (any case, not just sin-seguro). Lets ops redirect
+  // every future flow email for this booking to a different address —
+  // typo recovery, redirect to a relative, etc. Every email-sending
+  // surface (voucher, alternative proposals, refund confirms) reads
+  // `bookings.patient_email`, so a single column update suffices.
+  const [editingEmail, setEditingEmail] = useState(false);
+  const [emailDraft, setEmailDraft] = useState('');
+  const [emailBusy, setEmailBusy] = useState(false);
 
   useEffect(() => {
     if (!getAdminToken()) router.replace('/admin/login');
@@ -85,16 +98,43 @@ export default function OpsCaseDetail({ params }) {
   };
 
   const submitVoucher = async () => {
-    if (!voucherUrl.trim() && !sonOrderRef.trim()) return;
+    if (!voucherUrl.trim() && !sonOrderRef.trim() && !voucherPdfFile) return;
     if (!confirm('Subir el voucher y enviarlo al paciente por email?')) return;
     setVoucherBusy(true);
     try {
+      // Step 1 — if a PDF file was selected, upload it to Vercel Blob first
+      // and grab the resulting URL. We do this BEFORE writing to the
+      // vouchers table so a transient blob failure doesn't leave behind a
+      // half-saved row.
+      let pdfUrl = null;
+      if (voucherPdfFile) {
+        const formData = new FormData();
+        formData.append('bookingId', c.booking_id);
+        formData.append('file', voucherPdfFile);
+        const uploadRes = await adminFetch('/api/admin/vouchers/pdf-upload', {
+          method: 'POST',
+          body: formData,
+          // NOTE: don't set Content-Type — browser sets the multipart
+          // boundary automatically. adminFetch already skips Content-Type
+          // when the body is FormData.
+        });
+        const uploadJson = await uploadRes.json();
+        if (!uploadRes.ok) {
+          alert(uploadJson.error || 'Error subiendo el PDF al storage');
+          setVoucherBusy(false);
+          return;
+        }
+        pdfUrl = uploadJson.url;
+      }
+
+      // Step 2 — persist the voucher row + send the email.
       const res = await adminFetch('/api/admin/vouchers/upload', {
         method: 'POST',
         body: JSON.stringify({
           bookingId: c.booking_id,
           voucherUrl: voucherUrl.trim() || null,
           sonOrderRef: sonOrderRef.trim() || null,
+          voucherPdfPath: pdfUrl || null,
         }),
       });
       const j = await res.json();
@@ -104,9 +144,41 @@ export default function OpsCaseDetail({ params }) {
         await load();
         setVoucherUrl('');
         setSonOrderRef('');
+        setVoucherPdfFile(null);
       }
     } catch (err) { alert(err.message); }
     setVoucherBusy(false);
+  };
+
+  const saveEmail = async () => {
+    const next = emailDraft.trim();
+    if (!next) return;
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(next)) {
+      alert('Formato de email inválido.');
+      return;
+    }
+    if (next.toLowerCase() === (c.patient_email || '').toLowerCase()) {
+      // No actual change — just close the editor.
+      setEditingEmail(false);
+      return;
+    }
+    if (!confirm(`Cambiar el email del paciente a ${next}? Todos los emails futuros del flujo (voucher, alternativas, reembolsos) se enviarán a esta nueva dirección.`)) return;
+    setEmailBusy(true);
+    try {
+      const res = await adminFetch(`/api/admin/bookings/${encodeURIComponent(c.booking_id)}/email`, {
+        method: 'POST',
+        body: JSON.stringify({ patientEmail: next }),
+      });
+      const j = await res.json();
+      if (!res.ok) {
+        alert(j.error || 'Error cambiando email');
+      } else {
+        await load();
+        setEditingEmail(false);
+        setEmailDraft('');
+      }
+    } catch (err) { alert(err.message); }
+    setEmailBusy(false);
   };
 
   const resendVoucher = async () => {
@@ -142,11 +214,56 @@ export default function OpsCaseDetail({ params }) {
             <h2>Paciente</h2>
             <dl className="ops-kv">
               <dt>Nombre</dt><dd>{c.patient_name || '—'}</dd>
-              <dt>Email</dt><dd>{c.patient_email || '—'}</dd>
+              <dt>Email</dt>
+              <dd>
+                {editingEmail ? (
+                  <div style={{ display: 'flex', gap: 6, alignItems: 'center', flexWrap: 'wrap' }}>
+                    <input
+                      type="email"
+                      value={emailDraft}
+                      onChange={(e) => setEmailDraft(e.target.value)}
+                      placeholder="nuevo.email@dominio.com"
+                      style={{ flex: '1 1 200px', padding: '4px 8px', border: '1px solid #d1d5db', borderRadius: 4, fontSize: 13 }}
+                      autoFocus
+                    />
+                    <button
+                      className="ops-action-btn ops-action-success"
+                      style={{ padding: '4px 10px', fontSize: 12 }}
+                      onClick={saveEmail}
+                      disabled={emailBusy || !emailDraft.trim()}
+                    >
+                      {emailBusy ? '…' : 'Guardar'}
+                    </button>
+                    <button
+                      className="ops-action-btn ops-action-neutral"
+                      style={{ padding: '4px 10px', fontSize: 12 }}
+                      onClick={() => { setEditingEmail(false); setEmailDraft(''); }}
+                      disabled={emailBusy}
+                    >
+                      Cancelar
+                    </button>
+                  </div>
+                ) : (
+                  <span style={{ display: 'inline-flex', gap: 8, alignItems: 'center' }}>
+                    <span>{c.patient_email || '—'}</span>
+                    <button
+                      type="button"
+                      onClick={() => { setEmailDraft(c.patient_email || ''); setEditingEmail(true); }}
+                      style={{ background: 'none', border: '1px solid #d1d5db', borderRadius: 4, padding: '2px 8px', fontSize: 11, cursor: 'pointer', color: '#1a3c5e' }}
+                      title="Cambiar el email del paciente para esta solicitud"
+                    >
+                      ✎ Cambiar
+                    </button>
+                  </span>
+                )}
+              </dd>
               <dt>Teléfono</dt><dd>{c.patient_phone || '—'}</dd>
               <dt>Aseguradora</dt><dd>{c.insurance_company || (c.has_insurance ? 'Sí' : 'Sin seguro')}</dd>
               <dt>Especialidad</dt><dd>{c.specialty || '—'}</dd>
             </dl>
+            <p style={{ marginTop: 10, fontSize: 11, color: '#6b7280', lineHeight: 1.4 }}>
+              Cambiar el email redirige <strong>todos</strong> los emails futuros del flujo (voucher, alternativas, reembolsos) a la nueva dirección. Queda registrado en el log del caso.
+            </p>
           </div>
 
           <div className="ops-card">
@@ -178,6 +295,7 @@ export default function OpsCaseDetail({ params }) {
                 </dd>
                 {c.son_order_ref && (<><dt>Ref. SON</dt><dd style={{ fontFamily: 'monospace', fontSize: 12 }}>{c.son_order_ref}</dd></>)}
                 {c.voucher_url && (<><dt>Voucher URL</dt><dd><a href={c.voucher_url} target="_blank" rel="noopener noreferrer">Ver voucher</a></dd></>)}
+                {c.voucher_pdf_path && (<><dt>PDF subido</dt><dd><a href={c.voucher_pdf_path} target="_blank" rel="noopener noreferrer">Abrir PDF</a></dd></>)}
                 {c.voucher_uploaded_at && (<><dt>Subido</dt><dd>{fmtDateTime(c.voucher_uploaded_at)} {c.voucher_uploaded_by ? `por ${c.voucher_uploaded_by}` : ''}</dd></>)}
                 {c.voucher_sent_at && (<><dt>Enviado al paciente</dt><dd>{fmtDateTime(c.voucher_sent_at)}</dd></>)}
               </dl>
@@ -187,25 +305,50 @@ export default function OpsCaseDetail({ params }) {
                   <p style={{ margin: '0 0 8px', fontSize: 13, fontWeight: 700, color: '#78350f' }}>
                     Subí el voucher tras comprar el acto en SaludOnNet:
                   </p>
+                  <p style={{ margin: '0 0 10px', fontSize: 11, color: '#92400e', lineHeight: 1.5 }}>
+                    Cualquiera de los tres campos es suficiente. Podés combinar (e.g. ref + PDF) si tenés ambos.
+                  </p>
+                  <label style={{ display: 'block', fontSize: 11, color: '#78350f', fontWeight: 600, marginBottom: 4 }}>URL del voucher (link a SON)</label>
                   <input
                     type="url"
-                    placeholder="URL del voucher (link a SON)"
+                    placeholder="https://saludonnet.com/voucher/…"
                     value={voucherUrl}
                     onChange={(e) => setVoucherUrl(e.target.value)}
-                    style={{ width: '100%', padding: 8, border: '1px solid #d1d5db', borderRadius: 6, fontSize: 13, marginBottom: 6 }}
+                    style={{ width: '100%', padding: 8, border: '1px solid #d1d5db', borderRadius: 6, fontSize: 13, marginBottom: 8 }}
                   />
+                  <label style={{ display: 'block', fontSize: 11, color: '#78350f', fontWeight: 600, marginBottom: 4 }}>Código del voucher / Ref. orden SaludOnNet</label>
                   <input
                     type="text"
-                    placeholder="Ref. orden SaludOnNet"
+                    placeholder="ABC-12345"
                     value={sonOrderRef}
                     onChange={(e) => setSonOrderRef(e.target.value)}
                     style={{ width: '100%', padding: 8, border: '1px solid #d1d5db', borderRadius: 6, fontSize: 13, marginBottom: 8 }}
                   />
+                  <label style={{ display: 'block', fontSize: 11, color: '#78350f', fontWeight: 600, marginBottom: 4 }}>O subí un PDF con el voucher</label>
+                  <input
+                    type="file"
+                    accept="application/pdf"
+                    onChange={(e) => setVoucherPdfFile(e.target.files?.[0] || null)}
+                    style={{ width: '100%', fontSize: 12, marginBottom: 4 }}
+                  />
+                  {voucherPdfFile && (
+                    <p style={{ margin: '0 0 8px', fontSize: 11, color: '#78350f' }}>
+                      Adjunto: <strong>{voucherPdfFile.name}</strong> ({(voucherPdfFile.size / 1024).toFixed(0)} KB)
+                      {' '}
+                      <button
+                        type="button"
+                        onClick={() => setVoucherPdfFile(null)}
+                        style={{ background: 'none', border: 0, color: '#7f1d1d', textDecoration: 'underline', cursor: 'pointer', fontSize: 11 }}
+                      >
+                        quitar
+                      </button>
+                    </p>
+                  )}
                   <button
                     className="ops-action-btn ops-action-success"
                     onClick={submitVoucher}
-                    disabled={voucherBusy || (!voucherUrl.trim() && !sonOrderRef.trim())}
-                    style={{ width: '100%' }}
+                    disabled={voucherBusy || (!voucherUrl.trim() && !sonOrderRef.trim() && !voucherPdfFile)}
+                    style={{ width: '100%', marginTop: 4 }}
                   >
                     {voucherBusy ? 'Subiendo…' : 'Subir voucher y enviar al paciente'}
                   </button>

@@ -112,6 +112,7 @@ export async function POST(request) {
         servicePrice: booking.service_price,
         voucherUrl: finalVoucher.voucher_url || null,
         sonOrderRef: finalVoucher.son_order_ref || null,
+        voucherPdfPath: finalVoucher.voucher_pdf_path || null,
       });
       emailResult = await sendEmail({ to: booking.patient_email, subject, html });
     } catch (e) {
