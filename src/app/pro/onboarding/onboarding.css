@@ -273,6 +273,18 @@
   }
 }
 
+.onboarding-captcha {
+  display: flex;
+  justify-content: flex-start;
+  margin-top: var(--space-3);
+  /* When TURNSTILE_SITE_KEY is unset the widget renders nothing — collapse
+     the empty wrapper so the form keeps its rhythm. */
+  min-height: 0;
+}
+.onboarding-captcha:empty {
+  display: none;
+}
+
 .onboarding-form-actions {
   display: flex;
   justify-content: flex-end;
