@@ -3,6 +3,8 @@ import Stripe from 'stripe';
 import { getPool, sql, DB_AVAILABLE } from '@/lib/db';
 import { sendEmail } from '@/lib/email';
 import { patientRefunded } from '@/lib/emailTemplates';
+import { bookingByTokenCancelSchema, formatZodError } from '@/lib/schemas';
+import { clientError } from '@/lib/errors';
 
 export const dynamic = 'force-dynamic';
 
@@ -31,20 +33,35 @@ export async function POST(request, { params }) {
 
   let body = {};
   try { body = await request.json(); } catch { /* allow empty body */ }
-  const reason = (body?.reason || 'patient_self_service').toString().slice(0, 200);
+  const parsed = bookingByTokenCancelSchema.safeParse(body || {});
+  if (!parsed.success) {
+    return clientError(formatZodError(parsed.error), 400);
+  }
+  const reason = parsed.data.reason || 'patient_self_service';
 
   const pool = await getPool();
 
   // Look up the booking by token. We need patient details + payment intent id.
+  // self_service_token_expires_at is COALESCE'd because legacy rows pre-
+  // migration have a NULL there; we treat NULL as "not yet enforced".
   const r = await pool.request()
     .input('token', sql.NVarChar(64), token)
     .query(`
       SELECT id, patient_name, patient_email, provider_name, slot_date,
-             slot_time, amount, status, payment_intent_id
+             slot_time, amount, status, payment_intent_id,
+             self_service_token_expires_at
       FROM bookings WHERE self_service_token = @token
     `);
   const booking = r.recordset[0];
   if (!booking) return NextResponse.json({ error: 'No encontrado' }, { status: 404 });
+
+  if (booking.self_service_token_expires_at &&
+      new Date(booking.self_service_token_expires_at).getTime() < Date.now()) {
+    return NextResponse.json(
+      { error: 'Este enlace de cancelación ha expirado. Escribe a operaciones@medconnect.es.' },
+      { status: 410 },
+    );
+  }
 
   // Guard against cancelling a slot that's already past or in a terminal state.
   const terminal = ['cancelled_by_patient', 'cancelled', 'refunded', 'expired'];
@@ -69,10 +86,16 @@ export async function POST(request, { params }) {
   if (stripeKey && piId && piId.startsWith('pi_')) {
     try {
       const stripe = new Stripe(stripeKey, { apiVersion: '2024-04-10' });
-      const refund = await stripe.refunds.create({
-        payment_intent: piId,
-        reason: 'requested_by_customer',
-      });
+      // Idempotency-Key bound to the booking id makes a double-clicking
+      // patient — or a Vercel retry on a crashed Lambda — safe: Stripe
+      // returns the same refund object instead of creating a second one.
+      const refund = await stripe.refunds.create(
+        {
+          payment_intent: piId,
+          reason: 'requested_by_customer',
+        },
+        { idempotencyKey: `refund_${booking.id}` },
+      );
       refundId = refund.id;
       refundAmount = (refund.amount || 0) / 100;
     } catch (err) {

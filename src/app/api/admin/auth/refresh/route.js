@@ -14,7 +14,7 @@ import { limits } from '@/lib/rateLimit';
 export async function POST(request) {
   // Same brute-force shield as login — refusing to refresh under flood is
   // safer than letting an attacker cycle stolen tokens forever.
-  const r = limits.adminLogin.check(request);
+  const r = await limits.adminLogin.check(request);
   if (!r.ok) {
     return NextResponse.json(
       { error: 'rate_limited', retryAfterSec: r.retryAfterSec },

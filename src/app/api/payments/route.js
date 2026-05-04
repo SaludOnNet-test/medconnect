@@ -2,100 +2,128 @@
  * POST /api/payments
  *
  * Process real Stripe payment.
- * Expects: { amount, paymentMethodId, email, description, name }
+ * Expects: { amount, paymentMethodId, email, description, name, bookingId? }
  * Returns: { clientSecret, id, status } or { error }
+ *
+ * Security notes:
+ *  - Rate-limited by IP (limits.payments) — buys time against an attacker
+ *    pumping fake PaymentIntents. Backed by Upstash KV when configured,
+ *    in-memory fallback otherwise.
+ *  - Hard amount cap (MAX_AMOUNT_EUR) — caps blast radius of any client-
+ *    side tampering before Stripe validation kicks in.
+ *  - Idempotency-Key bound to bookingId (when provided) so a flaky
+ *    network or a double-clicking patient doesn't generate two charges.
+ *  - zod schema rejects unexpected fields and bad types at the boundary.
+ *  - Errors are not echoed verbatim to the client (apart from Stripe's own
+ *    user-actionable messages like 'card declined').
  */
 
 import Stripe from 'stripe';
+import { NextResponse } from 'next/server';
+import { limits } from '@/lib/rateLimit';
+import { internalError, clientError } from '@/lib/errors';
+import { paymentsBodySchema, formatZodError } from '@/lib/schemas';
+
+const MAX_AMOUNT_EUR = 1000;
 
 export async function POST(request) {
-  if (!process.env.STRIPE_SECRET_KEY) {
-    return new Response(JSON.stringify({ error: 'Payment processing not configured' }), { status: 503, headers: { 'Content-Type': 'application/json' } });
+  const r = await limits.payments.check(request);
+  if (!r.ok) {
+    return NextResponse.json(
+      { error: 'rate_limited' },
+      { status: 429, headers: r.headers },
+    );
   }
+
+  if (!process.env.STRIPE_SECRET_KEY) {
+    return NextResponse.json(
+      { error: 'Payment processing not configured' },
+      { status: 503 },
+    );
+  }
+
   const stripe = new Stripe(process.env.STRIPE_SECRET_KEY, { apiVersion: '2024-04-10' });
   try {
-    const { amount, paymentMethodId, email, description, name } = await request.json();
+    let body;
+    try { body = await request.json(); }
+    catch { return clientError('Invalid JSON', 400); }
 
-    if (!amount || !paymentMethodId) {
-      return new Response(
-        JSON.stringify({ error: 'Missing amount or paymentMethodId' }),
-        { status: 400, headers: { 'Content-Type': 'application/json' } }
-      );
+    const parsed = paymentsBodySchema.safeParse(body);
+    if (!parsed.success) {
+      return clientError(formatZodError(parsed.error), 400);
+    }
+    const { amount, paymentMethodId, email, description, name, bookingId } = parsed.data;
+
+    if (amount > MAX_AMOUNT_EUR) {
+      return clientError(`Amount exceeds maximum (${MAX_AMOUNT_EUR} EUR)`, 400);
     }
 
-    // Defensive email validation. The previous client code accidentally sent
-    // the cardholder name in this field (e.g. "Juan Pérez"), which made
-    // stripe.paymentIntents.create reject the call with email_invalid
-    // ("Dirección de correo electrónico no válida"). Client is fixed, but
-    // strip anything that doesn't look like an email here too so a stale
-    // cached bundle never blows up checkout.
-    const safeReceiptEmail =
-      typeof email === 'string' && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())
-        ? email.trim()
-        : undefined;
+    const safeReceiptEmail = email ? email.trim() : undefined;
 
-    // Create Payment Intent
-    const paymentIntent = await stripe.paymentIntents.create({
-      amount: Math.round(amount * 100), // Convert to cents
-      currency: 'eur',
-      payment_method: paymentMethodId,
-      confirm: true,
-      automatic_payment_methods: {
-        enabled: true,
-        allow_redirects: 'never',
-      },
-      ...(safeReceiptEmail ? { receipt_email: safeReceiptEmail } : {}),
-      description: description || `Med Connect Booking - ${name}`,
-      metadata: {
-        email: safeReceiptEmail || '',
-        name: typeof name === 'string' ? name : '',
-        type: 'booking',
-      },
-    });
+    // Idempotency key — when the client provides a bookingId, two retries
+    // with the same id always return the same PaymentIntent instead of
+    // creating duplicates. Falls back to a payment-method-scoped key so a
+    // double-click within a few seconds is still de-duped.
+    const idempotencyKey = bookingId
+      ? `booking_${String(bookingId)}`
+      : `pm_${String(paymentMethodId)}_${Math.floor(Date.now() / 5000)}`;
 
-    // Handle success or failure
+    const paymentIntent = await stripe.paymentIntents.create(
+      {
+        amount: Math.round(amount * 100),
+        currency: 'eur',
+        payment_method: paymentMethodId,
+        confirm: true,
+        automatic_payment_methods: {
+          enabled: true,
+          allow_redirects: 'never',
+        },
+        ...(safeReceiptEmail ? { receipt_email: safeReceiptEmail } : {}),
+        description: description || `Med Connect Booking - ${name}`,
+        metadata: {
+          email: safeReceiptEmail || '',
+          name: typeof name === 'string' ? name : '',
+          type: 'booking',
+          ...(bookingId ? { bookingId: String(bookingId) } : {}),
+        },
+      },
+      { idempotencyKey },
+    );
+
     if (paymentIntent.status === 'succeeded') {
-      return new Response(
-        JSON.stringify({
-          success: true,
-          clientSecret: paymentIntent.client_secret,
-          id: paymentIntent.id,
-          status: paymentIntent.status,
-          last4: paymentIntent.payment_method_details?.card?.last4 || 'xxxx',
-        }),
-        { status: 200, headers: { 'Content-Type': 'application/json' } }
-      );
+      return NextResponse.json({
+        success: true,
+        clientSecret: paymentIntent.client_secret,
+        id: paymentIntent.id,
+        status: paymentIntent.status,
+        last4: paymentIntent.payment_method_details?.card?.last4 || 'xxxx',
+      });
     } else if (paymentIntent.status === 'requires_action') {
-      // 3D Secure or other SCA (Secure Customer Authentication)
-      return new Response(
-        JSON.stringify({
-          success: false,
-          clientSecret: paymentIntent.client_secret,
-          id: paymentIntent.id,
-          status: paymentIntent.status,
-          requiresAction: true,
-          message: '3D Secure verification required',
-        }),
-        { status: 200, headers: { 'Content-Type': 'application/json' } }
-      );
+      return NextResponse.json({
+        success: false,
+        clientSecret: paymentIntent.client_secret,
+        id: paymentIntent.id,
+        status: paymentIntent.status,
+        requiresAction: true,
+        message: '3D Secure verification required',
+      });
     } else {
-      return new Response(
-        JSON.stringify({
+      return NextResponse.json(
+        {
           success: false,
           status: paymentIntent.status,
           error: 'Payment processing failed',
-        }),
-        { status: 400, headers: { 'Content-Type': 'application/json' } }
+        },
+        { status: 400 },
       );
     }
   } catch (error) {
-    console.error('Stripe error:', error.message);
-    return new Response(
-      JSON.stringify({
-        error: error.message || 'Payment processing error',
-        type: error.type,
-      }),
-      { status: 400, headers: { 'Content-Type': 'application/json' } }
-    );
+    if (error?.type && String(error.type).startsWith('Stripe')) {
+      return NextResponse.json(
+        { error: error.message || 'Payment processing error', type: error.type },
+        { status: 400 },
+      );
+    }
+    return internalError(error, '[POST /api/payments]');
   }
 }

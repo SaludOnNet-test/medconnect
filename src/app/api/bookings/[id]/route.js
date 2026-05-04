@@ -1,5 +1,7 @@
 import { NextResponse } from 'next/server';
 import { getPool, sql, DB_AVAILABLE } from '@/lib/db';
+import { requireRole } from '@/lib/adminAuth';
+import { internalError, clientError } from '@/lib/errors';
 
 function toBooking(row) {
   return {
@@ -33,6 +35,12 @@ export async function GET(request, { params }) {
     return NextResponse.json({ error: 'DB not configured' }, { status: 503 });
   }
 
+  // Patient self-service flows must use /api/bookings/by-token/[token],
+  // which authenticates with the unguessable token. Direct id lookup is
+  // ops-only.
+  const auth = requireRole(request, ['admin', 'ops']);
+  if (auth instanceof Response) return auth;
+
   const { id } = await params;
 
   try {
@@ -42,12 +50,11 @@ export async function GET(request, { params }) {
       .query('SELECT * FROM bookings WHERE id = @id');
 
     if (!result.recordset.length) {
-      return NextResponse.json({ error: 'Not found' }, { status: 404 });
+      return clientError('Not found', 404);
     }
     return NextResponse.json(toBooking(result.recordset[0]));
   } catch (err) {
-    console.error('[GET /api/bookings/[id]]', err);
-    return NextResponse.json({ error: err.message }, { status: 500 });
+    return internalError(err, '[GET /api/bookings/[id]]');
   }
 }
 
@@ -59,6 +66,12 @@ export async function PATCH(request, { params }) {
   if (!DB_AVAILABLE) {
     return NextResponse.json({ error: 'DB not configured' }, { status: 503 });
   }
+
+  // Status/notes/slot edits are an ops superpower — letting an unauthenticated
+  // caller PATCH a booking would let them silently flip a confirmed visit to
+  // 'cancelled' or rewrite the slot. Lock it.
+  const auth = requireRole(request, ['admin', 'ops']);
+  if (auth instanceof Response) return auth;
 
   const { id } = await params;
   const body = await request.json();
@@ -93,7 +106,7 @@ export async function PATCH(request, { params }) {
   }
 
   if (!setClauses.length) {
-    return NextResponse.json({ error: 'No fields to update' }, { status: 400 });
+    return clientError('No fields to update', 400);
   }
 
   setClauses.push('updated_at = SYSDATETIMEOFFSET()');
@@ -106,11 +119,10 @@ export async function PATCH(request, { params }) {
       .query('SELECT * FROM bookings WHERE id = @id');
 
     if (!result.recordset.length) {
-      return NextResponse.json({ error: 'Not found' }, { status: 404 });
+      return clientError('Not found', 404);
     }
     return NextResponse.json(toBooking(result.recordset[0]));
   } catch (err) {
-    console.error('[PATCH /api/bookings/[id]]', err);
-    return NextResponse.json({ error: err.message }, { status: 500 });
+    return internalError(err, '[PATCH /api/bookings/[id]]');
   }
 }

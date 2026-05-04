@@ -2,6 +2,21 @@ import { NextResponse } from 'next/server';
 import crypto from 'crypto';
 import { getPool, sql, DB_AVAILABLE } from '@/lib/db';
 import { createCaseForBooking } from '@/lib/opsCases';
+import { requireRole } from '@/lib/adminAuth';
+import { internalError, clientError } from '@/lib/errors';
+import { bookingsCreateSchema, formatZodError } from '@/lib/schemas';
+
+// Hard cap so a misbehaving admin UI can't pull every row at once. Combined
+// with mandatory ops auth this also bounds the data exposure if a token leaks.
+const MAX_PAGE_SIZE = 200;
+const DEFAULT_PAGE_SIZE = 100;
+const SELF_SERVICE_TOKEN_TTL_DAYS = 90;
+
+function clampInt(raw, fallback, max) {
+  const n = Number(raw);
+  if (!Number.isFinite(n) || n < 0) return fallback;
+  return Math.min(Math.floor(n), max);
+}
 
 function toBooking(row) {
   return {
@@ -32,17 +47,26 @@ function toBooking(row) {
 }
 
 // ---------------------------------------------------------------------------
-// GET /api/bookings?status=...&from=...&to=...
+// GET /api/bookings?status=...&from=...&to=...&limit=...&offset=...
+//
+// Admin/ops only. Without auth this endpoint historically dumped every
+// booking row in the system, which is a textbook RGPD-class data leak —
+// patient names, emails, phones, amounts, specialties, all unfiltered.
 // ---------------------------------------------------------------------------
 export async function GET(request) {
   if (!DB_AVAILABLE) {
     return NextResponse.json({ error: 'DB not configured' }, { status: 503 });
   }
 
+  const auth = requireRole(request, ['admin', 'ops']);
+  if (auth instanceof Response) return auth;
+
   const { searchParams } = new URL(request.url);
   const status = searchParams.get('status');
   const from = searchParams.get('from');
   const to = searchParams.get('to');
+  const limit = clampInt(searchParams.get('limit'), DEFAULT_PAGE_SIZE, MAX_PAGE_SIZE);
+  const offset = clampInt(searchParams.get('offset'), 0, 1_000_000);
 
   const conditions = [];
   const pool = await getPool();
@@ -60,15 +84,20 @@ export async function GET(request) {
     req.input('to', sql.NVarChar(20), to);
     conditions.push('slot_date <= @to');
   }
+  req.input('limit', sql.Int, limit);
+  req.input('offset', sql.Int, offset);
 
   const where = conditions.length ? `WHERE ${conditions.join(' AND ')}` : '';
 
   try {
-    const result = await req.query(`SELECT * FROM bookings ${where} ORDER BY created_at DESC`);
+    const result = await req.query(
+      `SELECT * FROM bookings ${where}
+       ORDER BY created_at DESC
+       OFFSET @offset ROWS FETCH NEXT @limit ROWS ONLY`,
+    );
     return NextResponse.json(result.recordset.map(toBooking));
   } catch (err) {
-    console.error('[GET /api/bookings]', err);
-    return NextResponse.json({ error: err.message }, { status: 500 });
+    return internalError(err, '[GET /api/bookings]');
   }
 }
 
@@ -80,7 +109,14 @@ export async function POST(request) {
     return NextResponse.json({ error: 'DB not configured' }, { status: 503 });
   }
 
-  const body = await request.json();
+  let body;
+  try { body = await request.json(); }
+  catch { return clientError('Invalid JSON', 400); }
+
+  const parsed = bookingsCreateSchema.safeParse(body);
+  if (!parsed.success) {
+    return clientError(formatZodError(parsed.error), 400);
+  }
   const {
     id,
     referralId,
@@ -103,11 +139,7 @@ export async function POST(request) {
     procedureName,
     servicePrice,
     platformFee,
-  } = body;
-
-  if (!id || !patientEmail) {
-    return NextResponse.json({ error: 'id and patientEmail are required' }, { status: 400 });
-  }
+  } = parsed.data;
 
   // B9 — server-side amount validation. For sin-seguro bookings we re-fetch the
   // SON catalogue price for the (clinic, procedure) pair and verify it matches
@@ -143,8 +175,12 @@ export async function POST(request) {
 
   // F2 — generate the patient self-service token at insert time. 32 hex chars
   // (128 bits of entropy), unique-indexed so collisions error out instead of
-  // silently sharing tokens between bookings.
+  // silently sharing tokens between bookings. Tokens expire 90 days after
+  // creation so a leaked email doesn't yield an indefinite cancel primitive.
   const selfServiceToken = crypto.randomBytes(16).toString('hex');
+  const selfServiceTokenExpiresAt = new Date(
+    Date.now() + SELF_SERVICE_TOKEN_TTL_DAYS * 24 * 60 * 60 * 1000,
+  );
 
   try {
     const pool = await getPool();
@@ -171,17 +207,20 @@ export async function POST(request) {
       .input('service_price', sql.Decimal(10, 2), servicePrice != null ? Number(servicePrice) : null)
       .input('platform_fee', sql.Decimal(10, 2), platformFee != null ? Number(platformFee) : null)
       .input('self_service_token', sql.NVarChar(64), selfServiceToken)
+      .input('self_service_token_expires_at', sql.DateTimeOffset, selfServiceTokenExpiresAt)
       .query(`
         INSERT INTO bookings
           (id, referral_id, patient_name, patient_email, patient_phone, patient_address,
            provider_id, provider_name, specialty, slot_date, slot_time,
            amount, status, card_last4, has_insurance, insurance_company, payment_intent_id,
-           procedure_slug, procedure_name, service_price, platform_fee, self_service_token)
+           procedure_slug, procedure_name, service_price, platform_fee,
+           self_service_token, self_service_token_expires_at)
         VALUES
           (@id, @referral_id, @patient_name, @patient_email, @patient_phone, @patient_address,
            @provider_id, @provider_name, @specialty, @slot_date, @slot_time,
            @amount, @status, @card_last4, @has_insurance, @insurance_company, @payment_intent_id,
-           @procedure_slug, @procedure_name, @service_price, @platform_fee, @self_service_token)
+           @procedure_slug, @procedure_name, @service_price, @platform_fee,
+           @self_service_token, @self_service_token_expires_at)
       `);
 
     // For sin-seguro bookings, open a voucher row in awaiting_voucher state so
@@ -223,7 +262,6 @@ export async function POST(request) {
       _case: opsCase,
     }, { status: 201 });
   } catch (err) {
-    console.error('[POST /api/bookings]', err);
-    return NextResponse.json({ error: err.message }, { status: 500 });
+    return internalError(err, '[POST /api/bookings]');
   }
 }

@@ -37,11 +37,36 @@ function fmtDate(d) {
 
 function fileNameFromUrl(url) {
   try {
-    const u = new URL(url);
-    const last = u.pathname.split('/').pop() || 'documento';
+    // The admin proxy wraps the original blob URL inside ?u=…
+    const u = new URL(url, typeof window !== 'undefined' ? window.location.origin : 'http://x');
+    const inner = u.searchParams.get('u');
+    const target = inner ? new URL(inner) : u;
+    const last = target.pathname.split('/').pop() || 'documento';
     return decodeURIComponent(last);
   } catch {
     return 'documento';
+  }
+}
+
+/**
+ * Open a proxy-protected document. We fetch with the admin bearer token,
+ * turn the response into a same-origin blob: URL, and open it in a new
+ * tab. Plain <a href> wouldn't work because navigation doesn't carry the
+ * Authorization header.
+ */
+async function openAdminDocument(proxyUrl) {
+  try {
+    const res = await adminFetch(proxyUrl);
+    if (!res.ok) {
+      alert(`No se pudo abrir el documento (status ${res.status})`);
+      return;
+    }
+    const blob = await res.blob();
+    const objectUrl = URL.createObjectURL(blob);
+    window.open(objectUrl, '_blank', 'noopener,noreferrer');
+    setTimeout(() => URL.revokeObjectURL(objectUrl), 60_000);
+  } catch (err) {
+    alert(`Error al abrir documento: ${err.message}`);
   }
 }
 
@@ -199,14 +224,13 @@ export default function ProVerificationsPage() {
                     <ul style={{ margin: 0, padding: 0, listStyle: 'none', display: 'flex', flexDirection: 'column', gap: 4 }}>
                       {req.documentUrls.map((url, i) => (
                         <li key={i}>
-                          <a
-                            href={url}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            style={{ color: '#1a3c5e', fontWeight: 600, fontSize: 13, wordBreak: 'break-all' }}
+                          <button
+                            type="button"
+                            onClick={() => openAdminDocument(url)}
+                            style={{ color: '#1a3c5e', fontWeight: 600, fontSize: 13, wordBreak: 'break-all', background: 'none', border: 'none', padding: 0, cursor: 'pointer', textAlign: 'left' }}
                           >
                             📎 {fileNameFromUrl(url)}
-                          </a>
+                          </button>
                         </li>
                       ))}
                     </ul>

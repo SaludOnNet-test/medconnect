@@ -138,6 +138,39 @@ export async function GET(request) {
         ON bookings(self_service_token) WHERE self_service_token IS NOT NULL;
     `);
 
+    // ── Migration: self_service_token_expires_at ──────────────────────
+    // Cancel/reschedule tokens go in confirmation emails that may live
+    // forever in the patient's inbox. We hard-cap their lifetime here
+    // (90 days from booking creation) so a leaked email doesn't yield an
+    // indefinite cancel-and-refund primitive months later.
+    await pool.request().query(`
+      IF NOT EXISTS (
+        SELECT * FROM sys.columns
+        WHERE Name = 'self_service_token_expires_at' AND Object_ID = Object_ID('bookings')
+      )
+      ALTER TABLE bookings ADD self_service_token_expires_at DATETIMEOFFSET NULL;
+    `);
+    await pool.request().query(`
+      UPDATE bookings
+      SET self_service_token_expires_at = DATEADD(day, 90, created_at)
+      WHERE self_service_token IS NOT NULL
+        AND self_service_token_expires_at IS NULL;
+    `);
+
+    // ── Performance indexes (idempotent) ─────────────────────────────
+    await pool.request().query(`
+      IF NOT EXISTS (SELECT * FROM sys.indexes WHERE name = 'IX_bookings_created_at' AND object_id = OBJECT_ID('bookings'))
+      CREATE INDEX IX_bookings_created_at ON bookings(created_at DESC);
+    `);
+    await pool.request().query(`
+      IF NOT EXISTS (SELECT * FROM sys.indexes WHERE name = 'IX_bookings_slot_status' AND object_id = OBJECT_ID('bookings'))
+      CREATE INDEX IX_bookings_slot_status ON bookings(slot_date, status);
+    `);
+    await pool.request().query(`
+      IF NOT EXISTS (SELECT * FROM sys.indexes WHERE name = 'IX_bookings_payment_intent' AND object_id = OBJECT_ID('bookings'))
+      CREATE INDEX IX_bookings_payment_intent ON bookings(payment_intent_id) WHERE payment_intent_id IS NOT NULL;
+    `);
+
     // ── operations_cases: one case per booking that needs ops handling ─
     await pool.request().query(`
       IF NOT EXISTS (SELECT * FROM sys.tables WHERE name = 'operations_cases')
@@ -310,6 +343,35 @@ export async function GET(request) {
         ALTER TABLE ${tbl} ADD info_response_at DATETIMEOFFSET NULL;
       `);
     }
+
+    // ── Performance indexes for hot read paths ────────────────────────
+    await pool.request().query(`
+      IF EXISTS (SELECT 1 FROM sys.tables WHERE name = 'clinic_specialties')
+      AND NOT EXISTS (SELECT 1 FROM sys.indexes WHERE name = 'IX_clinic_specialties_clinic_id' AND object_id = OBJECT_ID('clinic_specialties'))
+      CREATE INDEX IX_clinic_specialties_clinic_id ON clinic_specialties(clinic_id);
+    `);
+    await pool.request().query(`
+      IF EXISTS (SELECT 1 FROM sys.tables WHERE name = 'clinic_specialties')
+      AND NOT EXISTS (SELECT 1 FROM sys.indexes WHERE name = 'IX_clinic_specialties_slug' AND object_id = OBJECT_ID('clinic_specialties'))
+      CREATE INDEX IX_clinic_specialties_slug ON clinic_specialties(specialty_slug);
+    `);
+    await pool.request().query(`
+      IF EXISTS (SELECT 1 FROM sys.tables WHERE name = 'clinic_procedures')
+      AND NOT EXISTS (SELECT 1 FROM sys.indexes WHERE name = 'IX_clinic_procedures_clinic_slug' AND object_id = OBJECT_ID('clinic_procedures'))
+      CREATE INDEX IX_clinic_procedures_clinic_slug ON clinic_procedures(clinic_id, procedure_slug);
+    `);
+    await pool.request().query(`
+      IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE name = 'IX_referrals_state_created_at' AND object_id = OBJECT_ID('referrals'))
+      CREATE INDEX IX_referrals_state_created_at ON referrals(state, created_at DESC);
+    `);
+    await pool.request().query(`
+      IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE name = 'IX_referrals_reminder_pending' AND object_id = OBJECT_ID('referrals'))
+      CREATE INDEX IX_referrals_reminder_pending ON referrals(reminder_sent, created_at) WHERE state = 'PENDING' AND reminder_sent = 0;
+    `);
+    await pool.request().query(`
+      IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE name = 'IX_analytics_events_event_created_at' AND object_id = OBJECT_ID('analytics_events'))
+      CREATE INDEX IX_analytics_events_event_created_at ON analytics_events(event_name, created_at DESC);
+    `);
 
     return NextResponse.json({ success: true, message: 'Schema ready (tables + migrations applied)' });
   } catch (err) {

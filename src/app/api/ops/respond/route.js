@@ -56,10 +56,13 @@ export async function GET(request) {
   if (stripeKey && piId) {
     try {
       const stripe = new Stripe(stripeKey, { apiVersion: '2024-04-10' });
-      const refund = await stripe.refunds.create({
-        payment_intent: piId,
-        reason: 'requested_by_customer',
-      });
+      const refund = await stripe.refunds.create(
+        {
+          payment_intent: piId,
+          reason: 'requested_by_customer',
+        },
+        { idempotencyKey: `ops_refund_case_${c.id}` },
+      );
       refundId = refund.id;
       refundAmount = (refund.amount || 0) / 100;
     } catch (err) {

@@ -2,6 +2,8 @@ import { NextResponse } from 'next/server';
 import { getPool, sql, DB_AVAILABLE } from '@/lib/db';
 import { sendEmail } from '@/lib/email';
 import { operationsBookingAlert } from '@/lib/emailTemplates';
+import { bookingByTokenRescheduleSchema, formatZodError } from '@/lib/schemas';
+import { clientError } from '@/lib/errors';
 
 export const dynamic = 'force-dynamic';
 
@@ -31,19 +33,32 @@ export async function POST(request, { params }) {
 
   let body = {};
   try { body = await request.json(); } catch { /* allow empty */ }
-  const preferredDates = String(body?.preferredDates || '').slice(0, 500);
-  const notes = String(body?.notes || '').slice(0, 1000);
+  const parsed = bookingByTokenRescheduleSchema.safeParse(body || {});
+  if (!parsed.success) {
+    return clientError(formatZodError(parsed.error), 400);
+  }
+  const preferredDates = parsed.data.preferredDates || '';
+  const notes = parsed.data.notes || '';
 
   const pool = await getPool();
   const r = await pool.request()
     .input('token', sql.NVarChar(64), token)
     .query(`
       SELECT id, patient_name, patient_email, provider_name, slot_date,
-             slot_time, amount, status, has_insurance, insurance_company
+             slot_time, amount, status, has_insurance, insurance_company,
+             self_service_token_expires_at
       FROM bookings WHERE self_service_token = @token
     `);
   const booking = r.recordset[0];
   if (!booking) return NextResponse.json({ error: 'No encontrado' }, { status: 404 });
+
+  if (booking.self_service_token_expires_at &&
+      new Date(booking.self_service_token_expires_at).getTime() < Date.now()) {
+    return NextResponse.json(
+      { error: 'Este enlace ha expirado. Escribe a operaciones@medconnect.es.' },
+      { status: 410 },
+    );
+  }
 
   // Refuse if the booking is already in a terminal state.
   const terminal = ['cancelled_by_patient', 'cancelled', 'refunded', 'expired'];
