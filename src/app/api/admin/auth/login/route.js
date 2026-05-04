@@ -6,7 +6,7 @@ export async function POST(request) {
   try {
     // Brute-force shield: 10 login attempts/min/IP. Generous for legit ops
     // (mistyped password, retry) but blocks credential-stuffing.
-    const r = limits.adminLogin.check(request);
+    const r = await limits.adminLogin.check(request);
     if (!r.ok) {
       return NextResponse.json(
         { error: 'rate_limited', retryAfterSec: r.retryAfterSec },

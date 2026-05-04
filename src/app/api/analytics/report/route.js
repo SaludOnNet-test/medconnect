@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { getPool, DB_AVAILABLE } from '@/lib/db';
 import Anthropic from '@anthropic-ai/sdk';
+import { internalError } from '@/lib/errors';
 
 export const dynamic = 'force-dynamic';
 
@@ -92,8 +93,15 @@ export async function GET(request) {
       },
     };
 
-    // Call Claude
-    const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
+    // Call Claude. The SDK's default timeout is unbounded, which is a
+    // foot-gun on Vercel — a long-running model call can pin the Lambda
+    // until the 45 s ceiling, costing time and money. 60 s gives Claude
+    // a roomy budget without surrendering the whole function.
+    const client = new Anthropic({
+      apiKey: process.env.ANTHROPIC_API_KEY,
+      timeout: 60_000,
+      maxRetries: 1,
+    });
     const model = process.env.ANTHROPIC_MODEL || 'claude-opus-4-5';
 
     const message = await client.messages.create({
@@ -139,7 +147,6 @@ Provide exactly 3 recommendations ranked by expected impact. Be specific and act
       model,
     });
   } catch (err) {
-    console.error('[analytics/report]', err);
-    return NextResponse.json({ error: err.message }, { status: 500 });
+    return internalError(err, '[analytics/report]');
   }
 }

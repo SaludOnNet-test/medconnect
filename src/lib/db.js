@@ -8,15 +8,23 @@ const config = {
   database: process.env.AZURE_SQL_DATABASE || '',
   user: process.env.AZURE_SQL_USER || '',
   password: process.env.AZURE_SQL_PASSWORD || '',
+  // Both timeouts default to 15 s in tedious; keeping them explicit so a
+  // hung Azure SQL doesn't pin a Vercel Lambda for the full 45 s ceiling.
+  connectionTimeout: 15_000,
+  requestTimeout: 20_000,
   options: {
     encrypt: true,
     trustServerCertificate: false,
     enableArithAbort: true,
   },
   pool: {
-    max: 10,
+    // Each Lambda instance keeps its own pool. Azure SQL's per-database
+    // connection cap depends on the tier — verify before raising further.
+    // 25 × N concurrent Lambdas should comfortably fit S2/S3.
+    max: Number(process.env.MSSQL_POOL_MAX) || 25,
     min: 0,
     idleTimeoutMillis: 30000,
+    acquireTimeoutMillis: 15000,
   },
 };
 

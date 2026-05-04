@@ -18,7 +18,7 @@ export async function POST(request) {
   if (!DB_AVAILABLE) return NextResponse.json({ ok: true });
 
   // Silent rate-limit: drop excess events but still 200 the client.
-  const r = limits.analyticsEvent.check(request);
+  const r = await limits.analyticsEvent.check(request);
   if (!r.ok) return NextResponse.json({ ok: true, dropped: true }, { headers: r.headers });
 
   try {

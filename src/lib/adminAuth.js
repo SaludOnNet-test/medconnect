@@ -6,23 +6,39 @@ import crypto from 'crypto';
 import { NextResponse } from 'next/server';
 import { query, sql, DB_AVAILABLE } from '@/lib/db';
 
-const SESSION_SECRET = process.env.SESSION_SECRET || process.env.DB_SETUP_SECRET || 'dev-session-secret';
 const TOKEN_TTL_MS = 12 * 60 * 60 * 1000; // 12 h
 
+// Resolve SESSION_SECRET lazily so `next build` doesn't fail when the env var
+// is missing at build time. In production we refuse to operate without an
+// explicit secret — the previous fallback chain (DB_SETUP_SECRET → 'dev-…')
+// silently degraded HMAC strength to a publicly-known constant, which would
+// have let anyone forge admin/ops tokens.
+function getSessionSecret() {
+  const fromEnv = process.env.SESSION_SECRET;
+  if (fromEnv && fromEnv.length >= 32) return fromEnv;
+  if (process.env.NODE_ENV === 'production') {
+    throw new Error(
+      'SESSION_SECRET is missing or too short (need ≥ 32 chars). ' +
+      'Generate with `openssl rand -hex 32` and set it in Vercel env vars.',
+    );
+  }
+  return fromEnv || 'dev-session-secret-not-for-production';
+}
+
 function sign(payload) {
-  return crypto.createHmac('sha256', SESSION_SECRET).update(payload).digest('hex');
+  return crypto.createHmac('sha256', getSessionSecret()).update(payload).digest('hex');
 }
 
 function hashPassword(password) {
   // Plain prefix is for the seeded default; once a user changes it we move to scrypt.
-  return 'scrypt:' + crypto.scryptSync(password, SESSION_SECRET, 32).toString('hex');
+  return 'scrypt:' + crypto.scryptSync(password, getSessionSecret(), 32).toString('hex');
 }
 
 export function verifyPassword(password, stored) {
   if (!stored) return false;
   if (stored.startsWith('plain:')) return stored.slice(6) === password;
   if (stored.startsWith('scrypt:')) {
-    const expected = crypto.scryptSync(password, SESSION_SECRET, 32).toString('hex');
+    const expected = crypto.scryptSync(password, getSessionSecret(), 32).toString('hex');
     return crypto.timingSafeEqual(Buffer.from(stored.slice(7), 'hex'), Buffer.from(expected, 'hex'));
   }
   return false;

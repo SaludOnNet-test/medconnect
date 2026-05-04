@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { getPool, sql, DB_AVAILABLE } from '@/lib/db';
 import { requireRole } from '@/lib/adminAuth';
 import { sendEmail } from '@/lib/email';
+import { internalError } from '@/lib/errors';
 import {
   proVerificationApproved,
   proVerificationRejected,
@@ -153,12 +154,11 @@ export async function PATCH(request, { params }) {
 
     return NextResponse.json({ ok: true, status: 'approved' });
   } catch (err) {
-    console.error('[PATCH /api/admin/pro-verifications/[id]]', err);
     if (String(err?.message || '').includes('Invalid object name')) {
       return NextResponse.json({
         error: 'Migration pending — run scripts/migration_add_pro_verification.py.',
       }, { status: 503 });
     }
-    return NextResponse.json({ error: err.message }, { status: 500 });
+    return internalError(err, '[PATCH /api/admin/pro-verifications/[id]]');
   }
 }

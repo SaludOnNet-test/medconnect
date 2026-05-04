@@ -1,6 +1,17 @@
 import { NextResponse } from 'next/server';
 import { query, sql, DB_AVAILABLE } from '@/lib/db';
 import { requireRole } from '@/lib/adminAuth';
+import { internalError } from '@/lib/errors';
+
+/**
+ * Wrap a raw Vercel Blob URL behind our admin-gated proxy. The original
+ * URL never leaves the server — admins see only `/api/admin/blob?u=…`
+ * URLs they have to dereference with a valid bearer token.
+ */
+function proxyUrl(rawUrl) {
+  if (!rawUrl || typeof rawUrl !== 'string') return rawUrl;
+  return `/api/admin/blob?u=${encodeURIComponent(rawUrl)}`;
+}
 
 /**
  * GET /api/admin/pro-verifications?status=pending|approved|rejected|all
@@ -48,7 +59,9 @@ export async function GET(request) {
 
     const requests = result.recordset.map((r) => ({
       ...r,
-      documentUrls: parseUrls(r.document_urls),
+      // Wrap each blob URL behind the auth-gated proxy so a leaked admin
+      // page screenshot doesn't dox a pro's identity documents.
+      documentUrls: parseUrls(r.document_urls).map(proxyUrl),
     }));
 
     return NextResponse.json({ requests, counts: countMap });
@@ -56,8 +69,7 @@ export async function GET(request) {
     if (String(err?.message || '').includes('Invalid object name')) {
       return NextResponse.json({ requests: [], counts: {}, migrationPending: true });
     }
-    console.error('[GET /api/admin/pro-verifications]', err);
-    return NextResponse.json({ error: err.message }, { status: 500 });
+    return internalError(err, '[GET /api/admin/pro-verifications]');
   }
 }
 

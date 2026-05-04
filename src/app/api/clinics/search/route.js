@@ -1,5 +1,7 @@
 import { NextResponse } from 'next/server';
 import { query, sql, DB_AVAILABLE } from '@/lib/db';
+import { limits } from '@/lib/rateLimit';
+import { internalError } from '@/lib/errors';
 
 const SPECIALTY_SLUG_MAP = {
   1: ['traumatologia', 'cirugia-ortopedica'],
@@ -24,6 +26,17 @@ function slugsToSpecialtyIds(slugs) {
 }
 
 export async function GET(request) {
+  // Rate-limit: 60 req/min/IP. Search is the most expensive endpoint and
+  // also the easiest to weaponise — a bot can fan out specialty/city pairs
+  // with no auth and pin Azure SQL.
+  const rl = await limits.clinicSearch.check(request);
+  if (!rl.ok) {
+    return NextResponse.json(
+      { clinics: [], total: 0, source: 'rate_limited' },
+      { status: 429, headers: rl.headers },
+    );
+  }
+
   const { searchParams } = new URL(request.url);
   const city           = searchParams.get('city') || '';
   const specialtyId    = searchParams.get('specialty') || '';
@@ -88,38 +101,40 @@ export async function GET(request) {
       }
     }
 
-    // Count total for pagination
-    const countResult = await query(`SELECT COUNT(*) as total FROM clinics c ${where}`, params);
-    const total = countResult.recordset[0].total;
-
-    // Fetch page
-    const clinicsResult = await query(
-      `SELECT c.id, c.name, c.city, c.province, c.address,
-              c.rating, c.review_count, c.accepted_insurance, c.allows_free_cancel,
-              c.latitude, c.longitude, c.description, c.telephone,
-              c.small_picture_id, c.medium_picture_id, c.is_preferential
-       FROM clinics c
-       ${where}
-       ORDER BY c.is_preferential DESC, c.rating DESC, c.name ASC
-       OFFSET @offset ROWS FETCH NEXT @limit ROWS ONLY`,
-      { ...params, limit: { type: sql.Int, value: limit }, offset: { type: sql.Int, value: offset } }
+    // Single round-trip: COUNT(*) OVER() pulls the total alongside the page,
+    // STRING_AGG inlines the specialties array. Replaces the previous
+    // count + page + specialties N+1 (3 round trips → 1) and removes the
+    // unsafe `IN (${idList})` SQL string concatenation.
+    const sqlText = `
+      SELECT
+        c.id, c.name, c.city, c.province, c.address,
+        c.rating, c.review_count, c.accepted_insurance, c.allows_free_cancel,
+        c.latitude, c.longitude, c.description, c.telephone,
+        c.small_picture_id, c.medium_picture_id, c.is_preferential,
+        COUNT(*) OVER() AS total_count,
+        (SELECT STRING_AGG(cs.specialty_slug, ',')
+           FROM clinic_specialties cs
+          WHERE cs.clinic_id = c.id) AS specialty_slugs
+      FROM clinics c
+      ${where}
+      ORDER BY c.is_preferential DESC, c.rating DESC, c.name ASC
+      OFFSET @offset ROWS FETCH NEXT @limit ROWS ONLY
+    `;
+    const result = await query(
+      sqlText,
+      { ...params, limit: { type: sql.Int, value: limit }, offset: { type: sql.Int, value: offset } },
     );
 
-    const clinicIds = clinicsResult.recordset.map((r) => r.id);
+    const total = result.recordset[0]?.total_count || 0;
     const specialtiesByClinic = {};
-
-    if (clinicIds.length > 0) {
-      const idList = clinicIds.join(',');
-      const specsResult = await query(
-        `SELECT clinic_id, specialty_slug FROM clinic_specialties WHERE clinic_id IN (${idList})`
-      );
-      for (const row of specsResult.recordset) {
-        if (!specialtiesByClinic[row.clinic_id]) specialtiesByClinic[row.clinic_id] = [];
-        specialtiesByClinic[row.clinic_id].push(row.specialty_slug);
-      }
+    for (const r of result.recordset) {
+      specialtiesByClinic[r.id] = (r.specialty_slugs || '')
+        .split(',')
+        .map((s) => s.trim())
+        .filter(Boolean);
     }
 
-    const clinics = clinicsResult.recordset.map((c) => ({
+    const clinics = result.recordset.map((c) => ({
       id: c.id,
       name: c.name,
       city: c.city || '',
@@ -144,7 +159,6 @@ export async function GET(request) {
 
     return NextResponse.json({ clinics, total, offset, limit, source: 'db' });
   } catch (err) {
-    console.error('clinics/search error:', err);
-    return NextResponse.json({ clinics: [], total: 0, source: 'error', error: err.message }, { status: 500 });
+    return internalError(err, '[GET /api/clinics/search]');
   }
 }

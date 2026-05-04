@@ -36,7 +36,7 @@ export async function POST(request) {
   try {
     // 5 sends/min/IP. Stops accidental loops + abuse without blocking legit
     // server-side callers (which all live on the same IP and share the bucket).
-    const r = limits.emailSend.check(request);
+    const r = await limits.emailSend.check(request);
     if (!r.ok) {
       return Response.json(
         { success: false, error: 'rate_limited', retryAfterSec: r.retryAfterSec },

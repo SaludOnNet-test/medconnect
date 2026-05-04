@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import crypto from 'crypto';
 import { put } from '@vercel/blob';
 import { getPool, sql, DB_AVAILABLE } from '@/lib/db';
 import { sendEmail } from '@/lib/email';
@@ -7,9 +8,15 @@ import {
   proVerificationReceived,
   proVerificationInfoResponded,
 } from '@/lib/emailTemplates';
+import { limits } from '@/lib/rateLimit';
+import { internalError, clientError } from '@/lib/errors';
 
 const OPERATIONS_EMAIL = process.env.OPERATIONS_EMAIL || 'operaciones@medconnect.es';
 const HAS_BLOB = !!process.env.BLOB_READ_WRITE_TOKEN;
+const HAS_CLERK = !!(
+  process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY &&
+  process.env.CLERK_SECRET_KEY
+);
 
 const ALLOWED_MIME = new Set([
   'application/pdf',
@@ -39,6 +46,17 @@ const MAX_FILES = 5;                            // hard cap so a runaway client 
  * return it without creating a new one (mirrors clinic-alta-request).
  */
 export async function POST(request) {
+  // Rate limit: pro-verification carries multi-MB uploads — 5/hour/IP is
+  // plenty for a real pro retrying a couple of times, hostile enough to
+  // a bot trying to enumerate or DoS the ops mailbox.
+  const r = await limits.proVerification.check(request);
+  if (!r.ok) {
+    return NextResponse.json(
+      { error: 'rate_limited' },
+      { status: 429, headers: r.headers },
+    );
+  }
+
   if (!DB_AVAILABLE) {
     return NextResponse.json({ error: 'DB not configured' }, { status: 503 });
   }
@@ -49,14 +67,41 @@ export async function POST(request) {
     );
   }
 
+  // Clerk auth: a pro must be signed in (they hit this from /pro/sign-up
+  // or the verification modal). When Clerk is unconfigured (local dev)
+  // we fall through and trust the form email — but in any environment
+  // with Clerk keys we require a valid session AND that the form email
+  // matches one of the user's verified addresses. Without this anyone
+  // could submit verification docs in someone else's name.
+  let clerkEmails = null;
+  if (HAS_CLERK) {
+    try {
+      const { auth, clerkClient } = await import('@clerk/nextjs/server');
+      const { userId } = await auth();
+      if (!userId) {
+        return clientError('Authentication required', 401);
+      }
+      const client = await clerkClient();
+      const user = await client.users.getUser(userId);
+      clerkEmails = (user?.emailAddresses || [])
+        .map((e) => String(e?.emailAddress || '').toLowerCase())
+        .filter(Boolean);
+    } catch (err) {
+      return internalError(err, '[pro/verification auth]');
+    }
+  }
+
   let formData;
   try {
     formData = await request.formData();
   } catch {
-    return NextResponse.json({ error: 'invalid multipart payload' }, { status: 400 });
+    return clientError('invalid multipart payload', 400);
   }
 
   const email = String(formData.get('email') || '').trim().toLowerCase();
+  if (clerkEmails && !clerkEmails.includes(email)) {
+    return clientError('Email does not match the signed-in account', 403);
+  }
   const profileType = String(formData.get('profileType') || '').trim();
   const fullName = trimOrNull(formData.get('fullName'));
   const licenseNumber = trimOrNull(formData.get('licenseNumber'));
@@ -71,33 +116,33 @@ export async function POST(request) {
   const clientInfoResponseHint = String(formData.get('infoResponse') || '') === 'true';
 
   if (!email || !email.includes('@')) {
-    return NextResponse.json({ error: 'email required' }, { status: 400 });
+    return clientError('email required', 400);
   }
   if (!clientInfoResponseHint) {
     if (!['doctor', 'clinic'].includes(profileType)) {
-      return NextResponse.json({ error: 'profileType must be doctor or clinic' }, { status: 400 });
+      return clientError('profileType must be doctor or clinic', 400);
     }
     if (profileType === 'doctor' && (!fullName || !licenseNumber)) {
-      return NextResponse.json({ error: 'fullName and licenseNumber required for doctor' }, { status: 400 });
+      return clientError('fullName and licenseNumber required for doctor', 400);
     }
     if (profileType === 'clinic' && !clinicName) {
-      return NextResponse.json({ error: 'clinicName required for clinic' }, { status: 400 });
+      return clientError('clinicName required for clinic', 400);
     }
   }
 
   const files = formData.getAll('documents').filter((f) => f && typeof f === 'object' && 'arrayBuffer' in f);
   if (files.length === 0) {
-    return NextResponse.json({ error: 'at least one document required' }, { status: 400 });
+    return clientError('at least one document required', 400);
   }
   if (files.length > MAX_FILES) {
-    return NextResponse.json({ error: `too many files (max ${MAX_FILES})` }, { status: 400 });
+    return clientError(`too many files (max ${MAX_FILES})`, 400);
   }
   for (const f of files) {
     if (f.size > MAX_FILE_BYTES) {
-      return NextResponse.json({ error: `${f.name}: file exceeds ${MAX_FILE_BYTES / 1024 / 1024} MB` }, { status: 400 });
+      return clientError(`${f.name}: file exceeds ${MAX_FILE_BYTES / 1024 / 1024} MB`, 400);
     }
     if (!ALLOWED_MIME.has(f.type)) {
-      return NextResponse.json({ error: `${f.name}: type ${f.type} not allowed` }, { status: 400 });
+      return clientError(`${f.name}: type ${f.type} not allowed`, 400);
     }
   }
 
@@ -150,20 +195,23 @@ export async function POST(request) {
       }, { status: 409 });
     }
 
-    // Upload files to Vercel Blob (access: 'private' would require a token
-    // to read; for ops-only review we use 'public' but with a long random
-    // pathname — it's still effectively unguessable. The ops UI proxies
-    // the URL through an admin-gated endpoint anyway).
+    // Upload files to Vercel Blob. We persist the BLOB URL but the admin
+    // UI never displays it directly — reads go through
+    // /api/admin/blob?u=<encoded-url> which checks the ops session before
+    // fetching. A leaked URL still requires a valid bearer token.
+    // Random suffix + crypto.randomBytes nonce gives unguessable paths in
+    // depth (Math.random was previously used here, which is non-CSPRNG).
     const uploadedUrls = [];
     for (const file of files) {
       const safeName = (file.name || 'document')
         .replace(/[^A-Za-z0-9_.-]+/g, '_')
         .slice(0, 80);
-      const key = `pro-verification/${userRow.id}/${Date.now()}-${cryptoRandom()}-${safeName}`;
+      const nonce = crypto.randomBytes(8).toString('hex');
+      const key = `pro-verification/${userRow.id}/${Date.now()}-${nonce}-${safeName}`;
       const blob = await put(key, file, {
         access: 'public',
         contentType: file.type,
-        addRandomSuffix: false,
+        addRandomSuffix: true,
       });
       uploadedUrls.push(blob.url);
     }
@@ -266,13 +314,12 @@ export async function POST(request) {
 
     return NextResponse.json({ ok: true, requestId, status: 'pending', infoResponse: isInfoResponse });
   } catch (err) {
-    console.error('[POST /api/pro/verification]', err);
     if (String(err?.message || '').includes('Invalid object name')) {
       return NextResponse.json({
         error: 'Migration pending — pro_verification_requests table not yet created. Run scripts/migration_add_pro_verification.py.',
       }, { status: 503 });
     }
-    return NextResponse.json({ error: err.message }, { status: 500 });
+    return internalError(err, '[POST /api/pro/verification]');
   }
 }
 
@@ -280,11 +327,6 @@ function trimOrNull(value) {
   if (value == null) return null;
   const s = String(value).trim();
   return s.length ? s : null;
-}
-
-function cryptoRandom() {
-  // Short URL-safe random. Avoids importing crypto for one nonce.
-  return Math.random().toString(36).slice(2, 10);
 }
 
 async function safeQuery(req, queryString) {

@@ -1,6 +1,24 @@
 # Med Connect — MVP Launch Pending Tasks
 
-_Last updated: 2026-04-24 (continued from 2026-04-10)_
+_Last updated: 2026-05-04 (security audit + hardening; previous: 2026-04-24)_
+
+> **2026-05-04 security hardening summary** (full session in
+> `.claude/plans/hazme-una-revision-completa-gentle-cosmos.md`): added
+> security headers (HSTS / nosniff / Referrer-Policy / Permissions-Policy /
+> X-Frame-Options / CSP frame-ancestors), Stripe webhook
+> (`/api/stripe/webhook`), zod input validation on POST endpoints, captcha
+> server-side gate (`src/lib/captcha.js`), Upstash-backed rate limiter,
+> admin-gated blob proxy (`/api/admin/blob`), Clerk-auth on
+> `/api/pro/verification`, `requireRole` on `/api/bookings` GET/PATCH +
+> `/api/bookings/[id]`, idempotency keys on Stripe refunds, 90-day TTL on
+> `self_service_token`, single-query refactor of `/api/clinics/search`
+> (COUNT OVER + STRING_AGG, no more N+1), 9 new Azure SQL indexes, lazy
+> hard-fail on `SESSION_SECRET` in production, fetch-with-timeout helper
+> + Resend / Anthropic timeouts, sanitized 500 responses with Sentry
+> capture + requestId. Outstanding manual steps tracked here as B6, F10,
+> F11 + the env vars that need pushing to Vercel (SENTRY_DSN,
+> UPSTASH_REDIS_REST_URL, UPSTASH_REDIS_REST_TOKEN, SESSION_SECRET,
+> STRIPE_WEBHOOK_SECRET).
 
 ---
 
@@ -32,8 +50,9 @@ _Last updated: 2026-04-24 (continued from 2026-04-10)_
 | B1 | **Azure SQL firewall** — allow Azure services | Portal Azure → Networking → "Allow Azure services and resources" → ON. Without this DB is unreachable in production. Hit `/api/db/setup?secret=mc-setup-2026` once after enabling to create all tables. |
 | B2 | **Verify medconnect.es DNS on Resend** | Resend dashboard → Domains → add medconnect.es → add SPF/DKIM records to domain registrar. Until done, emails may land in spam. Once done, update H7 to change FROM email. |
 | B3 | **Add real CIF to Aviso Legal** | `/legal` page — CIF row currently omitted (MVP). Add company legal CIF before going public. |
-| B4 | **Real Stripe integration** | Currently mock (4242 card). Needs SaludOnNet Stripe project + new domain binding. Requires coordination with SaludOnNet team. Last step before real payments. |
+| B4 | **Real Stripe integration** | Currently mock (4242 card). Needs SaludOnNet Stripe project + new domain binding. Requires coordination with SaludOnNet team. Last step before real payments. **Sub-task:** configure the Stripe webhook at `/api/stripe/webhook` (events `payment_intent.succeeded`, `payment_intent.payment_failed`, `charge.refunded`) and copy the signing secret to `STRIPE_WEBHOOK_SECRET` in Vercel. The handler is already implemented; without it, 3-D-Secure failures leave bookings de-synced from Stripe charges. |
 | B5 | **Azure frontend infrastructure (decision)** | Azure server 52.158.47.4 has nginx + certbot ready but NO medconnect.es configured yet. **Recommendation: KEEP VERCEL** for frontend (GitHub auto-deploy, global CDN). Azure is backup infrastructure if needed. |
+| B6 | **Rotate ALL secrets in `.env.local` + Vercel before public launch** | Identified during the 2026-05 security audit. Affected secrets — every one passed through chat / logs at some point and must be considered compromised: `RESEND_API_KEY`, `CLERK_SECRET_KEY`, `STRIPE_SECRET_KEY`, `AZURE_SQL_PASSWORD`, `BLOB_READ_WRITE_TOKEN`, `VERCEL_TOKEN`, `ANTHROPIC_API_KEY`, `DB_SETUP_SECRET`, `CRON_SECRET`, `ANALYTICS_SECRET`. Generate new ones (`openssl rand -hex 32` for the local secrets, dashboard-rotate buttons for the SaaS ones), update both `.env.local` and Vercel project env vars, redeploy. Also generate `SESSION_SECRET` (was previously falling back to `DB_SETUP_SECRET` — now `src/lib/adminAuth.js` throws if it's missing in production). |
 
 ---
 
@@ -62,7 +81,7 @@ _Last updated: 2026-04-24 (continued from 2026-04-10)_
 | M1 | **Custom domain DNS setup** | Point medconnect.es DNS A record → Vercel. Coordinate with domain registrar. Verify in Vercel dashboard → Domains. |
 | M2 | **Anthropic API key** | For `/api/analytics/report` weekly Claude-generated insights. `console.anthropic.com` → create key → add as `ANTHROPIC_API_KEY` in Vercel env vars. |
 | M3 | **SaludOnNet DB sync** | Read-only credentials + schema from SaludOnNet team. Enables live clinic slots from SaludOnNet instead of mock `availability[]` data. Critical for real clinic bookings. |
-| M4 | **Rate limiting** | Implement on `/api/analytics/event` (max 100 events/session) and `/api/referrals` (max 10/hour per IP). Prevents spam/abuse. |
+| M4 | ~~**Rate limiting**~~ | ✅ Done 2026-05-04 + extended in 2026-05 audit. `src/lib/rateLimit.js` now ships an Upstash Redis (REST) backend with in-memory fallback. Buckets: analyticsEvent, referralsPost, emailSend, adminLogin, payments, proVerification, clinicSearch, contact. Set `UPSTASH_REDIS_REST_URL` + `UPSTASH_REDIS_REST_TOKEN` in Vercel for cross-Lambda enforcement. |
 | M5 | **Mobile testing** | Full QA: iOS Safari + Chrome Android on `/search-v2`, booking flow, CookieBanner, specialty landing pages. Test responsive grid + sticky UI. |
 | M6 | **Custom 404 page** | `src/app/not-found.js` — show friendly error + search bar + home link. Currently shows default Next.js 404. |
 | M7 | **Clarity Microsoft integration (optional)** | If keeping Clarity for session recording: create project at clarity.microsoft.com, add `NEXT_PUBLIC_CLARITY_ID` to Vercel. Currently GA4 is primary. |
@@ -75,7 +94,9 @@ _Last updated: 2026-04-24 (continued from 2026-04-10)_
 | # | Task | Notes |
 |---|------|-------|
 | F1 | **Re-enable Med Connect Plus plans** | Content preserved in `feature/with-plans` git branch. Merge to main when Plus feature launches. Includes home, book flow, /suscripcion pages with plan pricing. |
-| F2 | **Sentry error monitoring** | Add `@sentry/nextjs` for production error tracking + performance monitoring. |
+| F2 | ~~**Sentry error monitoring**~~ | ✅ Done 2026-05-04. Lightweight Sentry transport (`src/lib/sentry.js`) is wired through `internalError()` and `instrumentation.js`. `SENTRY_DSN` set in `.env.local`; needs to also be set in Vercel project env vars for production capture. |
+| F10 | **Cloudflare Turnstile frontend widget** | Server-side captcha verification (`src/lib/captcha.js` + `verifyCaptcha`) is plugged into `/api/pro/clinic-alta-request` and `/api/referrals` POST. Frontend widget + `captchaToken` field in form bodies still pending. When `TURNSTILE_SECRET_KEY` is set, the server gates these endpoints on the token; until the widget is added in `/contacto`, `/pro/sign-up`, lock-in clinic-alta forms, those endpoints will reject all requests. So either roll out widget + secret together, or hold the secret until the widget ships. |
+| F11 | **Upgrade Azure SQL tier (S2/S3 + Read Scale-Out)** | Pre-launch capacity check. Current tier (likely S0/S1) caps at 60–90 concurrent connections. After 2026-05 hardening the mssql pool is `max:25` per Lambda (`src/lib/db.js`); a dozen warm Lambdas can saturate S0. Recommended: S2 (180 conn) for soft launch, S3 (300) for paid traffic. Activate Read Scale-Out so `/api/clinics/search` (the heaviest endpoint after the JOIN refactor) can hit a read replica. Verify in Azure portal → DB → Compute + storage. |
 | F3 | **Server-side reminder cron** | `/api/referrals/remind` endpoint built (queries referrals 28-32 min old, sends lockInReminder email). Needs Vercel Pro for `*/2 * * * *` cron. Workaround: call manually or upgrade. |
 | F4 | **Admin & Pro dashboard Clerk guards** | `src/app/admin/page.js` and `src/app/pro/dashboard/page.js` — add full Clerk role checks (`useAuth()` + redirect if role not admin/professional). |
 | F5 | **SEO specialty landing pages for Ads** | Specialty-specific paid campaign landing pages (e.g., `/cardiologia-madrid` alias for `/especialistas/cardiologia/madrid`). Helps Google Ads Quality Score. |

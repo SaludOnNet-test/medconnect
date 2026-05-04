@@ -1,16 +1,33 @@
 import { NextResponse } from 'next/server';
 import { getPool, sql, DB_AVAILABLE } from '@/lib/db';
+import { sendEmail } from '@/lib/email';
+import { lockInReminder } from '@/lib/emailTemplates';
+import { internalError } from '@/lib/errors';
 
 // GET /api/referrals/remind
-// Called by Vercel Cron every 2 minutes.
+// Called by Vercel Cron daily.
 // Finds PENDING referrals created ~30 min ago (28–32 min window) that haven't
 // received a reminder yet, sends lockInReminder email, and marks them sent.
 export async function GET(request) {
-  // Validate cron secret to prevent public triggering
-  const secret = request.headers.get('x-cron-secret');
-  const expected = process.env.CRON_SECRET || 'dev';
-  if (secret !== expected && process.env.NODE_ENV === 'production') {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  // Validate cron secret. Vercel Cron sends Authorization: Bearer <CRON_SECRET>
+  // by default; we also accept the legacy x-cron-secret header. Two important
+  // hardenings vs. before:
+  //   1. We require CRON_SECRET to be set everywhere except local dev. Preview
+  //      deploys, which used to slip past the old `NODE_ENV === 'production'`
+  //      guard, are now protected.
+  //   2. The 'dev' string fallback is gone. Anyone who guessed it could fan
+  //      out reminder emails to real patients on a preview URL.
+  const bearer = (request.headers.get('authorization') || '').replace(/^Bearer\s+/i, '');
+  const secret = bearer || request.headers.get('x-cron-secret') || '';
+  const expected = process.env.CRON_SECRET;
+  const isDev = process.env.NODE_ENV === 'development';
+  if (!isDev) {
+    if (!expected) {
+      return NextResponse.json({ error: 'cron_not_configured' }, { status: 503 });
+    }
+    if (secret !== expected) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
   }
 
   if (!DB_AVAILABLE) {
@@ -51,29 +68,30 @@ export async function GET(request) {
         })).toString('base64');
         const lockInUrl = `${BASE_URL}/lock-in/${row.id}?data=${payload}`;
 
-        // Send reminder email via our own email API
-        const emailRes = await fetch(`${BASE_URL}/api/email/send`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            templateName: 'lockInReminder',
-            data: {
-              patientEmail: row.patient_email,
-              professionalEmail: row.professional_email,
-              clinicName: row.profession_name || 'Tu centro médico',
-              specialty: row.specialty || 'Consulta médica',
-              providerName: row.provider_name,
-              slotDate: row.slot_date,
-              slotTime: row.slot_time,
-              fee: row.fee,
-              lockInId: row.id,
-              lockInUrl,
-            },
-          }),
+        // Send reminder email by calling the dispatcher directly. We used
+        // to self-fetch /api/email/send, which (a) added a 30 s+ tail-of-
+        // doom if Resend hung, (b) hit the per-IP rate limiter for our
+        // own server's IP under load, and (c) doubled the JSON
+        // serialisation cost.
+        const tpl = lockInReminder({
+          patientEmail: row.patient_email,
+          professionalEmail: row.professional_email,
+          clinicName: row.profession_name || 'Tu centro médico',
+          specialty: row.specialty || 'Consulta médica',
+          providerName: row.provider_name,
+          slotDate: row.slot_date,
+          slotTime: row.slot_time,
+          fee: row.fee,
+          lockInId: row.id,
+          lockInUrl,
+        });
+        const emailRes = await sendEmail({
+          to: row.patient_email,
+          subject: tpl.subject,
+          html: tpl.html,
         });
 
-        if (emailRes.ok) {
-          // Mark reminder as sent
+        if (emailRes?.ok) {
           await pool.request()
             .input('id', sql.NVarChar(50), row.id)
             .query(`UPDATE referrals SET reminder_sent = 1, updated_at = SYSDATETIMEOFFSET() WHERE id = @id`);
@@ -86,7 +104,6 @@ export async function GET(request) {
 
     return NextResponse.json({ checked: rows.length, sent });
   } catch (err) {
-    console.error('[GET /api/referrals/remind]', err);
-    return NextResponse.json({ error: err.message }, { status: 500 });
+    return internalError(err, '[GET /api/referrals/remind]');
   }
 }

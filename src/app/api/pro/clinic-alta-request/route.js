@@ -2,6 +2,9 @@ import { NextResponse } from 'next/server';
 import { getPool, query, sql, DB_AVAILABLE } from '@/lib/db';
 import { sendEmail } from '@/lib/email';
 import { clinicAltaRequestOps, clinicAltaRequestReceived, clinicAltaInfoResponded } from '@/lib/emailTemplates';
+import { clinicAltaRequestSchema, formatZodError } from '@/lib/schemas';
+import { verifyCaptcha } from '@/lib/captcha';
+import { internalError, clientError } from '@/lib/errors';
 
 const OPERATIONS_EMAIL = process.env.OPERATIONS_EMAIL || 'operaciones@medconnect.es';
 
@@ -30,27 +33,33 @@ export async function POST(request) {
 
   let body;
   try { body = await request.json(); }
-  catch { return NextResponse.json({ error: 'invalid json' }, { status: 400 }); }
+  catch { return clientError('invalid json', 400); }
 
-  const requestedByEmail = String(body?.requestedByEmail || '').trim().toLowerCase();
-  const clinicName = String(body?.clinicName || '').trim();
-  if (!requestedByEmail || !requestedByEmail.includes('@')) {
-    return NextResponse.json({ error: 'requestedByEmail required' }, { status: 400 });
+  const parsed = clinicAltaRequestSchema.safeParse(body);
+  if (!parsed.success) {
+    return clientError(formatZodError(parsed.error), 400);
   }
-  if (!clinicName) {
-    return NextResponse.json({ error: 'clinicName required' }, { status: 400 });
+  const data = parsed.data;
+  const requestedByEmail = data.requestedByEmail.toLowerCase();
+  const clinicName = data.clinicName;
+
+  // Captcha gate. When TURNSTILE_SECRET_KEY isn't configured this is a
+  // no-op (skipped: true) so local/preview flows still work.
+  const captcha = await verifyCaptcha(data.captchaToken, request);
+  if (!captcha.ok) {
+    return clientError('captcha_failed', 400);
   }
 
   const fields = {
-    requestedByName: trimOrNull(body?.requestedByName),
-    city: trimOrNull(body?.city),
-    province: trimOrNull(body?.province),
-    address: trimOrNull(body?.address),
-    telephone: trimOrNull(body?.telephone),
-    contactEmail: trimOrNull(body?.contactEmail),
-    specialties: trimOrNull(body?.specialties),
-    aseguradoras: trimOrNull(body?.aseguradoras),
-    notes: trimOrNull(body?.notes),
+    requestedByName: data.requestedByName,
+    city: data.city,
+    province: data.province,
+    address: data.address,
+    telephone: data.telephone,
+    contactEmail: data.contactEmail || null,
+    specialties: data.specialties,
+    aseguradoras: data.aseguradoras,
+    notes: data.notes,
   };
 
   try {
@@ -206,20 +215,13 @@ export async function POST(request) {
 
     return NextResponse.json({ ok: true, requestId, status: 'pending', infoResponse: isInfoResponse });
   } catch (err) {
-    console.error('[POST /api/pro/clinic-alta-request]', err);
     if (String(err?.message || '').includes('Invalid object name')) {
       return NextResponse.json({
         error: 'Migration pending — clinic_alta_requests table not yet created. Run scripts/migration_add_clinic_alta_requests.py.',
       }, { status: 503 });
     }
-    return NextResponse.json({ error: err.message }, { status: 500 });
+    return internalError(err, '[POST /api/pro/clinic-alta-request]');
   }
-}
-
-function trimOrNull(value) {
-  if (value == null) return null;
-  const s = String(value).trim();
-  return s.length ? s : null;
 }
 
 async function safeQuery(request, queryString) {
