@@ -7,7 +7,11 @@
   background: var(--bg-inverse);
   color: var(--fg-on-inverse);
   position: relative;
-  overflow: hidden;
+  /* `overflow: visible` so the SearchBarV2 autocomplete dropdown can
+     extend below the hero without being clipped. The decorative
+     `.home-hero-noise` is `position: absolute; inset: 0` and contains
+     itself, so dropping the clip doesn't bleed background noise. */
+  overflow: visible;
   /* Tighter padding (was --space-9 96px). The whole hero — eyebrow, h1,
      lede, search box — must fit above-the-fold on a 1280×800 desktop and
      a 390×844 phone without scrolling. */

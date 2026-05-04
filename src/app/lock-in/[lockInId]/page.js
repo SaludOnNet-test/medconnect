@@ -6,6 +6,7 @@ import Header from '@/components/Header';
 import Footer from '@/components/Footer';
 import LockInTimer from '@/components/LockInTimer';
 import { REFERRAL_STATES } from '@/data/mock';
+import { formatEUR } from '@/lib/format';
 import './lock-in.css';
 
 export default function LockInPage() {
@@ -297,7 +298,7 @@ export default function LockInPage() {
                 </div>
                 <div className="detail-item">
                   <span className="detail-label">Tarifa</span>
-                  <span className="detail-value highlight">{referral.fee.toFixed(2)}€</span>
+                  <span className="detail-value highlight">{formatEUR(referral.fee)}</span>
                 </div>
               </div>
             </div>
@@ -363,7 +364,7 @@ export default function LockInPage() {
                   required
                 />
                 <label htmlFor="accept-terms">
-                  Confirmo que los datos son correctos y autorizo el cobro de {referral.fee.toFixed(2)}€
+                  Confirmo que los datos son correctos y autorizo el cobro de {formatEUR(referral.fee)}
                   para esta cita.
                 </label>
               </div>

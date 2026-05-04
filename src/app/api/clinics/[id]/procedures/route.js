@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { query, sql, DB_AVAILABLE } from '@/lib/db';
+import { isBookableProcedure } from '@/lib/text';
 
 /**
  * Returns the catalogue of medical procedures (actos médicos) offered by a
@@ -37,14 +38,20 @@ export async function GET(request, { params }) {
       params,
     );
 
+    // Round catalogue prices to the nearest euro before they reach the
+    // patient. Charged amount equals displayed amount (Stripe is also
+    // billed the rounded total) — keeps "46 €" honest and avoids the
+    // "muy calculados" 45,50 €-style numbers Jesús flagged in 2026-05.
     return NextResponse.json({
-      procedures: result.recordset.map((r) => ({
-        slug: r.procedure_slug,
-        name: r.procedure_name,
-        specialtySlug: r.specialty_slug,
-        specialtyName: r.specialty_name,
-        price: r.price != null ? Number(r.price) : null,
-      })),
+      procedures: result.recordset
+        .filter((r) => isBookableProcedure(r.procedure_name))
+        .map((r) => ({
+          slug: r.procedure_slug,
+          name: r.procedure_name,
+          specialtySlug: r.specialty_slug,
+          specialtyName: r.specialty_name,
+          price: r.price != null ? Math.round(Number(r.price)) : null,
+        })),
     });
   } catch (err) {
     console.error('clinic procedures error:', err);

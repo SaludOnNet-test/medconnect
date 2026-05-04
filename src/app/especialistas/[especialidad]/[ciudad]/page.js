@@ -305,7 +305,7 @@ export default async function EspecialistasCiudadPage({ params }) {
             <ol style={{ paddingLeft: '1.25rem', color: 'var(--fg-muted)', lineHeight: 2, fontSize: '0.95rem' }}>
               <li>Elige el centro que más te conviene en el listado de arriba.</li>
               <li>Selecciona el día y la hora disponibles.</li>
-              <li>Completa tus datos y paga la tarifa de prioridad (desde 4,99&nbsp;€).</li>
+              <li>Completa tus datos y paga la tarifa de prioridad (desde 5&nbsp;€).</li>
               <li>Recibe confirmación por email con todos los detalles de tu cita.</li>
             </ol>
           </div>

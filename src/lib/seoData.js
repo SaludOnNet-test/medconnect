@@ -33,7 +33,7 @@ export const SPECIALTY_MAP = {
       },
       {
         q: '¿Cuánto cuesta una consulta de traumatología privada?',
-        a: 'La consulta de traumatología privada tiene un coste base de entre 45 € y 80 € según el centro. A eso se añade únicamente la tarifa de prioridad de Med Connect: 4,99 € si tu cita es a más de 30 días, 9,99 € entre 15 y 30 días, 19 € entre 7 y 14 días, o 29 € si necesitas cita en menos de 7 días.',
+        a: 'La consulta de traumatología privada tiene un coste base de entre 45 € y 80 € según el centro. A eso se añade únicamente la tarifa de prioridad de Med Connect: 5 € si tu cita es a más de 30 días, 10 € entre 15 y 30 días, 19 € entre 7 y 14 días, o 29 € si necesitas cita en menos de 7 días.',
       },
     ],
   },

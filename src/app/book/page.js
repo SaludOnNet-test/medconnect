@@ -354,7 +354,14 @@ function BookContent() {
       bookingId: reference,
       caseId: opsCaseId,
       clinicId: providerId,
-      clinicPhone: provider?.telephone || null,
+      // The clinic phone isn't on this client (only providerName comes
+      // through the URL); ops can resolve it from `clinicId` server-side.
+      // Previously this read `provider?.telephone`, but `provider` was
+      // never declared in this scope — optional chaining doesn't shield
+      // against a ReferenceError on an undeclared identifier, so the whole
+      // handler threw before reaching `setStep('success')` and the patient
+      // got stuck on "Procesando…". Caught in 2026-05 review.
+      clinicPhone: null,
       patientName,
       patientEmail,
       patientPhone: lockInData?.patientPhone || form.phone || null,

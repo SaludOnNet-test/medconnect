@@ -4,6 +4,7 @@ import { useEffect, useState, use as usePromise } from 'react';
 import Link from 'next/link';
 import Header from '@/components/Header';
 import Footer from '@/components/Footer';
+import { formatEUR } from '@/lib/format';
 
 // Patient self-service page reached via the link in the booking confirmation
 // email. Shows the booking details and lets the patient cancel (with refund)
@@ -100,7 +101,7 @@ export default function BookingTokenPage({ params }) {
               Cita cancelada
             </h1>
             <p style={{ color: '#374151', marginBottom: '0.5rem' }}>
-              Hemos iniciado el reembolso{state.refundAmount ? ` de €${state.refundAmount.toFixed(2)}` : ''}.
+              Hemos iniciado el reembolso{state.refundAmount ? ` de ${formatEUR(state.refundAmount)}` : ''}.
               Verás el cargo revertido en tu tarjeta en 5–10 días hábiles.
             </p>
             <p style={{ color: '#6B7280', fontSize: '0.9rem', marginBottom: '1.5rem' }}>
@@ -165,7 +166,7 @@ function BookingDetail({ booking, busy, onCancel, onReschedule, reschedulePrefs,
         <Row k="Fecha" v={formattedDate} />
         <Row k="Hora" v={booking.slotTime || '—'} />
         {booking.procedureName && <Row k="Servicio" v={booking.procedureName} />}
-        {booking.amount != null && <Row k="Importe" v={`€${booking.amount.toFixed(2)}`} />}
+        {booking.amount != null && <Row k="Importe" v={formatEUR(booking.amount)} />}
         <Row k="Estado" v={statusLabel(booking.status)} />
       </div>
 

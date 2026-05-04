@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { query, sql, DB_AVAILABLE } from '@/lib/db';
 import { limits } from '@/lib/rateLimit';
 import { internalError } from '@/lib/errors';
+import { isBookableProcedure } from '@/lib/text';
 
 const SPECIALTY_SLUG_MAP = {
   1: ['traumatologia', 'cirugia-ortopedica'],
@@ -50,6 +51,13 @@ export async function GET(request) {
   // coordinates fall inside the rectangle. Powers the search-v2 "refresh
   // results when the user pans/zooms the map" UX.
   const bboxParam      = searchParams.get('bbox') || '';
+
+  // Belt-and-braces: the autocomplete already filters surgery procedures
+  // out of its suggestions, but a hand-typed `procedureSlug=cirugia-...`
+  // URL would otherwise still hit the DB. Reject early.
+  if (procedureSlug && !isBookableProcedure(procedureSlug)) {
+    return NextResponse.json({ clinics: [], total: 0, source: 'procedure_blocked' });
+  }
 
   if (!DB_AVAILABLE) return NextResponse.json({ clinics: [], total: 0, source: 'no-db' });
 

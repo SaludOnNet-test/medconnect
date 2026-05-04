@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { query, DB_AVAILABLE } from '@/lib/db';
+import { isBookableProcedure } from '@/lib/text';
 
 export async function GET() {
   if (!DB_AVAILABLE) return NextResponse.json({ specialties: [], cities: [], procedures: [] });
@@ -37,12 +38,18 @@ export async function GET() {
         city: r.province,
         province: r.province,
       })),
-      procedures: procsResult.recordset.map((r) => ({
-        slug: r.procedure_slug,
-        name: r.procedure_name,
-        specialtySlug: r.specialty_slug,
-        specialtyName: r.specialty_name,
-      })),
+      // Strip any acto médico whose name matches the surgery blocklist
+      // (`isBookableProcedure`). Surgeries can't be brokered as an online
+      // booking — they need pre-op assessment and an OR slot — so they
+      // shouldn't show in the autocomplete or the booking modal.
+      procedures: procsResult.recordset
+        .filter((r) => isBookableProcedure(r.procedure_name))
+        .map((r) => ({
+          slug: r.procedure_slug,
+          name: r.procedure_name,
+          specialtySlug: r.specialty_slug,
+          specialtyName: r.specialty_name,
+        })),
     });
   } catch (err) {
     console.error('filters error:', err);

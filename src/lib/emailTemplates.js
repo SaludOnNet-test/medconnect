@@ -110,17 +110,17 @@ export function bookingConfirmation({ patientName, providerName, providerAddress
         ${providerAddress ? infoRow('Dirección', providerAddress) : ''}
         ${infoRow('Fecha', formattedDate)}
         ${infoRow('Hora', slotTime)}
-        ${totalPrice ? infoRow('Importe pagado', `€${Number(totalPrice).toFixed(2)}`) : ''}
+        ${totalPrice ? infoRow('Importe pagado', formatEUR(totalPrice)) : ''}
       </table>
       ${insured ? `
       <div style="background:#fffaeb;border:1px solid #f0d97a;border-radius:8px;padding:16px;margin-bottom:24px;">
         <p style="margin:0 0 8px;font-size:14px;color:#5b4400;font-weight:700;">Qué has pagado y qué cubre tu seguro</p>
-        <p style="margin:0 0 6px;font-size:13px;color:#5b4400;line-height:1.6;"><strong>Tu pago de hoy:</strong> €${Number(feeForLine).toFixed(2)} (tarifa de prioridad por la reserva).</p>
+        <p style="margin:0 0 6px;font-size:13px;color:#5b4400;line-height:1.6;"><strong>Tu pago de hoy:</strong> ${formatEUR(feeForLine)} (tarifa de prioridad por la reserva).</p>
         <p style="margin:0;font-size:13px;color:#5b4400;line-height:1.6;"><strong>Lo que cubre tu seguro:</strong> la consulta. La clínica la factura directamente a tu aseguradora.</p>
       </div>
       ` : `
       <div style="background:#fffaeb;border:1px solid #f0d97a;border-radius:8px;padding:16px;margin-bottom:16px;">
-        <p style="margin:0 0 8px;font-size:14px;color:#5b4400;font-weight:700;">Qué incluye tu pago de €${Number(totalPrice).toFixed(2)}</p>
+        <p style="margin:0 0 8px;font-size:14px;color:#5b4400;font-weight:700;">Qué incluye tu pago de ${formatEUR(totalPrice)}</p>
         <p style="margin:0 0 6px;font-size:13px;color:#5b4400;line-height:1.6;"><strong>Consulta privada:</strong> tarifa oficial de la clínica (catálogo SaludOnNet).</p>
         <p style="margin:0;font-size:13px;color:#5b4400;line-height:1.6;"><strong>Tarifa de prioridad:</strong> nuestra gestión del hueco urgente.</p>
         <p style="margin:8px 0 0;font-size:13px;color:#5b4400;line-height:1.6;">No se vuelve a cobrar nada en la clínica.</p>
@@ -171,9 +171,9 @@ export function paymentReceipt({ patientName, reference, servicePrice, feeAmount
       <tr style="background:#f9fafb;"><th colspan="2" style="padding:12px 16px;text-align:left;font-size:13px;color:#6b7280;font-weight:600;text-transform:uppercase;">Referencia ${reference}</th></tr>
       ${isInsuredFlow
         ? infoRow('🩺 Consulta médica', '<span style="color:#00805a;font-weight:600;">Cubierto por tu seguro</span>')
-        : infoRow('🩺 Consulta médica', `€${Number(servicePrice).toFixed(2)}`)}
-      ${feeAmount ? infoRow(`🎫 ${priorityLine}`, `€${Number(feeAmount).toFixed(2)}`) : ''}
-      <tr style="background:#f9fafb;"><td style="padding:12px 16px;font-size:15px;font-weight:700;color:#1a3c5e;">Total que has pagado</td><td style="padding:12px 16px;font-size:15px;font-weight:700;color:#1a3c5e;">€${Number(totalPrice).toFixed(2)}</td></tr>
+        : infoRow('🩺 Consulta médica', formatEUR(servicePrice))}
+      ${feeAmount ? infoRow(`🎫 ${priorityLine}`, formatEUR(feeAmount)) : ''}
+      <tr style="background:#f9fafb;"><td style="padding:12px 16px;font-size:15px;font-weight:700;color:#1a3c5e;">Total que has pagado</td><td style="padding:12px 16px;font-size:15px;font-weight:700;color:#1a3c5e;">${formatEUR(totalPrice)}</td></tr>
     </table>
     ${isInsuredFlow ? `
     <div style="background:#fffaeb;border:1px solid #f0d97a;border-radius:8px;padding:14px 16px;margin-bottom:20px;">
@@ -593,7 +593,7 @@ export function patientRefunded({ patientName, providerName, slotDate, slotTime,
   const html = baseWrapper(bodySection(`
     <h2 style="margin:0 0 12px;font-size:22px;font-weight:800;color:#1a3c5e;">Reembolso emitido</h2>
     <p style="margin:0 0 16px;font-size:15px;color:#374151;line-height:1.5;">
-      Hola ${patientName || ''}, te hemos devuelto <strong>€${Number(amount || 0).toFixed(2)}</strong>
+      Hola ${patientName || ''}, te hemos devuelto <strong>${formatEUR(amount || 0)}</strong>
       a la tarjeta con la que pagaste. Verás el ingreso en 1–2 días hábiles.
     </p>
     <p style="margin:0 0 16px;font-size:14px;color:#475569;">
@@ -603,7 +603,7 @@ export function patientRefunded({ patientName, providerName, slotDate, slotTime,
     <p style="margin:0;font-size:14px;color:#374151;">Lamentamos las molestias. Búscanos otra vez en
       <a href="https://medconnect.es" style="color:#1a3c5e;font-weight:700;">medconnect.es</a>.</p>
   `));
-  return { subject: `Reembolso de €${Number(amount || 0).toFixed(2)} emitido — ${providerName}`, html };
+  return { subject: `Reembolso de ${formatEUR(amount || 0)} emitido — ${providerName}`, html };
 }
 
 // ─────────────────────────────────────────────
@@ -630,7 +630,7 @@ export function voucherDelivery({
       <p style="margin:0 0 16px;font-size:15px;color:#374151;line-height:1.55;">Hola <strong>${patientName || ''}</strong>,</p>
       <p style="margin:0 0 16px;font-size:15px;color:#374151;line-height:1.55;">
         Te enviamos el voucher de <strong>SaludOnNet</strong> que cubre el coste de
-        ${procedureName ? `<strong>${procedureName}</strong>` : 'tu acto médico'}${servicePrice ? ` (€${Number(servicePrice).toFixed(2)})` : ''}
+        ${procedureName ? `<strong>${procedureName}</strong>` : 'tu acto médico'}${servicePrice ? ` (${formatEUR(servicePrice)})` : ''}
         en ${providerName}${fmtDate ? ` el ${fmtDate}` : ''}${slotTime ? ` a las ${slotTime}` : ''}.
       </p>
       ${ctaHref ? `

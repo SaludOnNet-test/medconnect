@@ -2,11 +2,11 @@
 import { useState, useRef, useEffect, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import { trackEvent } from '@/lib/analytics';
+import { normalizeText } from '@/lib/text';
 import './SearchBarV2.css';
 
 export default function SearchBarV2({ initialSpecialty, initialService, initialCity, compact = false }) {
   const router = useRouter();
-  const [visitType, setVisitType] = useState('presencial');
   const [query, setQuery] = useState('');
   const [city, setCity] = useState(initialCity || '');
   const [suggestions, setSuggestions] = useState([]);
@@ -60,8 +60,8 @@ export default function SearchBarV2({ initialSpecialty, initialService, initialC
     setQuery(val);
     setSelected(null);
     if (val.length > 0) {
-      const lower = val.toLowerCase();
-      setSuggestions(allSuggestions.filter((s) => s.label.toLowerCase().includes(lower)).slice(0, 8));
+      const needle = normalizeText(val);
+      setSuggestions(allSuggestions.filter((s) => normalizeText(s.label).includes(needle)).slice(0, 8));
     } else {
       setSuggestions(allSuggestions.slice(0, 8));
     }
@@ -100,31 +100,21 @@ export default function SearchBarV2({ initialSpecialty, initialService, initialC
 
   const filteredCities = dbCities.length === 0 ? [] : (
     city
-      ? dbCities.filter((c) => `${c.city} ${c.province || ''}`.toLowerCase().includes(city.toLowerCase()))
+      ? (() => {
+          // Accent-insensitive: typing "malaga" must match "Málaga".
+          const needle = normalizeText(city);
+          return dbCities.filter((c) => normalizeText(`${c.city} ${c.province || ''}`).includes(needle));
+        })()
       : dbCities
   );
 
   return (
     <div className={`sbv2 ${compact ? 'sbv2--compact' : ''}`}>
-      {!compact && (
-        <div className="sbv2-tabs">
-          <button
-            type="button"
-            className={`sbv2-tab ${visitType === 'presencial' ? 'sbv2-tab--active' : ''}`}
-            onClick={() => setVisitType('presencial')}
-          >
-            <span className="sbv2-tab-icon">🏥</span> Visita presencial
-          </button>
-          <button
-            type="button"
-            className={`sbv2-tab ${visitType === 'online' ? 'sbv2-tab--active' : ''}`}
-            onClick={() => setVisitType('online')}
-          >
-            <span className="sbv2-tab-icon">📹</span> Online
-          </button>
-        </div>
-      )}
-
+      {/* Online/presencial tabs removed for phase 1 — the marketplace
+          only brokers in-person appointments today, so a non-functional
+          "Online" toggle was actively misleading reviewers. Reintroduce
+          when the catalogue gains a real `modalidad` flag and the
+          search API filters on it. */}
       <form className="sbv2-row" onSubmit={handleSearch}>
         <div className="sbv2-field sbv2-field--main" style={{ position: 'relative' }}>
           <span className="sbv2-field-icon">🔍</span>
@@ -135,7 +125,7 @@ export default function SearchBarV2({ initialSpecialty, initialService, initialC
             placeholder="Especialidad, procedimiento o clínica"
             value={query}
             onChange={(e) => handleQueryChange(e.target.value)}
-            onFocus={() => { setSuggestions(query ? allSuggestions.filter((s) => s.label.toLowerCase().includes(query.toLowerCase())).slice(0, 8) : allSuggestions.slice(0, 8)); setShowSuggestions(true); }}
+            onFocus={() => { const needle = normalizeText(query); setSuggestions(query ? allSuggestions.filter((s) => normalizeText(s.label).includes(needle)).slice(0, 8) : allSuggestions.slice(0, 8)); setShowSuggestions(true); }}
             onBlur={() => setTimeout(() => setShowSuggestions(false), 180)}
             autoComplete="off"
           />

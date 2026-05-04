@@ -19,7 +19,7 @@ const STEPS = [
   {
     n: '02',
     title: 'Reservas y pagas la prioridad',
-    body: 'Solo la tarifa de prioridad: 4,99 € · 9,99 € · 19 € · 29 € según la urgencia. El acto médico no se cobra aquí — eso lo cubre tu seguro.',
+    body: 'Solo la tarifa de prioridad: 5 € · 10 € · 19 € · 29 € según la urgencia. El acto médico no se cobra aquí — eso lo cubre tu seguro.',
   },
   {
     n: '03',

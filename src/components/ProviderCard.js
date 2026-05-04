@@ -2,6 +2,7 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { availability } from '@/data/mock';
+import { formatEUR } from '@/lib/format';
 import SlotCalendar from './SlotCalendar';
 import './ProviderCard.css';
 
@@ -97,12 +98,12 @@ export default function ProviderCard({ provider, serviceId, basePrice = 0, isSin
             {' '}a las <strong>{selectedSlot.time}</strong>
             <br />
             <span style={{ fontSize: '0.75rem', color: 'var(--muted)' }}>
-              {selectedSlot.fee.label} {isSinSeguro && ` + Servicio Base (${Number(basePrice).toFixed(2)}€)`}
+              {selectedSlot.fee.label} {isSinSeguro && ` + Servicio Base (${formatEUR(basePrice)})`}
             </span>
           </div>
           <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-md)' }}>
             <span className="provider-card-selected-fee">
-              {currentTotalFee > 0 ? `${Number(currentTotalFee).toFixed(2)}€` : 'Gratis'}
+              {currentTotalFee > 0 ? formatEUR(currentTotalFee) : 'Gratis'}
             </span>
             <button className="btn btn-gold" onClick={handleBook} id="book-btn">
               Reservar

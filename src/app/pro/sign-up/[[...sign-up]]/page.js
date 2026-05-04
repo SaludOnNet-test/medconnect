@@ -47,6 +47,9 @@ export default function ProSignUpPage() {
         forceRedirectUrl="/pro/onboarding"
         unsafeMetadata={{ signupSource: 'pro' }}
       />
+      {/* See /sign-up/[[...sign-up]]/page.js for why this div is here —
+          explicit Clerk CAPTCHA mount target. */}
+      <div id="clerk-captcha" />
     </AuthLayout>
   );
 }

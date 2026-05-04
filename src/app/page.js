@@ -40,7 +40,7 @@ const PILLARS = [
   {
     icon: 'euro',
     title: 'Pagas la prioridad, no la consulta',
-    body: 'Tu seguro cubre la consulta como siempre. A nosotros nos pagas una tarifa de prioridad desde 4,99 €. Sin seguro, también: te decimos el total antes de pagar.',
+    body: 'Tu seguro cubre la consulta como siempre. A nosotros nos pagas una tarifa de prioridad desde 5 €. Sin seguro, también: te decimos el total antes de pagar.',
   },
 ];
 

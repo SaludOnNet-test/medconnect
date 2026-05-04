@@ -1,6 +1,7 @@
 'use client';
 import React, { useState, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
+import { formatEUR } from '@/lib/format';
 import './SlotCalendar.css';
 
 const DAY_NAMES = ['Dom', 'Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb'];
@@ -111,13 +112,13 @@ export default function SlotCalendar({ slots, onSelectSlot, isSinSeguro = false,
               <div className="slot-day-pricing">
                 {isSinSeguro ? (
                   <div className="slot-price-split">
-                    <span className="price-service">{Number(basePrice).toFixed(2)}€</span>
+                    <span className="price-service">{formatEUR(basePrice)}</span>
                     <span className="price-plus">+</span>
-                    <span className="price-fee">{Number(feeObj.amount).toFixed(2)}€</span>
+                    <span className="price-fee">{formatEUR(feeObj.amount)}</span>
                   </div>
                 ) : (
                   <span className="slot-day-price">
-                    {feeObj.amount > 0 ? `${Number(feeObj.amount).toFixed(2)}€` : '0€'}
+                    {feeObj.amount > 0 ? formatEUR(feeObj.amount) : '0 €'}
                   </span>
                 )}
                 <span className="slot-urgency-label">{feeObj.label}</span>
@@ -173,8 +174,8 @@ export default function SlotCalendar({ slots, onSelectSlot, isSinSeguro = false,
           {selectedFee && (
             <span className="slot-sticky-fee">
               {isSinSeguro
-                ? `${Number(basePrice + selectedFee.amount).toFixed(2)}€`
-                : `${Number(selectedFee.amount).toFixed(2)}€`}
+                ? formatEUR(basePrice + selectedFee.amount)
+                : formatEUR(selectedFee.amount)}
             </span>
           )}
           <button
