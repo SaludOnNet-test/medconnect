@@ -463,7 +463,7 @@ export default function ProDashboard() {
           </div>
           {serverCommissions && (
             <p style={{ fontSize: '0.78rem', color: '#8892A4', margin: '0.5rem 0 1.25rem', textAlign: 'right' }}>
-              Tarifa actual: {serverCommissions.commissionPerReferral?.toFixed(2)}€ por derivación confirmada.
+              Tarifas: 5€ si la cita es en las primeras 2 semanas, 3€ entre 2 y 4 semanas (máx. 30 días).
             </p>
           )}
 

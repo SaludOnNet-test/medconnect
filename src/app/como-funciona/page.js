@@ -35,7 +35,7 @@ export default function ComoFuncionaPage() {
       <Header />
       <PageHeader
         eyebrow="Cómo funciona"
-        title={<>El atajo <em>legítimo</em> cuando tu seguro no te da cita.</>}
+        title={<>El atajo <em>legítimo</em> cuando necesitas cita antes.</>}
         lede="No somos una alternativa a tu seguro. Somos lo que pasa entre tu seguro y tu cita."
       />
       <HowItWorks />

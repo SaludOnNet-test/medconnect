@@ -12,8 +12,12 @@ import { useEffect, useRef } from 'react';
  *   - onBoundsChange({ south, west, north, east }): fired AFTER a
  *     user-initiated pan or zoom (not on programmatic fitBounds during
  *     first paint). Lets the parent refetch clinics by bbox.
+ *   - filterSignature: opaque string that changes whenever a filter
+ *     (specialty, procedure, rating, insurance) changes. Resets the
+ *     "user has moved the map" flag so the next paint re-fits the
+ *     viewport to the new result set.
  */
-export default function ClinicMap({ providers, highlightedId, onPinClick, city, onBoundsChange }) {
+export default function ClinicMap({ providers, highlightedId, onPinClick, city, onBoundsChange, filterSignature }) {
   const containerRef = useRef(null);
   const mapRef       = useRef(null);
   const markersRef   = useRef([]);
@@ -22,6 +26,13 @@ export default function ClinicMap({ providers, highlightedId, onPinClick, city, 
   // the moveend listener when the parent re-renders with a new closure.
   const onBoundsChangeRef = useRef(onBoundsChange);
   useEffect(() => { onBoundsChangeRef.current = onBoundsChange; }, [onBoundsChange]);
+
+  // Re-fit viewport when filters change. Without this, after the first
+  // user pan/zoom the map stays parked on the old viewport even though
+  // the result set has shrunk to a different geographic cluster.
+  useEffect(() => {
+    userInteractedRef.current = false;
+  }, [filterSignature]);
 
   const CITY_CENTERS = {
     'Madrid':    [40.4168, -3.7038],
@@ -94,20 +105,18 @@ export default function ClinicMap({ providers, highlightedId, onPinClick, city, 
 
       const clinicsWithCoords = providers.filter((p) => p.lat && p.lng);
 
-      clinicsWithCoords.forEach((p, i) => {
+      clinicsWithCoords.forEach((p) => {
         const isHighlighted = p.id === highlightedId;
         const icon = L.divIcon({
           className: '',
           html: `<div style="
             background:${isHighlighted ? '#ef4444' : '#2563eb'};
-            color:#fff;font-weight:700;font-size:11px;
-            width:26px;height:26px;border-radius:50%;
-            display:flex;align-items:center;justify-content:center;
+            width:18px;height:18px;border-radius:50%;
             border:2px solid #fff;box-shadow:0 2px 6px rgba(0,0,0,.35);
             cursor:pointer;
-          ">${i + 1}</div>`,
-          iconSize: [26, 26],
-          iconAnchor: [13, 13],
+          "></div>`,
+          iconSize: [18, 18],
+          iconAnchor: [9, 9],
         });
 
         const marker = L.marker([p.lat, p.lng], { icon })

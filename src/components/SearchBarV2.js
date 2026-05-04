@@ -166,7 +166,7 @@ export default function SearchBarV2({ initialSpecialty, initialService, initialC
           <input
             className="sbv2-input"
             type="text"
-            placeholder="Ciudad"
+            placeholder="Provincia"
             value={city}
             onChange={(e) => { setCity(e.target.value); setShowCityList(true); }}
             onFocus={() => setShowCityList(true)}
@@ -183,9 +183,7 @@ export default function SearchBarV2({ initialSpecialty, initialService, initialC
                   onMouseDown={() => { setCity(c.city); setShowCityList(false); }}
                 >
                   <span className="sbv2-dropdown-icon">📍</span>
-                  <span className="sbv2-dropdown-label">
-                    {c.city}{c.province && c.province !== c.city ? ` (${c.province})` : ''}
-                  </span>
+                  <span className="sbv2-dropdown-label">{c.city}</span>
                 </button>
               ))}
             </div>

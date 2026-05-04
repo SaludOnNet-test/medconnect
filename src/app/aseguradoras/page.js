@@ -19,14 +19,14 @@ export const metadata = {
 export const dynamic = 'force-dynamic';
 
 const FALLBACK_INSURERS = [
-  { id: 'sanitas', name: 'Sanitas', clinics: 1240 },
-  { id: 'adeslas', name: 'Adeslas', clinics: 1580 },
-  { id: 'dkv',     name: 'DKV',     clinics:  980 },
-  { id: 'axa',     name: 'AXA',     clinics:  720 },
-  { id: 'mapfre',  name: 'Mapfre',  clinics:  860 },
-  { id: 'asisa',   name: 'Asisa',   clinics:  910 },
-  { id: 'cigna',   name: 'Cigna',   clinics:  430 },
-  { id: 'caser',   name: 'Caser',   clinics:  380 },
+  { id: 'sanitas', name: 'Sanitas', clinics: 1240, provinces: 50 },
+  { id: 'adeslas', name: 'Adeslas', clinics: 1580, provinces: 50 },
+  { id: 'dkv',     name: 'DKV',     clinics:  980, provinces: 48 },
+  { id: 'axa',     name: 'AXA',     clinics:  720, provinces: 45 },
+  { id: 'mapfre',  name: 'Mapfre',  clinics:  860, provinces: 47 },
+  { id: 'asisa',   name: 'Asisa',   clinics:  910, provinces: 48 },
+  { id: 'cigna',   name: 'Cigna',   clinics:  430, provinces: 40 },
+  { id: 'caser',   name: 'Caser',   clinics:  380, provinces: 38 },
 ];
 
 function formatThousands(n) {
@@ -107,10 +107,11 @@ export default async function AseguradorasPage() {
                   )}
                 </div>
                 <div>
-                  <div className="insurer-card-clinics">
-                    {formatThousands(ins.clinics)} clínicas
+                  <div className="insurer-card-meta">
+                    Aseguradora con clínicas concertadas en{' '}
+                    <strong>{formatThousands(ins.provinces)}</strong>{' '}
+                    {ins.provinces === 1 ? 'provincia' : 'provincias'} de toda España
                   </div>
-                  <div className="insurer-card-meta">concertadas activas</div>
                 </div>
               </article>
             ))}

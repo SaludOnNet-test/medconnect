@@ -130,7 +130,17 @@ export default function ReferralModal({
     setProceduresLoading(true);
     fetch(`/api/clinics/${selectedProvider.id}/procedures`)
       .then((r) => r.json())
-      .then((data) => setProcedures(Array.isArray(data?.procedures) ? data.procedures : []))
+      .then((data) => {
+        const list = Array.isArray(data?.procedures) ? data.procedures : [];
+        setProcedures(list);
+        // If the inherited step-1 specialty filter doesn't match anything in
+        // this clinic's catalogue, clear it — otherwise the user would see
+        // an empty list with a hidden filter (the select hides itself when
+        // the catalogue has only one specialty) and no way to recover.
+        if (searchSpecialtySlug && !list.some((p) => p.specialtySlug === searchSpecialtySlug)) {
+          setStep2SpecialtySlug('');
+        }
+      })
       .catch(() => setProcedures([]))
       .finally(() => setProceduresLoading(false));
   }, [selectedProvider, searchSpecialtySlug]);
@@ -186,10 +196,21 @@ export default function ReferralModal({
       .finally(() => setSlotsLoading(false));
   }, [selectedProvider]);
 
+  // Referrals are capped at 30 days out — anything further is treated as
+  // a regular booking, not a fast-track referral. Filter the slot list
+  // here once and reuse it everywhere downstream.
+  const MAX_REFERRAL_DAYS = 30;
+  const eligibleSlots = useMemo(() => {
+    const cutoff = new Date();
+    cutoff.setHours(0, 0, 0, 0);
+    cutoff.setDate(cutoff.getDate() + MAX_REFERRAL_DAYS);
+    return slots.filter((s) => new Date(s.date + 'T00:00:00') <= cutoff);
+  }, [slots]);
+
   // Slots grouped by date so the calendar renders in days.
   const dates = useMemo(
-    () => [...new Set(slots.map((s) => s.date))].slice(0, 7),
-    [slots],
+    () => [...new Set(eligibleSlots.map((s) => s.date))].slice(0, 7),
+    [eligibleSlots],
   );
 
   function handleProviderSelect(provider) {
@@ -443,7 +464,7 @@ export default function ReferralModal({
                 <div className="no-slots">Esta clínica aún no tiene catálogo en el sistema.</div>
               ) : (
                 <>
-                  {step2Specialties.length > 1 && (
+                  {step2Specialties.length >= 1 && (
                     <div className="referral-filters">
                       <select
                         className="form-input"
@@ -495,11 +516,11 @@ export default function ReferralModal({
 
               {slotsLoading ? (
                 <div className="no-slots">Cargando huecos…</div>
-              ) : slots.length === 0 ? (
+              ) : eligibleSlots.length === 0 ? (
                 <div className="no-slots">No hay citas disponibles próximamente.</div>
               ) : (
                 <div className="slots-grid">
-                  {slots.slice(0, 12).map((slot, idx) => {
+                  {eligibleSlots.slice(0, 12).map((slot, idx) => {
                     const fee = Number(slot.price ?? 0);
                     const isSelected = selectedSlot === slot;
                     return (

@@ -331,11 +331,11 @@ function SearchV2Content() {
             </div>
 
             <div className="sv2-filter-group">
-              <label className="sv2-filter-label">Ciudad</label>
+              <label className="sv2-filter-label">Provincia</label>
               <select className="sv2-select" value={cityFilter} onChange={(e) => setCityFilter(e.target.value)}>
-                <option value="">Todas las ciudades</option>
+                <option value="">Todas las provincias</option>
                 {dbCities.map((c) => (
-                  <option key={c.city} value={c.city}>{c.city}{c.province && c.province !== c.city ? ` (${c.province})` : ''}</option>
+                  <option key={c.city} value={c.city}>{c.city}</option>
                 ))}
               </select>
             </div>
@@ -466,6 +466,7 @@ function SearchV2Content() {
                   providers={displayProviders.filter((p) => p.lat && p.lng)}
                   highlightedId={highlightedId}
                   city={cityFilter || cityParam}
+                  filterSignature={`${specialtySlug}|${procedureSlug}|${ratingFilter}|${insuranceFilter}`}
                   onPinClick={(p) => {
                     setHighlightedId(p.id);
                     setModalProvider(p);
