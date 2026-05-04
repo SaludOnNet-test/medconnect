@@ -134,6 +134,13 @@ export default function ClinicMap({ providers, highlightedId, onPinClick, city, 
         if (clinicsWithCoords.length > 1) {
           const bounds = L.latLngBounds(clinicsWithCoords.map((p) => [p.lat, p.lng]));
           mapRef.current.fitBounds(bounds, { padding: [40, 40], maxZoom: 14 });
+          // When a province filter is active, fitBounds can zoom way out
+          // because clinics in a province are scattered across many towns.
+          // Force a province-level minimum so the user sees the whole
+          // province instead of half of Spain.
+          if (city && mapRef.current.getZoom() < 9) {
+            mapRef.current.setZoom(9);
+          }
         } else if (clinicsWithCoords.length === 1) {
           mapRef.current.setView([clinicsWithCoords[0].lat, clinicsWithCoords[0].lng], 14);
         }

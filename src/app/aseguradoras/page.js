@@ -45,10 +45,12 @@ function formatTotal(n) {
 }
 
 function resolveBaseUrl() {
-  // Prefer the explicit build-time URL, then Vercel's per-deploy host,
-  // then localhost in dev. Important: Vercel sets VERCEL_URL but NOT
-  // NEXT_PUBLIC_BASE_URL, so we cover both. Operator precedence kept
-  // unambiguous with explicit branching.
+  // On Vercel preview deploys, hit our own deploy's API instead of the
+  // production domain — otherwise the page would call medconnect.es and
+  // miss any schema changes that haven't been promoted to prod yet.
+  if (process.env.VERCEL_ENV === 'preview' && process.env.VERCEL_URL) {
+    return `https://${process.env.VERCEL_URL}`;
+  }
   if (process.env.NEXT_PUBLIC_BASE_URL) return process.env.NEXT_PUBLIC_BASE_URL;
   if (process.env.VERCEL_URL) return `https://${process.env.VERCEL_URL}`;
   return 'http://localhost:3000';
