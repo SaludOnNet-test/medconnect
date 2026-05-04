@@ -3,6 +3,10 @@
     {
       "path": "/api/referrals/remind",
       "schedule": "0 8 * * *"
+    },
+    {
+      "path": "/api/reviews/request-batch",
+      "schedule": "0 9 * * *"
     }
   ]
 }

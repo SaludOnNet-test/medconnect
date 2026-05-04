@@ -484,6 +484,41 @@ export async function GET(request) {
       CREATE INDEX IX_analytics_events_event_created_at ON analytics_events(event_name, created_at DESC);
     `);
 
+    // ── N15: post-cita reviews + Trustpilot bridge ──────────────────────
+    // Two-rating model: Med Connect rating (required, "how fast did we
+    // get you the appointment?") + clinic rating (optional, "how was the
+    // service?"). One row per booking enforced via UNIQUE (booking_id);
+    // POST endpoint relies on the unique-violation to reject duplicate
+    // submissions without a separate "exists" round-trip.
+    await pool.request().query(`
+      IF NOT EXISTS (SELECT * FROM sys.tables WHERE name = 'reviews')
+      CREATE TABLE reviews (
+        id                   INT IDENTITY PRIMARY KEY,
+        booking_id           NVARCHAR(50)  NOT NULL,
+        rating_medconnect    TINYINT       NOT NULL CHECK (rating_medconnect BETWEEN 1 AND 5),
+        rating_clinic        TINYINT       NULL CHECK (rating_clinic BETWEEN 1 AND 5),
+        comment_medconnect   NVARCHAR(2000) NULL,
+        comment_clinic       NVARCHAR(2000) NULL,
+        trustpilot_clicked   BIT           NOT NULL DEFAULT 0,
+        submitter_ip         NVARCHAR(45)  NULL,
+        submitter_user_agent NVARCHAR(500) NULL,
+        submitted_at         DATETIMEOFFSET NOT NULL DEFAULT SYSDATETIMEOFFSET(),
+        CONSTRAINT UQ_reviews_booking UNIQUE (booking_id),
+        CONSTRAINT FK_reviews_booking FOREIGN KEY (booking_id) REFERENCES bookings(id)
+      );
+    `);
+    await pool.request().query(`
+      IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE name = 'IX_reviews_submitted_at' AND object_id = OBJECT_ID('reviews'))
+      CREATE INDEX IX_reviews_submitted_at ON reviews(submitted_at DESC);
+    `);
+    // Idempotency column on bookings — set by the request-batch cron when
+    // the review-request email is sent so re-runs on the same day skip
+    // already-emailed bookings. Mirrors the voucher idempotency pattern.
+    await pool.request().query(`
+      IF NOT EXISTS (SELECT * FROM sys.columns WHERE Name = 'review_request_sent_at' AND Object_ID = Object_ID('bookings'))
+      ALTER TABLE bookings ADD review_request_sent_at DATETIMEOFFSET NULL;
+    `);
+
     return NextResponse.json({ success: true, message: 'Schema ready (tables + migrations applied)' });
   } catch (err) {
     console.error('[db/setup]', err);

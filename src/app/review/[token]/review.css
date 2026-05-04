@@ -1,0 +1,267 @@
+/* /review/[token] — public review form, brand-aligned 2026 (Bone bg, Brass CTA, Ink text). */
+
+.review-page {
+  background: var(--bone-200);
+  min-height: 100vh;
+  padding: 48px 16px 80px;
+}
+
+.review-shell {
+  max-width: 640px;
+  margin: 0 auto;
+  background: var(--bone-100);
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  padding: 32px 36px;
+  box-shadow: 0 8px 28px rgba(14, 26, 43, 0.06);
+}
+
+.review-status {
+  text-align: center;
+  color: var(--fg-muted);
+  font-family: var(--font-body);
+  padding: 32px 0;
+}
+
+/* ─── header ─────────────────────────────────────────────────────────── */
+
+.review-header h1,
+.review-thanks h1,
+.review-error h1 {
+  font-family: var(--font-display);
+  font-weight: 600;
+  font-size: clamp(22px, 3vw, 28px);
+  line-height: 1.2;
+  margin: 0 0 12px;
+  color: var(--ink-1000);
+  letter-spacing: -0.01em;
+}
+
+.review-sub {
+  margin: 0 0 24px;
+  font-size: 15px;
+  line-height: 1.6;
+  color: var(--fg-muted);
+}
+
+/* ─── form blocks ────────────────────────────────────────────────────── */
+
+.review-block {
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 20px 22px;
+  margin: 0 0 16px;
+  background: var(--bone-50);
+}
+
+.review-block legend {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--brass-600);
+  padding: 0 8px;
+  margin-left: -8px;
+}
+
+.review-block-mc {
+  border-left: 3px solid var(--brass-500);
+}
+
+.review-block-q {
+  margin: 8px 0 14px;
+  font-size: 15px;
+  font-weight: 500;
+  color: var(--ink-1000);
+}
+
+.review-block-help {
+  margin: 10px 0 0;
+  font-size: 12px;
+  color: var(--fg-subtle);
+  line-height: 1.5;
+}
+
+.review-block-help-bottom {
+  text-align: center;
+  margin-top: 12px;
+}
+
+.review-textarea {
+  width: 100%;
+  min-height: 60px;
+  margin-top: 12px;
+  padding: 10px 12px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  font-family: var(--font-body);
+  font-size: 14px;
+  background: white;
+  resize: vertical;
+}
+
+.review-textarea:focus {
+  outline: none;
+  box-shadow: var(--focus-ring);
+  border-color: var(--brass-500);
+}
+
+/* ─── stars ──────────────────────────────────────────────────────────── */
+
+.review-stars {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  margin: 12px 0;
+}
+
+.review-star {
+  background: transparent;
+  border: 0;
+  font-size: 32px;
+  line-height: 1;
+  color: var(--ink-200);
+  cursor: pointer;
+  padding: 4px 4px;
+  transition: color 0.12s, transform 0.12s;
+}
+
+.review-star:hover:not(:disabled) {
+  transform: scale(1.1);
+}
+
+.review-star.is-on {
+  color: var(--brass-500);
+}
+
+.review-star:disabled {
+  cursor: not-allowed;
+}
+
+.review-star:focus-visible {
+  outline: none;
+  box-shadow: var(--focus-ring);
+  border-radius: 4px;
+}
+
+.review-stars-label {
+  margin-left: 12px;
+  font-family: var(--font-mono);
+  font-size: 12px;
+  color: var(--fg-subtle);
+  letter-spacing: 0.04em;
+}
+
+/* ─── toggle (clinic section) ────────────────────────────────────────── */
+
+.review-toggle {
+  background: transparent;
+  border: 1px dashed var(--border-strong);
+  color: var(--clinical-500);
+  padding: 12px 16px;
+  border-radius: 10px;
+  width: 100%;
+  text-align: left;
+  font-family: var(--font-body);
+  font-size: 14px;
+  cursor: pointer;
+  margin: 0 0 16px;
+  transition: border-color 0.15s, background 0.15s;
+}
+
+.review-toggle:hover {
+  border-color: var(--clinical-500);
+  background: var(--bone-50);
+}
+
+.review-toggle-hint {
+  color: var(--fg-subtle);
+  font-size: 12px;
+  margin-left: 4px;
+}
+
+/* ─── submit + thanks ────────────────────────────────────────────────── */
+
+.review-submit {
+  display: block;
+  width: 100%;
+  background: var(--ink-1000);
+  color: var(--fg-on-inverse);
+  border: 0;
+  padding: 14px 18px;
+  border-radius: 10px;
+  font-family: var(--font-body);
+  font-weight: 600;
+  font-size: 15px;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+
+.review-submit:hover:not(:disabled) {
+  background: var(--ink-900);
+}
+
+.review-submit:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.review-thanks,
+.review-error {
+  text-align: center;
+  padding: 16px 0 8px;
+}
+
+.review-thanks p,
+.review-error p {
+  margin: 0 0 14px;
+  font-size: 15px;
+  line-height: 1.6;
+  color: var(--fg);
+}
+
+.review-trustpilot-note {
+  background: var(--brass-100);
+  border-left: 3px solid var(--brass-500);
+  padding: 12px 16px;
+  border-radius: 0 8px 8px 0;
+  font-size: 14px !important;
+  text-align: left;
+  color: var(--ink-900) !important;
+}
+
+.review-trustpilot-cta {
+  display: inline-block;
+  margin: 16px auto 8px;
+  background: var(--brass-500);
+  color: var(--ink-1000);
+  padding: 14px 28px;
+  border-radius: 10px;
+  font-family: var(--font-display);
+  font-weight: 600;
+  font-size: 16px;
+  text-decoration: none;
+  transition: background 0.15s;
+}
+
+.review-trustpilot-cta:hover {
+  background: var(--brass-600);
+}
+
+.review-trustpilot-thanks {
+  margin-top: 12px;
+  font-size: 13px !important;
+  color: var(--sage-700) !important;
+}
+
+@media (max-width: 600px) {
+  .review-shell {
+    padding: 24px 20px;
+  }
+  .review-block {
+    padding: 16px 16px;
+  }
+  .review-star {
+    font-size: 28px;
+  }
+}
