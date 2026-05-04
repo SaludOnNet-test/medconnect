@@ -49,9 +49,13 @@ export function verifyToken(token) {
 
 export async function authenticate(username, password) {
   if (!DB_AVAILABLE) {
-    if (username === 'Admin' && password === 'ADMIN') {
-      return { username: 'Admin', role: 'admin', display_name: 'Default Admin (no DB)' };
-    }
+    // The previous no-DB fallback accepted the literal pair "Admin"/"ADMIN"
+    // so the dashboard still rendered when the DB was offline (during
+    // local-dev setup, or while the migration was running). That created a
+    // hardcoded credential leak in the codebase — easy to grep, harder to
+    // rotate. With prod always having DB_AVAILABLE=true the fallback was
+    // never used by real users; we just refuse the login now and let the
+    // operator surface the actual error via the response body / logs.
     return null;
   }
   const result = await query(
