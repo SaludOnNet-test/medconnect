@@ -1,7 +1,7 @@
 # Manual de Operaciones — Med Connect
 
-**Versión:** 1.0 (MVP)
-**Última actualización:** 2026-04-25
+**Versión:** 1.1 (MVP soft launch)
+**Última actualización:** 2026-05-04
 **Audiencia:** Equipo de operaciones (los que llaman a las clínicas).
 
 ---
@@ -46,7 +46,7 @@ Es decir: el paciente nos paga a nosotros una tarifa de "salto de cola" y nosotr
 | Caso resuelto (confirmado o reembolsado) | **< 6 h hábiles** |
 | Si la clínica no contesta tras 3 intentos espaciados 1h | Buscar otra clínica o reembolsar |
 
-> Las "horas hábiles" son lun–vie 9:00–18:00, no festivos. El buffer se aplica también a los slots vendibles: nunca vendemos un slot a menos de 6h hábiles del momento del search, para tener margen operativo.
+> Las "horas hábiles" son lun–vie **10:00–18:00**, **no festivos en Madrid**. Es lo que figura publicado en `/contacto` y lo que el carrier del teléfono `+34 91 197 70 52` enforza fuera de horario. El buffer se aplica también a los slots vendibles: nunca vendemos un slot a menos de 6h hábiles del momento del search, para tener margen operativo.
 
 ---
 
@@ -210,17 +210,23 @@ A: Igual hay que ejecutar acción B (propone otro día/hora). El paciente confir
 
 ## 10. Acceso y usuarios del dashboard
 
-**URL:** https://medconnect-bay.vercel.app/admin/login (o medconnect.es/admin/login)
+**URL:** https://www.medconnect.es/admin/login
 
-**Credenciales por defecto:**
-- Usuario: `Admin`
-- Contraseña: `ADMIN`
+**Credenciales:** Las credenciales se entregan presencialmente o por canal cifrado al alta de cada operador, **NO por email a la lista** ni documentadas en este manual. Si todavía no recibiste las tuyas, escribí a `francisco.pizarro@saludonnet.com`. En el primer login es obligatorio cambiar la contraseña.
 
-**Importante:** cambia la contraseña por defecto y crea un usuario por cada operador. Cada acción queda registrada con el username que la ejecutó.
+**Política de contraseñas (post-rotación 2026-04-30):**
+- Mínimo 16 caracteres con mayúsculas + minúsculas + dígitos + símbolos.
+- Almacenadas con hash scrypt (no plaintext) usando `SESSION_SECRET` como sal.
+- Rate limit en `/api/admin/auth/login`: 10 intentos/min/IP. Después de un bloqueo, esperar 60 segundos.
 
 **Roles:**
-- `admin`: puede crear/desactivar usuarios. Recomendado: solo Francisco y un backup.
-- `ops`: puede gestionar casos. Asigna este rol a los operadores.
+- `admin`: puede crear/desactivar usuarios y promover profesionales en Clerk. Recomendado: 2 personas máximo (Francisco + un backup definido por Operaciones).
+- `ops`: puede gestionar casos en `/admin/ops`, subir vouchers, aplicar refunds. Asignar este rol a los operadores.
+
+**Cómo se crea un operador nuevo:**
+- Operaciones envía a `francisco.pizarro@saludonnet.com` el nombre y email del operador.
+- Francisco ejecuta `createAdmin()` desde un script Node con una contraseña fuerte generada al momento.
+- La contraseña se entrega al operador por canal seguro (Slack DM cifrado / mensaje presencial / 1Password compartido).
 
 ---
 

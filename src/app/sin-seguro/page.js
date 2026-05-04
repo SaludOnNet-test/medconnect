@@ -57,6 +57,9 @@ export default function SinSeguroPage() {
         <h3 style={{ fontSize: '1rem', fontWeight: 700, color: '#1a3c5e', marginTop: '1rem' }}>¿Y si el día llego y no me atienden?</h3>
         <p>Te devolvemos el 100% — acto + tarifa — automáticamente. Te avisamos por email del reembolso y aparece en tu cuenta en 1–2 días hábiles.</p>
 
+        <h3 style={{ fontSize: '1rem', fontWeight: 700, color: '#1a3c5e', marginTop: '1rem' }}>¿Quién emite la factura?</h3>
+        <p>El cobro lo emite Med Connect (operado por <strong>Saludonnet Worldwide Medical Network SL</strong>, CIF B87648150). Si necesitás factura nominativa para presentar a tu trabajo, mutua o IRPF, escribinos a <a href="mailto:operaciones@medconnect.es" style={{ color: '#1a3c5e' }}>operaciones@medconnect.es</a> con tu nombre completo, DNI o NIF y dirección, y la emitimos en 48&nbsp;h hábiles. La clínica donde te atiendan no te factura nada — el coste del acto ya está incluido en lo que pagaste aquí.</p>
+
         <div style={{ marginTop: '2rem' }}>
           <Link href="/search-v2" className="btn btn-gold btn-lg" style={{ display: 'inline-block' }}>
             Buscar mi cita →
