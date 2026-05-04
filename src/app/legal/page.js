@@ -66,11 +66,20 @@ export default function LegalPage() {
           </ul>
         </Section>
 
-        <Section title="6. Legislación aplicable y jurisdicción">
+        <Section title="6. Modelo de cobro y facturación">
+          <p>Med Connect cobra al paciente la totalidad del importe en el momento de la reserva mediante pasarela de pago segura (Stripe). El cobro figura en el extracto bancario del usuario como <em>Med Connect</em> o <em>SALUDONNET WORLDWIDE MEDICAL NETWORK SL</em>.</p>
+          <ul>
+            <li><strong>Pacientes con seguro privado:</strong> Med Connect cobra únicamente la <em>tarifa de prioridad</em> (4,99&nbsp;€ a 24,99&nbsp;€ según especialidad). La consulta médica la cubre la póliza del paciente directamente con la clínica concertada.</li>
+            <li><strong>Pacientes sin seguro:</strong> Med Connect cobra el total (acto médico + tarifa de prioridad) y transfiere posteriormente el importe correspondiente del acto a la clínica que atiende al paciente.</li>
+          </ul>
+          <p><strong>Factura:</strong> en esta fase MVP las facturas nominativas se emiten <em>a solicitud del cliente</em>. Para solicitarla escribir a <a href="mailto:operaciones@medconnect.es">operaciones@medconnect.es</a> indicando nombre completo, NIF/DNI y dirección. Plazo de emisión: 48&nbsp;h hábiles. La factura la emite SALUDONNET WORLDWIDE MEDICAL NETWORK SL (CIF B87648150).</p>
+        </Section>
+
+        <Section title="7. Legislación aplicable y jurisdicción">
           <p>Este Aviso Legal se rige por la legislación española. Para cualquier controversia derivada del uso del Sitio, las partes se someten a los Juzgados y Tribunales del domicilio del usuario, salvo que la normativa aplicable disponga otro fuero.</p>
         </Section>
 
-        <Section title="7. Contacto">
+        <Section title="8. Contacto">
           <p>Para cualquier consulta legal: <a href="mailto:legal@medconnect.es">legal@medconnect.es</a></p>
         </Section>
       </main>
