@@ -9,7 +9,14 @@ import { useUser } from '@clerk/nextjs';
 import Header from '@/components/Header';
 import Footer from '@/components/Footer';
 import Icon from '@/components/icons/Icon';
+import TurnstileWidget from '@/components/TurnstileWidget';
 import './onboarding.css';
+
+// Surface the Turnstile site key flag in the component so the submit
+// button can wait for the captcha token only when the widget is active.
+// When the env var is unset, the widget renders nothing, the token stays
+// empty, and the server side also skips verification.
+const HAS_TURNSTILE = !!process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY;
 
 const HAS_CLERK_KEYS = !!process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY;
 
@@ -71,6 +78,10 @@ export default function ProOnboarding() {
   const [altaSubmitting, setAltaSubmitting] = useState(false);
   const [altaError, setAltaError] = useState(null);
   const [altaSuccess, setAltaSuccess] = useState(false);
+  // Cloudflare Turnstile token. When NEXT_PUBLIC_TURNSTILE_SITE_KEY is
+  // unset, the widget calls onToken('') on mount and the server-side
+  // verification also no-ops, so the form submits like before.
+  const [captchaToken, setCaptchaToken] = useState('');
 
   // Load /api/pro/me once Clerk has resolved a signed-in user. If
   // Clerk is still loading we keep meLoading=true; if Clerk says no
@@ -171,6 +182,7 @@ export default function ProOnboarding() {
           requestedByEmail: professionalEmail,
           requestedByName: professionalName,
           ...altaForm,
+          captchaToken: captchaToken || undefined,
         }),
       });
       const data = await res.json();
@@ -468,11 +480,14 @@ export default function ProOnboarding() {
                   />
                 </div>
                 {altaError && <p className="onboarding-error">{altaError}</p>}
+                <div className="onboarding-captcha">
+                  <TurnstileWidget onToken={setCaptchaToken} />
+                </div>
                 <div className="onboarding-form-actions">
                   <button
                     type="submit"
                     className="btn btn-primary"
-                    disabled={altaSubmitting}
+                    disabled={altaSubmitting || (HAS_TURNSTILE && !captchaToken)}
                   >
                     {altaSubmitting ? 'Enviando…' : 'Enviar solicitud'}
                   </button>
