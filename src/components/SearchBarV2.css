@@ -143,7 +143,30 @@
   border-radius: 12px;
   box-shadow: 0 8px 24px rgba(0,0,0,0.12);
   z-index: 999;
-  overflow: hidden;
+  /* Scrollable list — when there are more results than fit, the user can
+     wheel/swipe the cursor over the dropdown to see the rest. Was
+     `overflow: hidden`, which silently clipped any item past the visible
+     bounds (Jesús's review caught this on the cities list, where typing
+     nothing and trying to find a province further down the alphabet was
+     impossible). `overscroll-behavior: contain` prevents the parent page
+     from also scrolling once the dropdown reaches its end. */
+  max-height: min(50vh, 360px);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+
+/* Thin, brand-compatible scrollbar — keeps the dropdown feeling like one
+   unit instead of a clunky platform scrollbar pasted over rounded
+   corners. */
+.sbv2-dropdown::-webkit-scrollbar {
+  width: 8px;
+}
+.sbv2-dropdown::-webkit-scrollbar-thumb {
+  background: #d1d5db;
+  border-radius: 8px;
+}
+.sbv2-dropdown::-webkit-scrollbar-track {
+  background: transparent;
 }
 
 .sbv2-dropdown-item {

@@ -61,9 +61,9 @@ export default function SearchBarV2({ initialSpecialty, initialService, initialC
     setSelected(null);
     if (val.length > 0) {
       const needle = normalizeText(val);
-      setSuggestions(allSuggestions.filter((s) => normalizeText(s.label).includes(needle)).slice(0, 8));
+      setSuggestions(allSuggestions.filter((s) => normalizeText(s.label).includes(needle)).slice(0, 20));
     } else {
-      setSuggestions(allSuggestions.slice(0, 8));
+      setSuggestions(allSuggestions.slice(0, 20));
     }
     setShowSuggestions(true);
   };
@@ -125,7 +125,7 @@ export default function SearchBarV2({ initialSpecialty, initialService, initialC
             placeholder="Especialidad, procedimiento o clínica"
             value={query}
             onChange={(e) => handleQueryChange(e.target.value)}
-            onFocus={() => { const needle = normalizeText(query); setSuggestions(query ? allSuggestions.filter((s) => normalizeText(s.label).includes(needle)).slice(0, 8) : allSuggestions.slice(0, 8)); setShowSuggestions(true); }}
+            onFocus={() => { const needle = normalizeText(query); setSuggestions(query ? allSuggestions.filter((s) => normalizeText(s.label).includes(needle)).slice(0, 20) : allSuggestions.slice(0, 20)); setShowSuggestions(true); }}
             onBlur={() => setTimeout(() => setShowSuggestions(false), 180)}
             autoComplete="off"
           />
@@ -165,7 +165,7 @@ export default function SearchBarV2({ initialSpecialty, initialService, initialC
           />
           {showCityList && filteredCities.length > 0 && (
             <div className="sbv2-dropdown">
-              {filteredCities.slice(0, 8).map((c) => (
+              {filteredCities.slice(0, 20).map((c) => (
                 <button
                   key={c.city}
                   type="button"
