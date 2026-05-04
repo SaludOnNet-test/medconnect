@@ -6,6 +6,7 @@ export const dynamic = 'force-dynamic';
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { providers, insuranceCompanies, isSlotAvailable } from '@/data/mock';
+import { adminFetch } from '@/lib/adminClient';
 import './admin.css';
 
 export default function AdminDashboard() {
@@ -56,7 +57,7 @@ export default function AdminDashboard() {
       { id: 6, patient: 'David Fernández', patientEmail: '', doctor: 'Dr. Rodríguez', clinic: 'Hospital Vithas Sevilla', specialty: 'Digestivo', city: 'Sevilla', date: '2026-04-03', time: '13:00', status: 'cancelled', amount: 29.00 },
     ];
 
-    fetch('/api/bookings')
+    adminFetch('/api/bookings?limit=200')
       .then((res) => res.ok ? res.json() : null)
       .then((data) => {
         if (Array.isArray(data) && data.length > 0) {
@@ -251,7 +252,7 @@ export default function AdminDashboard() {
           </select>
         )}
         <select value={filters.city} onChange={e => updateFilter('city', e.target.value)} className="filter-select">
-          <option value="">Provincia / Ciudad</option>
+          <option value="">Provincia</option>
           <option value="Madrid">Madrid</option>
           <option value="Barcelona">Barcelona</option>
           <option value="Valencia">Valencia</option>

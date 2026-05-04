@@ -94,6 +94,22 @@ export async function POST(request) {
     return NextResponse.json({ error: 'id and patientEmail are required' }, { status: 400 });
   }
 
+  // Referrals are capped at 30 days out — anything further is a regular
+  // booking, not a fast-track referral. The frontend already filters slots,
+  // this is the backend defence against stale clients or direct API calls.
+  if (slotDate) {
+    const slot = new Date(slotDate + 'T00:00:00');
+    const cutoff = new Date();
+    cutoff.setHours(0, 0, 0, 0);
+    cutoff.setDate(cutoff.getDate() + 30);
+    if (Number.isFinite(slot.getTime()) && slot > cutoff) {
+      return NextResponse.json(
+        { error: 'slot_date must be within 30 days from today' },
+        { status: 422 },
+      );
+    }
+  }
+
   try {
     const pool = await getPool();
     await pool.request()

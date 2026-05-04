@@ -10,10 +10,16 @@ export async function GET() {
              FROM clinic_specialties
              WHERE specialty_name IS NOT NULL AND specialty_name != ''
              ORDER BY specialty_name`),
-      query(`SELECT DISTINCT city, province
-             FROM clinics
-             WHERE city IS NOT NULL AND city != ''
-             ORDER BY city`),
+      // Location filter is province-level across the whole site (we don't
+       // want one province to fragment into a long list of small towns).
+       // The shape is preserved (`{ city, province }` per row) so existing
+       // consumers don't break — `city` here just carries the province
+       // name. /api/clinics/search?city=<value> already matches against
+       // either column, so a province name routes correctly.
+       query(`SELECT DISTINCT province
+              FROM clinics
+              WHERE province IS NOT NULL AND province != ''
+              ORDER BY province`),
       query(`SELECT DISTINCT procedure_slug, procedure_name, specialty_slug, specialty_name
              FROM clinic_procedures
              WHERE procedure_name IS NOT NULL AND procedure_name != ''
@@ -26,7 +32,9 @@ export async function GET() {
         name: r.specialty_name,
       })),
       cities: citiesResult.recordset.map((r) => ({
-        city: r.city,
+        // Field carries the province name now — keeping the legacy `city`
+        // key avoids touching every consumer in one go.
+        city: r.province,
         province: r.province,
       })),
       procedures: procsResult.recordset.map((r) => ({

@@ -19,14 +19,14 @@ export const metadata = {
 export const dynamic = 'force-dynamic';
 
 const FALLBACK_INSURERS = [
-  { id: 'sanitas', name: 'Sanitas', clinics: 1240 },
-  { id: 'adeslas', name: 'Adeslas', clinics: 1580 },
-  { id: 'dkv',     name: 'DKV',     clinics:  980 },
-  { id: 'axa',     name: 'AXA',     clinics:  720 },
-  { id: 'mapfre',  name: 'Mapfre',  clinics:  860 },
-  { id: 'asisa',   name: 'Asisa',   clinics:  910 },
-  { id: 'cigna',   name: 'Cigna',   clinics:  430 },
-  { id: 'caser',   name: 'Caser',   clinics:  380 },
+  { id: 'sanitas', name: 'Sanitas', clinics: 1240, provinces: 50 },
+  { id: 'adeslas', name: 'Adeslas', clinics: 1580, provinces: 50 },
+  { id: 'dkv',     name: 'DKV',     clinics:  980, provinces: 48 },
+  { id: 'axa',     name: 'AXA',     clinics:  720, provinces: 45 },
+  { id: 'mapfre',  name: 'Mapfre',  clinics:  860, provinces: 47 },
+  { id: 'asisa',   name: 'Asisa',   clinics:  910, provinces: 48 },
+  { id: 'cigna',   name: 'Cigna',   clinics:  430, provinces: 40 },
+  { id: 'caser',   name: 'Caser',   clinics:  380, provinces: 38 },
 ];
 
 function formatThousands(n) {
@@ -45,10 +45,12 @@ function formatTotal(n) {
 }
 
 function resolveBaseUrl() {
-  // Prefer the explicit build-time URL, then Vercel's per-deploy host,
-  // then localhost in dev. Important: Vercel sets VERCEL_URL but NOT
-  // NEXT_PUBLIC_BASE_URL, so we cover both. Operator precedence kept
-  // unambiguous with explicit branching.
+  // On Vercel preview deploys, hit our own deploy's API instead of the
+  // production domain — otherwise the page would call medconnect.es and
+  // miss any schema changes that haven't been promoted to prod yet.
+  if (process.env.VERCEL_ENV === 'preview' && process.env.VERCEL_URL) {
+    return `https://${process.env.VERCEL_URL}`;
+  }
   if (process.env.NEXT_PUBLIC_BASE_URL) return process.env.NEXT_PUBLIC_BASE_URL;
   if (process.env.VERCEL_URL) return `https://${process.env.VERCEL_URL}`;
   return 'http://localhost:3000';
@@ -107,10 +109,11 @@ export default async function AseguradorasPage() {
                   )}
                 </div>
                 <div>
-                  <div className="insurer-card-clinics">
-                    {formatThousands(ins.clinics)} clínicas
+                  <div className="insurer-card-meta">
+                    Aseguradora con clínicas concertadas en{' '}
+                    <strong>{formatThousands(ins.provinces)}</strong>{' '}
+                    {ins.provinces === 1 ? 'provincia' : 'provincias'} de toda España
                   </div>
-                  <div className="insurer-card-meta">concertadas activas</div>
                 </div>
               </article>
             ))}

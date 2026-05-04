@@ -185,7 +185,7 @@ export default function Header() {
           >
             <Icon name="phone" size={16} className="header-phone-icon" />
             <span className="header-phone-block">
-              <span className="header-phone-label">¿Tu seguro no te da cita?</span>
+              <span className="header-phone-label">¿Necesitas cita antes?</span>
               <span className="header-phone-number">91 197 70 52</span>
             </span>
           </a>

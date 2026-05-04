@@ -315,6 +315,110 @@ export async function GET(request) {
       `);
     }
 
+    // ── Migration: clinic onboarding (clinic_id + alta_request_id + clinic_alta_requests) ──
+    // Mirrors scripts/migration_add_clinic_alta_requests.py. Pro picks an
+    // existing clinic in onboarding -> admin_users.clinic_id is set. If their
+    // clinic isn't in the DB they fill clinic_alta_requests and ops review it.
+    await pool.request().query(`
+      IF NOT EXISTS (SELECT * FROM sys.columns WHERE Name = 'clinic_id' AND Object_ID = Object_ID('admin_users'))
+      ALTER TABLE admin_users ADD clinic_id INT NULL;
+    `);
+    await pool.request().query(`
+      IF NOT EXISTS (SELECT * FROM sys.columns WHERE Name = 'alta_request_id' AND Object_ID = Object_ID('admin_users'))
+      ALTER TABLE admin_users ADD alta_request_id INT NULL;
+    `);
+    await pool.request().query(`
+      IF NOT EXISTS (SELECT * FROM sys.tables WHERE name = 'clinic_alta_requests')
+      CREATE TABLE clinic_alta_requests (
+        id                  INT IDENTITY PRIMARY KEY,
+        requested_by_email  NVARCHAR(255) NOT NULL,
+        requested_by_name   NVARCHAR(255) NULL,
+        clinic_name         NVARCHAR(255) NOT NULL,
+        city                NVARCHAR(120) NULL,
+        province            NVARCHAR(120) NULL,
+        address             NVARCHAR(500) NULL,
+        telephone           NVARCHAR(40)  NULL,
+        contact_email       NVARCHAR(255) NULL,
+        specialties         NVARCHAR(MAX) NULL,
+        aseguradoras        NVARCHAR(MAX) NULL,
+        notes               NVARCHAR(MAX) NULL,
+        status              NVARCHAR(20)  NOT NULL DEFAULT 'pending',
+        linked_clinic_id    INT           NULL,
+        ops_notes           NVARCHAR(MAX) NULL,
+        resolved_by         NVARCHAR(80)  NULL,
+        resolved_at         DATETIMEOFFSET NULL,
+        created_at          DATETIMEOFFSET NOT NULL DEFAULT SYSDATETIMEOFFSET()
+      );
+    `);
+    await pool.request().query(`
+      IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE name = 'IX_clinic_alta_requests_status_created_at' AND object_id = OBJECT_ID('clinic_alta_requests'))
+      CREATE INDEX IX_clinic_alta_requests_status_created_at ON clinic_alta_requests(status, created_at DESC);
+    `);
+    await pool.request().query(`
+      IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE name = 'IX_admin_users_clinic_id' AND object_id = OBJECT_ID('admin_users'))
+      CREATE INDEX IX_admin_users_clinic_id ON admin_users(clinic_id) WHERE clinic_id IS NOT NULL;
+    `);
+
+    // ── Migration: pro verification (is_verified + verification_request_id + pro_verification_requests) ──
+    // Mirrors scripts/migration_add_pro_verification.py. Pro submits the
+    // verification modal -> pro_verification_requests row + ops review flips
+    // admin_users.is_verified.
+    await pool.request().query(`
+      IF NOT EXISTS (SELECT * FROM sys.columns WHERE Name = 'is_verified' AND Object_ID = Object_ID('admin_users'))
+      ALTER TABLE admin_users ADD is_verified BIT NOT NULL DEFAULT 0;
+    `);
+    await pool.request().query(`
+      IF NOT EXISTS (SELECT * FROM sys.columns WHERE Name = 'verification_request_id' AND Object_ID = Object_ID('admin_users'))
+      ALTER TABLE admin_users ADD verification_request_id INT NULL;
+    `);
+    await pool.request().query(`
+      IF NOT EXISTS (SELECT * FROM sys.tables WHERE name = 'pro_verification_requests')
+      CREATE TABLE pro_verification_requests (
+        id                  INT IDENTITY PRIMARY KEY,
+        requested_by_email  NVARCHAR(255) NOT NULL,
+        profile_type        NVARCHAR(20)  NOT NULL,
+        full_name           NVARCHAR(255) NULL,
+        license_number      NVARCHAR(100) NULL,
+        clinic_name         NVARCHAR(255) NULL,
+        tax_id              NVARCHAR(40)  NULL,
+        document_urls       NVARCHAR(MAX) NULL,
+        notes               NVARCHAR(MAX) NULL,
+        status              NVARCHAR(20)  NOT NULL DEFAULT 'pending',
+        ops_notes           NVARCHAR(MAX) NULL,
+        resolved_by         NVARCHAR(80)  NULL,
+        resolved_at         DATETIMEOFFSET NULL,
+        created_at          DATETIMEOFFSET NOT NULL DEFAULT SYSDATETIMEOFFSET()
+      );
+    `);
+    await pool.request().query(`
+      IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE name = 'IX_pro_verification_requests_status' AND object_id = OBJECT_ID('pro_verification_requests'))
+      CREATE INDEX IX_pro_verification_requests_status ON pro_verification_requests(status, created_at DESC);
+    `);
+    await pool.request().query(`
+      IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE name = 'IX_pro_verification_requests_email' AND object_id = OBJECT_ID('pro_verification_requests'))
+      CREATE INDEX IX_pro_verification_requests_email ON pro_verification_requests(requested_by_email);
+    `);
+
+    // ── Migration: "request more info" flow ────────────────────────────
+    // Adds the columns both ops review tables need to capture an ops
+    // message asking the pro for clarification, and to track when the pro
+    // responded. Status uses the new value 'more_info_requested' (existing
+    // NVARCHAR(20) column fits; no enum to extend).
+    for (const tbl of ['clinic_alta_requests', 'pro_verification_requests']) {
+      await pool.request().query(`
+        IF NOT EXISTS (SELECT * FROM sys.columns WHERE Name = 'info_request_message' AND Object_ID = Object_ID('${tbl}'))
+        ALTER TABLE ${tbl} ADD info_request_message NVARCHAR(MAX) NULL;
+      `);
+      await pool.request().query(`
+        IF NOT EXISTS (SELECT * FROM sys.columns WHERE Name = 'info_request_at' AND Object_ID = Object_ID('${tbl}'))
+        ALTER TABLE ${tbl} ADD info_request_at DATETIMEOFFSET NULL;
+      `);
+      await pool.request().query(`
+        IF NOT EXISTS (SELECT * FROM sys.columns WHERE Name = 'info_response_at' AND Object_ID = Object_ID('${tbl}'))
+        ALTER TABLE ${tbl} ADD info_response_at DATETIMEOFFSET NULL;
+      `);
+    }
+
     return NextResponse.json({ success: true, message: 'Schema ready (tables + migrations applied)' });
   } catch (err) {
     console.error('[db/setup]', err);

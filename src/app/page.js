@@ -97,7 +97,7 @@ export default function HomePage() {
           <div className="container">
             <Eyebrow>El atajo legítimo</Eyebrow>
             <h2 className="home-section-title">
-              Cuando tu seguro <em>no te da cita</em>.
+              <em>Adelanta</em> tu cita médica.
             </h2>
             <div className="home-pillars">
               {PILLARS.map((p) => (

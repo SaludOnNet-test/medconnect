@@ -795,7 +795,7 @@ function BookContent() {
                     <span className="book-price-label"><Icon name="stethoscope" size={14} /> {serviceLabel}</span>
                     <span className="book-price-amount">
                       {hasInsurance === true
-                        ? <span style={{ color: '#00805a', fontWeight: 600 }}>Cubierto por tu seguro</span>
+                        ? <span style={{ color: '#00805a', fontWeight: 600 }}>A cubrir por tu seguro</span>
                         : formatEUR(servicePrice)}
                     </span>
                   </div>

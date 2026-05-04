@@ -3,11 +3,28 @@ import { getPool, sql, DB_AVAILABLE } from '@/lib/db';
 
 export const dynamic = 'force-dynamic';
 
-// MVP commission model. Each confirmed referral earns the professional a flat
-// amount until the business defines a percentage-of-payment-to-clinic rule.
-// Driven by env var so the rate can be tuned without a deploy.
-const COMMISSION_PER_CONFIRMED_REFERRAL =
-  Number(process.env.PRO_COMMISSION_PER_REFERRAL || 5);
+// Commission tiers — keyed off how far in advance the slot is booked.
+// 0–14 days (first two weeks):  5 €
+// 15–30 days (weeks 3–4):       3 €
+// >30 days:                     N/A — frontend + /api/referrals reject
+//                              these before we ever get here.
+const COMMISSION_TIERS = [
+  { upToDays: 14, amount: 5 },
+  { upToDays: 30, amount: 3 },
+];
+
+function commissionFor(slotDate, createdAt) {
+  if (!slotDate || !createdAt) return 0;
+  const slot = new Date(`${slotDate}T00:00:00`);
+  const created = new Date(createdAt);
+  if (!Number.isFinite(slot.getTime()) || !Number.isFinite(created.getTime())) return 0;
+  const days = Math.round((slot - created) / 86400000);
+  if (days < 0) return 0;
+  for (const tier of COMMISSION_TIERS) {
+    if (days <= tier.upToDays) return tier.amount;
+  }
+  return 0;
+}
 
 /**
  * GET /api/pro/commissions?email=...
@@ -25,7 +42,7 @@ const COMMISSION_PER_CONFIRMED_REFERRAL =
 export async function GET(request) {
   if (!DB_AVAILABLE) {
     return NextResponse.json(
-      { error: 'DB not configured', commissionPerReferral: COMMISSION_PER_CONFIRMED_REFERRAL,
+      { error: 'DB not configured', commissionTiers: COMMISSION_TIERS,
         totalEarned: 0, last30dEarned: 0, byState: {}, recent: [] },
       { status: 200 },
     );
@@ -53,19 +70,28 @@ export async function GET(request) {
     const byState = {};
     for (const row of stateCounts.recordset) byState[row.state] = row.n;
 
-    const confirmedTotal = byState['confirmed'] || 0;
-
-    // Last-30-day earnings: confirmed referrals updated in the window.
-    const last30 = await pool.request()
+    // Confirmed referrals — needed to compute commission per row, since the
+    // amount depends on how far ahead the slot was booked.
+    const confirmed = await pool.request()
       .input('email', sql.NVarChar(255), email)
       .query(`
-        SELECT COUNT(*) AS n
+        SELECT id, slot_date, created_at, updated_at
         FROM referrals
         WHERE LOWER(professional_email) = @email
           AND state = 'confirmed'
-          AND updated_at >= DATEADD(day, -30, SYSUTCDATETIME())
       `);
-    const last30Confirmed = last30.recordset[0]?.n || 0;
+
+    let totalEarned = 0;
+    let last30dEarned = 0;
+    const last30Cutoff = new Date();
+    last30Cutoff.setDate(last30Cutoff.getDate() - 30);
+    for (const row of confirmed.recordset) {
+      const amount = commissionFor(row.slot_date, row.created_at);
+      totalEarned += amount;
+      if (row.updated_at && new Date(row.updated_at) >= last30Cutoff) {
+        last30dEarned += amount;
+      }
+    }
 
     // Recent referrals (last 20) for the table.
     const recent = await pool.request()
@@ -83,9 +109,9 @@ export async function GET(request) {
 
     return NextResponse.json({
       email,
-      commissionPerReferral: COMMISSION_PER_CONFIRMED_REFERRAL,
-      totalEarned: confirmedTotal * COMMISSION_PER_CONFIRMED_REFERRAL,
-      last30dEarned: last30Confirmed * COMMISSION_PER_CONFIRMED_REFERRAL,
+      commissionTiers: COMMISSION_TIERS,
+      totalEarned,
+      last30dEarned,
       byState,
       recent: recent.recordset.map((r) => ({
         id: r.id,
@@ -100,7 +126,7 @@ export async function GET(request) {
         bookingStatus: r.booking_status,
         createdAt: r.created_at,
         updatedAt: r.updated_at,
-        commission: r.state === 'confirmed' ? COMMISSION_PER_CONFIRMED_REFERRAL : 0,
+        commission: r.state === 'confirmed' ? commissionFor(r.slot_date, r.created_at) : 0,
       })),
     });
   } catch (err) {

@@ -99,7 +99,7 @@ export default function OpsCaseDetail({ params }) {
 
   const submitVoucher = async () => {
     if (!voucherUrl.trim() && !sonOrderRef.trim() && !voucherPdfFile) return;
-    if (!confirm('Subir el voucher y enviarlo al paciente por email?')) return;
+    if (!confirm('Subir la autorización y enviarla al paciente por email?')) return;
     setVoucherBusy(true);
     try {
       // Step 1 — if a PDF file was selected, upload it to Vercel Blob first
@@ -139,7 +139,7 @@ export default function OpsCaseDetail({ params }) {
       });
       const j = await res.json();
       if (!res.ok) {
-        alert(j.error || 'Error subiendo voucher');
+        alert(j.error || 'Error subiendo la autorización');
       } else {
         await load();
         setVoucherUrl('');
@@ -162,7 +162,7 @@ export default function OpsCaseDetail({ params }) {
       setEditingEmail(false);
       return;
     }
-    if (!confirm(`Cambiar el email del paciente a ${next}? Todos los emails futuros del flujo (voucher, alternativas, reembolsos) se enviarán a esta nueva dirección.`)) return;
+    if (!confirm(`Cambiar el email del paciente a ${next}? Todos los emails futuros del flujo (autorización, alternativas, reembolsos) se enviarán a esta nueva dirección.`)) return;
     setEmailBusy(true);
     try {
       const res = await adminFetch(`/api/admin/bookings/${encodeURIComponent(c.booking_id)}/email`, {
@@ -182,7 +182,7 @@ export default function OpsCaseDetail({ params }) {
   };
 
   const resendVoucher = async () => {
-    if (!confirm('Reenviar el email del voucher al paciente?')) return;
+    if (!confirm('Reenviar el email de la autorización al paciente?')) return;
     setVoucherBusy(true);
     try {
       const res = await adminFetch('/api/admin/vouchers/upload', {
@@ -262,7 +262,7 @@ export default function OpsCaseDetail({ params }) {
               <dt>Especialidad</dt><dd>{c.specialty || '—'}</dd>
             </dl>
             <p style={{ marginTop: 10, fontSize: 11, color: '#6b7280', lineHeight: 1.4 }}>
-              Cambiar el email redirige <strong>todos</strong> los emails futuros del flujo (voucher, alternativas, reembolsos) a la nueva dirección. Queda registrado en el log del caso.
+              Cambiar el email redirige <strong>todos</strong> los emails futuros del flujo (autorización, alternativas, reembolsos) a la nueva dirección. Queda registrado en el log del caso.
             </p>
           </div>
 
@@ -282,19 +282,19 @@ export default function OpsCaseDetail({ params }) {
           {/* Voucher SaludOnNet — only relevant for sin-seguro bookings */}
           {!c.has_insurance && (
             <div className="ops-card">
-              <h2>Voucher SaludOnNet</h2>
+              <h2>Autorización SaludOnNet</h2>
               <dl className="ops-kv">
                 <dt>Acto médico</dt><dd>{c.procedure_name || c.procedure_slug || '—'}</dd>
                 <dt>Precio acto</dt><dd>€{Number(c.service_price || 0).toFixed(2)}</dd>
                 <dt>Tarifa de prioridad</dt><dd>€{Number(c.platform_fee || 0).toFixed(2)}</dd>
-                <dt>Estado voucher</dt>
+                <dt>Estado autorización</dt>
                 <dd>
                   <span className={`ops-status ops-status-${c.voucher_status || 'awaiting_voucher'}`}>
                     {c.voucher_status || 'awaiting_voucher'}
                   </span>
                 </dd>
                 {c.son_order_ref && (<><dt>Ref. SON</dt><dd style={{ fontFamily: 'monospace', fontSize: 12 }}>{c.son_order_ref}</dd></>)}
-                {c.voucher_url && (<><dt>Voucher URL</dt><dd><a href={c.voucher_url} target="_blank" rel="noopener noreferrer">Ver voucher</a></dd></>)}
+                {c.voucher_url && (<><dt>URL de la autorización</dt><dd><a href={c.voucher_url} target="_blank" rel="noopener noreferrer">Ver autorización</a></dd></>)}
                 {c.voucher_pdf_path && (<><dt>PDF subido</dt><dd><a href={c.voucher_pdf_path} target="_blank" rel="noopener noreferrer">Abrir PDF</a></dd></>)}
                 {c.voucher_uploaded_at && (<><dt>Subido</dt><dd>{fmtDateTime(c.voucher_uploaded_at)} {c.voucher_uploaded_by ? `por ${c.voucher_uploaded_by}` : ''}</dd></>)}
                 {c.voucher_sent_at && (<><dt>Enviado al paciente</dt><dd>{fmtDateTime(c.voucher_sent_at)}</dd></>)}
@@ -303,20 +303,20 @@ export default function OpsCaseDetail({ params }) {
               {(!c.voucher_status || c.voucher_status === 'awaiting_voucher') && (
                 <div style={{ marginTop: 12, padding: 12, background: '#fffbeb', border: '1px solid #fde68a', borderRadius: 8 }}>
                   <p style={{ margin: '0 0 8px', fontSize: 13, fontWeight: 700, color: '#78350f' }}>
-                    Subí el voucher tras comprar el acto en SaludOnNet:
+                    Subí la autorización tras comprar el acto en SaludOnNet:
                   </p>
                   <p style={{ margin: '0 0 10px', fontSize: 11, color: '#92400e', lineHeight: 1.5 }}>
                     Cualquiera de los tres campos es suficiente. Podés combinar (e.g. ref + PDF) si tenés ambos.
                   </p>
-                  <label style={{ display: 'block', fontSize: 11, color: '#78350f', fontWeight: 600, marginBottom: 4 }}>URL del voucher (link a SON)</label>
+                  <label style={{ display: 'block', fontSize: 11, color: '#78350f', fontWeight: 600, marginBottom: 4 }}>URL de la autorización (link a SON)</label>
                   <input
                     type="url"
-                    placeholder="https://saludonnet.com/voucher/…"
+                    placeholder="https://saludonnet.com/autorizacion/…"
                     value={voucherUrl}
                     onChange={(e) => setVoucherUrl(e.target.value)}
                     style={{ width: '100%', padding: 8, border: '1px solid #d1d5db', borderRadius: 6, fontSize: 13, marginBottom: 8 }}
                   />
-                  <label style={{ display: 'block', fontSize: 11, color: '#78350f', fontWeight: 600, marginBottom: 4 }}>Código del voucher / Ref. orden SaludOnNet</label>
+                  <label style={{ display: 'block', fontSize: 11, color: '#78350f', fontWeight: 600, marginBottom: 4 }}>Código de la autorización / Ref. orden SaludOnNet</label>
                   <input
                     type="text"
                     placeholder="ABC-12345"
@@ -324,7 +324,7 @@ export default function OpsCaseDetail({ params }) {
                     onChange={(e) => setSonOrderRef(e.target.value)}
                     style={{ width: '100%', padding: 8, border: '1px solid #d1d5db', borderRadius: 6, fontSize: 13, marginBottom: 8 }}
                   />
-                  <label style={{ display: 'block', fontSize: 11, color: '#78350f', fontWeight: 600, marginBottom: 4 }}>O subí un PDF con el voucher</label>
+                  <label style={{ display: 'block', fontSize: 11, color: '#78350f', fontWeight: 600, marginBottom: 4 }}>O subí un PDF con la autorización</label>
                   <input
                     type="file"
                     accept="application/pdf"
@@ -350,7 +350,7 @@ export default function OpsCaseDetail({ params }) {
                     disabled={voucherBusy || (!voucherUrl.trim() && !sonOrderRef.trim() && !voucherPdfFile)}
                     style={{ width: '100%', marginTop: 4 }}
                   >
-                    {voucherBusy ? 'Subiendo…' : 'Subir voucher y enviar al paciente'}
+                    {voucherBusy ? 'Subiendo…' : 'Subir autorización y enviar al paciente'}
                   </button>
                 </div>
               )}
@@ -362,7 +362,7 @@ export default function OpsCaseDetail({ params }) {
                   disabled={voucherBusy}
                   style={{ marginTop: 12, width: '100%' }}
                 >
-                  {voucherBusy ? 'Enviando…' : '↻ Reenviar voucher al paciente'}
+                  {voucherBusy ? 'Enviando…' : '↻ Reenviar autorización al paciente'}
                 </button>
               )}
             </div>

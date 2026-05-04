@@ -40,14 +40,14 @@ const INSURERS = [
 const FALLBACK_RESPONSE = {
   source: 'fallback',
   insurers: [
-    { id: 'sanitas', name: 'Sanitas', clinics: 1240 },
-    { id: 'adeslas', name: 'Adeslas', clinics: 1580 },
-    { id: 'dkv',     name: 'DKV',     clinics:  980 },
-    { id: 'axa',     name: 'AXA',     clinics:  720 },
-    { id: 'mapfre',  name: 'Mapfre',  clinics:  860 },
-    { id: 'asisa',   name: 'Asisa',   clinics:  910 },
-    { id: 'cigna',   name: 'Cigna',   clinics:  430 },
-    { id: 'caser',   name: 'Caser',   clinics:  380 },
+    { id: 'sanitas', name: 'Sanitas', clinics: 1240, provinces: 50 },
+    { id: 'adeslas', name: 'Adeslas', clinics: 1580, provinces: 50 },
+    { id: 'dkv',     name: 'DKV',     clinics:  980, provinces: 48 },
+    { id: 'axa',     name: 'AXA',     clinics:  720, provinces: 45 },
+    { id: 'mapfre',  name: 'Mapfre',  clinics:  860, provinces: 47 },
+    { id: 'asisa',   name: 'Asisa',   clinics:  910, provinces: 48 },
+    { id: 'cigna',   name: 'Cigna',   clinics:  430, provinces: 40 },
+    { id: 'caser',   name: 'Caser',   clinics:  380, provinces: 38 },
   ],
   totals: { clinics: 7100, cities: 84, insurers: 8 },
 };
@@ -70,10 +70,20 @@ export async function GET() {
       names.forEach((n, i) => { params[`n${i}`] = { type: sql.NVarChar(120), value: `%,%${n}%,%` }; });
 
       const result = await query(
-        `SELECT COUNT(*) AS n FROM clinics WHERE ${conditions.join(' OR ')}`,
+        `SELECT
+           COUNT(*) AS n,
+           COUNT(DISTINCT province) AS provinces
+         FROM clinics
+         WHERE (${conditions.join(' OR ')})
+           AND province IS NOT NULL AND province <> ''`,
         params,
       );
-      insurerStats.push({ id: ins.id, name: ins.name, clinics: result.recordset[0].n || 0 });
+      insurerStats.push({
+        id: ins.id,
+        name: ins.name,
+        clinics: result.recordset[0].n || 0,
+        provinces: result.recordset[0].provinces || 0,
+      });
     }
 
     // Aggregate totals — DISTINCT cities and the total clinic count.
