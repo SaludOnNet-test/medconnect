@@ -233,12 +233,16 @@ export async function GET(request) {
       );
     `);
 
-    // Seed default admin (Admin / ADMIN) if no admins exist yet
-    await pool.request().query(`
-      IF NOT EXISTS (SELECT 1 FROM admin_users)
-      INSERT INTO admin_users (username, password_hash, display_name, role)
-      VALUES ('Admin', 'plain:ADMIN', 'Default Admin', 'admin');
-    `);
+    // No automatic seed. Earlier versions inserted ('Admin', 'plain:ADMIN')
+    // when admin_users was empty — a guessable username/password pair
+    // sitting on production. Combined with a credentials hint block on
+    // /admin/login (removed in the same change), anyone who reached the
+    // page could log in.
+    //
+    // To create the first admin on a fresh database, call `createAdmin`
+    // from `src/lib/adminAuth.js` directly via a one-off Node script with
+    // a strong password. Subsequent admins are added through the dashboard
+    // by an existing admin.
 
     // ── Migration: clinic onboarding (clinic_id + alta_request_id + clinic_alta_requests) ──
     // Mirrors scripts/migration_add_clinic_alta_requests.py. Pro picks an

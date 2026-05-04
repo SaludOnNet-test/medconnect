@@ -41,16 +41,20 @@ export default function AdminLogin() {
         <form onSubmit={handleLogin} className="admin-login-form">
           <div className="form-group">
             <label htmlFor="username">Usuario</label>
+            {/* No `placeholder` here on purpose — the previous "Admin"
+                placeholder leaked the seed credentials to anyone who
+                opened the page in a fresh browser. The label above the
+                input is enough orientation. */}
             <input
               id="username"
               type="text"
               value={username}
               onChange={(e) => setUsername(e.target.value)}
-              placeholder="Admin"
               className="form-input"
               required
               disabled={isLoading}
               autoFocus
+              autoComplete="username"
             />
           </div>
 
@@ -61,10 +65,10 @@ export default function AdminLogin() {
               type="password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
-              placeholder="ADMIN"
               className="form-input"
               required
               disabled={isLoading}
+              autoComplete="current-password"
             />
           </div>
 
@@ -75,13 +79,13 @@ export default function AdminLogin() {
           </button>
         </form>
 
-        <div className="admin-credentials-hint">
-          <p><strong>Credenciales por defecto:</strong></p>
-          <p>Usuario: <code>Admin</code> · Contraseña: <code>ADMIN</code></p>
-          <p style={{ marginTop: 8, fontSize: 12, opacity: 0.7 }}>
-            Cámbialas y crea operadores adicionales desde el dashboard.
-          </p>
-        </div>
+        {/* The previous version of this page rendered a grey hint block
+            with the literal default credentials ("Admin / ADMIN") for
+            convenience during development. That's a credential leak in
+            production — anyone who navigates to /admin/login could log
+            in. Hint removed. The seed credentials themselves were
+            rotated to a strong username + scrypt-hashed password on
+            2026-04-30 (see the corresponding plan-file entry). */}
       </div>
     </div>
   );
