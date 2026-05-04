@@ -34,20 +34,77 @@ export default function ClinicMap({ providers, highlightedId, onPinClick, city, 
     userInteractedRef.current = false;
   }, [filterSignature]);
 
+  // Province → coordinates of the provincial capital. Used when the
+  // location filter is active so the map centres on the *capital* (where
+  // most clinics live) instead of the geometric centroid of all clinic
+  // pins, which lands in random suburbs when the dataset is dispersed.
+  // Keys must match the `province` values stored in `clinics.province`
+  // (so the dropdown selections route through correctly). Aliases for
+  // older Spanish vs. official-language names are listed alongside.
   const CITY_CENTERS = {
-    'Madrid':    [40.4168, -3.7038],
-    'Barcelona': [41.3851,  2.1734],
-    'Valencia':  [39.4699, -0.3763],
-    'Sevilla':   [37.3891, -5.9845],
-    'Málaga':    [36.7213, -4.4214],
-    // Second wave (added 2026-04-29 alongside the F6 city expansion).
-    // All six are exact matches of CITY_MAP display names in seoData.js.
-    'Bilbao':    [43.2630, -2.9350],
-    'Zaragoza':  [41.6488, -0.8891],
-    'Granada':   [37.1773, -3.5986],
-    'Murcia':    [37.9838, -1.1280],
-    'Vigo':      [42.2406, -8.7207],
-    'Córdoba':   [37.8847, -4.7791],
+    'A Coruña':                  [43.3713, -8.3960],
+    'Álava':                     [42.8467, -2.6716],
+    'Albacete':                  [38.9943, -1.8585],
+    'Alicante':                  [38.3452, -0.4815],
+    'Almería':                   [36.8381, -2.4597],
+    'Asturias':                  [43.3614, -5.8593],
+    'Ávila':                     [40.6566, -4.6818],
+    'Badajoz':                   [38.8794, -6.9707],
+    'Barcelona':                 [41.3851,  2.1734],
+    'Bizkaia':                   [43.2630, -2.9350],
+    'Vizcaya':                   [43.2630, -2.9350],
+    'Burgos':                    [42.3439, -3.6969],
+    'Cáceres':                   [39.4753, -6.3724],
+    'Cádiz':                     [36.5298, -6.2924],
+    'Cantabria':                 [43.4623, -3.8099],
+    'Castellón':                 [39.9864, -0.0513],
+    'Castelló':                  [39.9864, -0.0513],
+    'Ciudad Real':               [38.9848, -3.9274],
+    'Córdoba':                   [37.8882, -4.7794],
+    'Cuenca':                    [40.0704, -2.1374],
+    'Girona':                    [41.9794,  2.8214],
+    'Gerona':                    [41.9794,  2.8214],
+    'Granada':                   [37.1773, -3.5986],
+    'Guadalajara':               [40.6333, -3.1669],
+    'Gipuzkoa':                  [43.3183, -1.9812],
+    'Guipúzcoa':                 [43.3183, -1.9812],
+    'Huelva':                    [37.2614, -6.9447],
+    'Huesca':                    [42.1361, -0.4087],
+    'Illes Balears':             [39.5696,  2.6502],
+    'Islas Baleares':            [39.5696,  2.6502],
+    'Baleares':                  [39.5696,  2.6502],
+    'Jaén':                      [37.7796, -3.7849],
+    'La Rioja':                  [42.4627, -2.4449],
+    'Las Palmas':                [28.1235, -15.4363],
+    'León':                      [42.5987, -5.5671],
+    'Lleida':                    [41.6176,  0.6200],
+    'Lérida':                    [41.6176,  0.6200],
+    'Lugo':                      [43.0125, -7.5559],
+    'Madrid':                    [40.4168, -3.7038],
+    'Málaga':                    [36.7213, -4.4214],
+    'Murcia':                    [37.9838, -1.1280],
+    'Navarra':                   [42.8125, -1.6458],
+    'Nafarroa':                  [42.8125, -1.6458],
+    'Ourense':                   [42.3370, -7.8639],
+    'Orense':                    [42.3370, -7.8639],
+    'Palencia':                  [42.0096, -4.5288],
+    'Pontevedra':                [42.4310, -8.6444],
+    'Salamanca':                 [40.9701, -5.6635],
+    'Santa Cruz de Tenerife':    [28.4636, -16.2518],
+    'Segovia':                   [40.9429, -4.1088],
+    'Sevilla':                   [37.3891, -5.9845],
+    'Soria':                     [41.7665, -2.4790],
+    'Tarragona':                 [41.1189,  1.2445],
+    'Teruel':                    [40.3440, -1.1069],
+    'Toledo':                    [39.8628, -4.0273],
+    'Valencia':                  [39.4699, -0.3763],
+    'València':                  [39.4699, -0.3763],
+    'Valladolid':                [41.6523, -4.7245],
+    'Zamora':                    [41.5033, -5.7446],
+    'Zaragoza':                  [41.6488, -0.8891],
+    // Standalone cities used as fallback before the province dropdown
+    'Bilbao':                    [43.2630, -2.9350],
+    'Vigo':                      [42.2406, -8.7207],
   };
 
   useEffect(() => {
@@ -131,24 +188,16 @@ export default function ClinicMap({ providers, highlightedId, onPinClick, city, 
       // afterwards we respect their viewport so new pins appear in place
       // instead of yanking them back to the bbox of the result set.
       if (!userInteractedRef.current) {
-        if (clinicsWithCoords.length > 1) {
+        // When a province filter is active, always centre on that
+        // province's capital (from CITY_CENTERS) at a fixed province-
+        // level zoom — fitBounds on the clinic set lands the map on the
+        // geometric centroid of all pins, which for dispersed provinces
+        // (Madrid, Barcelona, León) ends up in a random suburb.
+        if (city && CITY_CENTERS[city]) {
+          mapRef.current.setView(CITY_CENTERS[city], 10);
+        } else if (clinicsWithCoords.length > 1) {
           const bounds = L.latLngBounds(clinicsWithCoords.map((p) => [p.lat, p.lng]));
-          if (city) {
-            // Province filter active: pick a zoom from the clinic span so
-            // every province feels equally tight. Pure fitBounds is
-            // inconsistent — Córdoba clusters in one city (good zoom),
-            // Madrid spreads across the whole community (zooms way out).
-            const latSpan = bounds.getNorth() - bounds.getSouth();
-            const lngSpan = bounds.getEast() - bounds.getWest();
-            const span = Math.max(latSpan, lngSpan);
-            const zoom = span <= 0.15 ? 12   // single-city cluster (~15 km)
-                       : span <= 0.4  ? 11   // small province (~40 km)
-                       : span <= 0.8  ? 10   // medium province (~80 km)
-                       :                 9;  // large/dispersed
-            mapRef.current.setView(bounds.getCenter(), zoom);
-          } else {
-            mapRef.current.fitBounds(bounds, { padding: [40, 40], maxZoom: 14 });
-          }
+          mapRef.current.fitBounds(bounds, { padding: [40, 40], maxZoom: 14 });
         } else if (clinicsWithCoords.length === 1) {
           mapRef.current.setView([clinicsWithCoords[0].lat, clinicsWithCoords[0].lng], 14);
         }
