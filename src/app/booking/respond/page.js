@@ -2,6 +2,7 @@
 
 import { useEffect, useState, Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
+import { formatEUR } from '@/lib/format';
 
 function BookingRespondInner() {
   const searchParams = useSearchParams();
@@ -62,7 +63,7 @@ function BookingRespondInner() {
   }
   if (p.decision === 'rejected') {
     return card('Reembolso emitido', <>
-      <p>Hemos iniciado el reembolso de <strong>€{Number(p.refundAmount || 0).toFixed(2)}</strong> a tu tarjeta.</p>
+      <p>Hemos iniciado el reembolso de <strong>{formatEUR(p.refundAmount || 0)}</strong> a tu tarjeta.</p>
       <p>Verás el ingreso en 1–2 días hábiles. Lamentamos las molestias.</p>
     </>, '#7c2d12');
   }

@@ -4,7 +4,7 @@ import './PriceTier.css';
 
 /**
  * Single tier card in the price ladder. The full ladder mounts four of
- * these (4,99 / 9,99 / 19 / 29 €) in a 4-column grid with a stepped Bone
+ * these (5 / 10 / 19 / 29 €) in a 4-column grid with a stepped Bone
  * background.
  *
  * Props:
@@ -31,7 +31,7 @@ export default function PriceTier({
 
   return (
     <div className={cls}>
-      <div className="brand-tier__amount">{formatEUR(amount, { short: Number.isInteger(amount) })}</div>
+      <div className="brand-tier__amount">{formatEUR(amount)}</div>
       {label && <div className="brand-tier__label">{label}</div>}
       {copy && <p className="brand-tier__copy">{copy}</p>}
     </div>
@@ -40,20 +40,20 @@ export default function PriceTier({
 
 /**
  * Convenience composite for the canonical Med Connect price ladder.
- * Renders the four current tiers in order: 4,99 → 9,99 → 19 → 29.
+ * Renders the four current tiers in order: 5 → 10 → 19 → 29.
  *
  * Pricing strategy (single source of truth — keep aligned with FAQ + SEO):
- *   - 4,99 €  → cita a más de 30 días
- *   - 9,99 €  → cita entre 15 y 30 días
- *   - 19 €    → cita entre 7 y 14 días (la próxima semana)
- *   - 29 €    → cita en menos de 7 días (urgente)
+ *   - 5 €  → cita a más de 30 días
+ *   - 10 € → cita entre 15 y 30 días
+ *   - 19 € → cita entre 7 y 14 días (la próxima semana)
+ *   - 29 € → cita en menos de 7 días (urgente)
  */
 export function PriceLadder({ highlight = 2 } = {}) {
   const tiers = [
-    { amount: 4.99, label: 'Más adelante',   copy: 'Cita a más de 30 días vista. Para cuando puedes esperar pero quieres asegurar el hueco.' },
-    { amount: 9.99, label: 'Este mes',       copy: 'Cita entre 15 y 30 días. La opción que cubre la mayoría de los casos.' },
-    { amount: 19,   label: 'Próxima semana', copy: 'Cita entre 7 y 14 días. Hueco prioritario para cuando no puedes esperar al mes siguiente.' },
-    { amount: 29,   label: 'Esta semana',    copy: 'Cita en menos de 7 días. Para cuando lo necesitas ya y tu cuadro médico no responde.' },
+    { amount: 5,  label: 'Más adelante',   copy: 'Cita a más de 30 días vista. Para cuando puedes esperar pero quieres asegurar el hueco.' },
+    { amount: 10, label: 'Este mes',       copy: 'Cita entre 15 y 30 días. La opción que cubre la mayoría de los casos.' },
+    { amount: 19, label: 'Próxima semana', copy: 'Cita entre 7 y 14 días. Hueco prioritario para cuando no puedes esperar al mes siguiente.' },
+    { amount: 29, label: 'Esta semana',    copy: 'Cita en menos de 7 días. Para cuando lo necesitas ya y tu cuadro médico no responde.' },
   ];
   return (
     <div className="brand-ladder">

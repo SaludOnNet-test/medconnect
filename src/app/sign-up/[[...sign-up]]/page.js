@@ -52,6 +52,13 @@ export default async function SignUpPage({ searchParams }) {
         appearance={brandClerkAppearance}
         forceRedirectUrl={acceptCookies ? '/accept-cookies' : '/'}
       />
+      {/* Explicit CAPTCHA mount target — Clerk's bot-protection widget
+          renders Cloudflare Turnstile here. Without this div the prebuilt
+          <SignUp /> tries to mount its own and shows
+          "The CAPTCHA failed to load" in some browsers (caught in 2026-05
+          review). The div is invisible until Clerk decides a challenge is
+          needed. */}
+      <div id="clerk-captcha" />
     </AuthLayout>
   );
 }
