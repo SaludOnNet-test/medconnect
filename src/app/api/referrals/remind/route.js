@@ -34,7 +34,7 @@ export async function GET(request) {
     return NextResponse.json({ error: 'DB not configured' }, { status: 503 });
   }
 
-  const BASE_URL = process.env.NEXT_PUBLIC_BASE_URL || 'https://medconnect.es';
+  const BASE_URL = process.env.NEXT_PUBLIC_BASE_URL || 'https://www.medconnect.es';
 
   try {
     const pool = await getPool();

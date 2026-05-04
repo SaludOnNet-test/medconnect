@@ -8,7 +8,7 @@ export async function GET(request) {
   const action = searchParams.get('action');
   const token = searchParams.get('token'); // format: "confirm-{id}-{timestamp}" or just the booking id
 
-  const BASE_URL = process.env.NEXT_PUBLIC_BASE_URL || 'https://medconnect.es';
+  const BASE_URL = process.env.NEXT_PUBLIC_BASE_URL || 'https://www.medconnect.es';
 
   if (!action || !token) {
     return NextResponse.redirect(`${BASE_URL}/?error=invalid_link`);

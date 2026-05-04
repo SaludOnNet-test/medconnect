@@ -5,7 +5,7 @@
  * import from a single source of truth.
  */
 
-const BASE_URL = process.env.NEXT_PUBLIC_BASE_URL || 'https://medconnect.es';
+const BASE_URL = process.env.NEXT_PUBLIC_BASE_URL || 'https://www.medconnect.es';
 
 // ── Specialty map ──────────────────────────────────────────────────────────
 // slug  → { id, name, plural, prep, shortDesc, faqs }
