@@ -5,18 +5,23 @@ import { sendEmail } from '@/lib/email';
 import {
   proVerificationApproved,
   proVerificationRejected,
+  proVerificationMoreInfo,
 } from '@/lib/emailTemplates';
 
 /**
  * PATCH /api/admin/pro-verifications/[id]
  *
- * Body: { action: 'approve' | 'reject', opsNotes? }
+ * Body: { action: 'approve' | 'reject' | 'request_info', opsNotes?, message? }
  *
- * - approve: mark the request 'approved', flip
- *            admin_users.is_verified = 1 for the requester, send the
- *            approval email.
- * - reject:  mark 'rejected' with ops_notes, send the rejection email
- *            (with motivo visible to the user).
+ * - approve:      mark 'approved', flip admin_users.is_verified = 1 for the
+ *                 requester, send the approval email.
+ * - reject:       mark 'rejected' with ops_notes, send the rejection email
+ *                 (with motivo visible to the user).
+ * - request_info: keep the request open but mark 'more_info_requested' and
+ *                 store the ops message in info_request_message. Email the
+ *                 pro with the message + a CTA to respond from /pro/dashboard.
+ *                 Allowed when current status is 'pending' OR
+ *                 'more_info_requested' (so ops can amend the message).
  */
 export async function PATCH(request, { params }) {
   const rr = requireRole(request, ['admin', 'ops']);
@@ -39,9 +44,13 @@ export async function PATCH(request, { params }) {
 
   const action = String(body?.action || '').toLowerCase();
   const opsNotes = body?.opsNotes ? String(body.opsNotes).trim() : null;
+  const message = body?.message ? String(body.message).trim() : null;
 
-  if (!['approve', 'reject'].includes(action)) {
-    return NextResponse.json({ error: 'action must be approve or reject' }, { status: 400 });
+  if (!['approve', 'reject', 'request_info'].includes(action)) {
+    return NextResponse.json({ error: 'action must be approve, reject or request_info' }, { status: 400 });
+  }
+  if (action === 'request_info' && !message) {
+    return NextResponse.json({ error: 'message required for request_info' }, { status: 400 });
   }
 
   try {
@@ -55,10 +64,38 @@ export async function PATCH(request, { params }) {
     if (!verifyRequest) {
       return NextResponse.json({ error: 'request not found' }, { status: 404 });
     }
-    if (verifyRequest.status !== 'pending') {
+    // approve/reject require pending; request_info also accepts an already
+    // 'more_info_requested' row so ops can amend their message.
+    const acceptableForAction = action === 'request_info'
+      ? ['pending', 'more_info_requested']
+      : ['pending'];
+    if (!acceptableForAction.includes(verifyRequest.status)) {
       return NextResponse.json({
         error: `request already ${verifyRequest.status} — refresh the dashboard`,
       }, { status: 409 });
+    }
+
+    if (action === 'request_info') {
+      await pool.request()
+        .input('id', sql.Int, id)
+        .input('message', sql.NVarChar(sql.MAX), message)
+        .query(`
+          UPDATE pro_verification_requests
+          SET status = 'more_info_requested',
+              info_request_message = @message,
+              info_request_at = SYSDATETIMEOFFSET(),
+              info_response_at = NULL
+          WHERE id = @id
+        `);
+
+      const tpl = proVerificationMoreInfo({
+        requestedByName: verifyRequest.full_name || verifyRequest.clinic_name,
+        message,
+      });
+      sendEmail({ to: verifyRequest.requested_by_email, subject: tpl.subject, html: tpl.html })
+        .catch((e) => console.error('[pro-verifications request_info] email failed', e));
+
+      return NextResponse.json({ ok: true, status: 'more_info_requested' });
     }
 
     if (action === 'reject') {

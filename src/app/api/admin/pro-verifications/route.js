@@ -32,7 +32,8 @@ export async function GET(request) {
     const result = await query(
       `SELECT id, requested_by_email, profile_type, full_name, license_number,
               clinic_name, tax_id, document_urls, notes, status, ops_notes,
-              resolved_by, resolved_at, created_at
+              resolved_by, resolved_at, created_at,
+              info_request_message, info_request_at, info_response_at
        FROM pro_verification_requests
        ${where}
        ORDER BY created_at DESC`,
