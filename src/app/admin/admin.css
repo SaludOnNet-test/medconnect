@@ -102,30 +102,10 @@
   cursor: not-allowed;
 }
 
-.admin-credentials-hint {
-  background: #f3f4f6;
-  padding: 1rem;
-  border-radius: 8px;
-  font-size: 0.85rem;
-  color: #4b5563;
-}
-
-.admin-credentials-hint p {
-  margin: 0.25rem 0;
-}
-
-.admin-credentials-hint strong {
-  color: #1f2937;
-}
-
-.admin-credentials-hint code {
-  background: white;
-  padding: 0.2rem 0.4rem;
-  border-radius: 4px;
-  font-family: monospace;
-  color: #d4a573;
-  font-weight: 600;
-}
+/* Removed: .admin-credentials-hint and its descendants. The grey block on
+   /admin/login that displayed "Usuario: Admin · Contraseña: ADMIN" was a
+   credential leak. The DOM block is gone (see src/app/admin/login/page.js)
+   so the CSS is dead. */
 
 /* Admin Dashboard */
 .admin-dashboard {
