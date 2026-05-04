@@ -133,13 +133,21 @@ export default function ClinicMap({ providers, highlightedId, onPinClick, city, 
       if (!userInteractedRef.current) {
         if (clinicsWithCoords.length > 1) {
           const bounds = L.latLngBounds(clinicsWithCoords.map((p) => [p.lat, p.lng]));
-          mapRef.current.fitBounds(bounds, { padding: [40, 40], maxZoom: 14 });
-          // When a province filter is active, fitBounds can zoom way out
-          // because clinics in a province are scattered across many towns.
-          // Force a province-level minimum so the user sees the whole
-          // province instead of half of Spain.
-          if (city && mapRef.current.getZoom() < 9) {
-            mapRef.current.setZoom(9);
+          if (city) {
+            // Province filter active: pick a zoom from the clinic span so
+            // every province feels equally tight. Pure fitBounds is
+            // inconsistent — Córdoba clusters in one city (good zoom),
+            // Madrid spreads across the whole community (zooms way out).
+            const latSpan = bounds.getNorth() - bounds.getSouth();
+            const lngSpan = bounds.getEast() - bounds.getWest();
+            const span = Math.max(latSpan, lngSpan);
+            const zoom = span <= 0.15 ? 12   // single-city cluster (~15 km)
+                       : span <= 0.4  ? 11   // small province (~40 km)
+                       : span <= 0.8  ? 10   // medium province (~80 km)
+                       :                 9;  // large/dispersed
+            mapRef.current.setView(bounds.getCenter(), zoom);
+          } else {
+            mapRef.current.fitBounds(bounds, { padding: [40, 40], maxZoom: 14 });
           }
         } else if (clinicsWithCoords.length === 1) {
           mapRef.current.setView([clinicsWithCoords[0].lat, clinicsWithCoords[0].lng], 14);
