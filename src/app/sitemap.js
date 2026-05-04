@@ -7,7 +7,7 @@
 
 import { getAllSpecialtyCityCombinations, specialtyPageUrl } from '@/lib/seoData';
 
-const BASE_URL = process.env.NEXT_PUBLIC_BASE_URL || 'https://medconnect.es';
+const BASE_URL = process.env.NEXT_PUBLIC_BASE_URL || 'https://www.medconnect.es';
 
 export default function sitemap() {
   const now = new Date().toISOString();

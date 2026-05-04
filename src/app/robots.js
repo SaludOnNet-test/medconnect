@@ -7,7 +7,7 @@
  *  - Block API routes, admin, pro dashboard, lock-in, sign-in/sign-up, internal paths
  */
 
-const BASE_URL = process.env.NEXT_PUBLIC_BASE_URL || 'https://medconnect.es';
+const BASE_URL = process.env.NEXT_PUBLIC_BASE_URL || 'https://www.medconnect.es';
 
 export default function robots() {
   return {
