@@ -109,6 +109,21 @@ export const bookingByTokenRescheduleSchema = z.object({
   notes: optionalText(1000),
 }).partial();
 
+// ---------- /api/reviews/by-token POST ----------
+//
+// Two ratings, decoupled by design. Med Connect rating ("how fast did we
+// get you the appointment?") is required — that's the metric we track and
+// the gate for the inline Trustpilot CTA. Clinic rating ("how was the
+// service at the clinic?") is optional — keeping it optional lifts
+// completion rate and the user asked for that explicitly.
+
+export const reviewSubmitSchema = z.object({
+  ratingMedconnect: z.coerce.number().int().min(1).max(5),
+  ratingClinic: z.coerce.number().int().min(1).max(5).nullable().optional(),
+  commentMedconnect: optionalText(2000),
+  commentClinic: optionalText(2000),
+});
+
 // ---------- helpers ----------
 
 /**

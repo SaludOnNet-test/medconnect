@@ -1016,3 +1016,46 @@ export function clinicAltaInfoResponded({ requestId, requestedByEmail, clinicNam
     html,
   };
 }
+
+// ─────────────────────────────────────────────
+// 25. Review request — sent ~24h after the appointment date.
+//     Two ratings, decoupled by design: MC rating ("we got you the cita
+//     fast") is required; clinic rating ("the service") is optional. The
+//     5-star MC rating triggers an inline Trustpilot CTA on the form
+//     confirmation state, no follow-up email.
+// ─────────────────────────────────────────────
+export function reviewRequest({ patientName, providerName, slotDate, token }) {
+  const reviewUrl = `${BASE_URL}/review/${token}`;
+  const fmtDate = slotDate
+    ? new Date(slotDate + 'T00:00:00').toLocaleDateString('es-ES', { weekday: 'long', day: 'numeric', month: 'long' })
+    : '';
+  const html = baseWrapper(`
+    <tr><td style="background:#1a3c5e;padding:24px;text-align:center;">
+      <div style="width:60px;height:60px;background:rgba(255,255,255,0.18);border-radius:50%;margin:0 auto 12px;display:flex;align-items:center;justify-content:center;font-size:28px;">⭐</div>
+      <h2 style="margin:0;color:#ffffff;font-size:22px;font-weight:800;">¿Cómo te fue en tu cita?</h2>
+    </td></tr>
+    ${bodySection(`
+      <p style="margin:0 0 16px;font-size:15px;color:#374151;line-height:1.55;">Hola <strong>${patientName || ''}</strong>,</p>
+      <p style="margin:0 0 16px;font-size:15px;color:#374151;line-height:1.55;">
+        ${fmtDate ? `Hace 24&nbsp;h estuviste en <strong>${providerName}</strong> el ${fmtDate}.` : `Hace 24&nbsp;h estuviste en <strong>${providerName}</strong>.`}
+        Nos importa saber cómo te fue.
+      </p>
+      <p style="margin:0 0 20px;font-size:15px;color:#374151;line-height:1.55;">
+        Tomate 30&nbsp;segundos para contarnos. Te preguntamos <strong>dos cosas
+        separadas</strong>: cómo fuimos nosotros consiguiéndote la cita rápido,
+        y cómo fue la atención en la clínica. Tu respuesta nos ayuda a mejorar
+        y a otros pacientes a elegir mejor.
+      </p>
+      <div style="text-align:center;margin:28px 0;">
+        ${ctaButton(reviewUrl, 'Dejar mi opinión →', '#c9a84c', '#1a3c5e')}
+      </div>
+      <p style="margin:0;font-size:12px;color:#9ca3af;line-height:1.55;text-align:center;">
+        Si el botón no funciona: <a href="${reviewUrl}" style="color:#1a3c5e;word-break:break-all;">${reviewUrl}</a>
+      </p>
+    `)}
+  `);
+  return {
+    subject: `¿Cómo te fue en ${providerName}? · 30 segundos de tu opinión`,
+    html,
+  };
+}
