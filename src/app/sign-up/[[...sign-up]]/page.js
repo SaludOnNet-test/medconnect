@@ -52,13 +52,12 @@ export default async function SignUpPage({ searchParams }) {
         appearance={brandClerkAppearance}
         forceRedirectUrl={acceptCookies ? '/accept-cookies' : '/'}
       />
-      {/* Explicit CAPTCHA mount target — Clerk's bot-protection widget
-          renders Cloudflare Turnstile here. Without this div the prebuilt
-          <SignUp /> tries to mount its own and shows
-          "The CAPTCHA failed to load" in some browsers (caught in 2026-05
-          review). The div is invisible until Clerk decides a challenge is
-          needed. */}
-      <div id="clerk-captcha" />
+      {/* No explicit `<div id="clerk-captcha" />` here. Adding the anchor
+          while bot-sign-up protection is OFF in the Clerk dashboard
+          surfaces "You attempted to complete a CAPTCHA, but they are not
+          enabled" — the SDK tries to verify a token its config no longer
+          expects. Re-add this div only when bot protection is turned back
+          on in the Clerk dashboard. */}
     </AuthLayout>
   );
 }

@@ -60,10 +60,15 @@ export default function SearchBarV2({ initialSpecialty, initialService, initialC
     setQuery(val);
     setSelected(null);
     if (val.length > 0) {
+      // Typed query → cap at 20 hits so the list stays focused.
       const needle = normalizeText(val);
       setSuggestions(allSuggestions.filter((s) => normalizeText(s.label).includes(needle)).slice(0, 20));
     } else {
-      setSuggestions(allSuggestions.slice(0, 20));
+      // Empty input → show the FULL catalogue. The dropdown is scrollable
+      // (max-height + overflow-y:auto) so users can browse every specialty,
+      // procedure and clinic name. Slicing here would silently truncate at
+      // ~"Medicina interna" alphabetically (Jesús's 2026-05 review).
+      setSuggestions(allSuggestions);
     }
     setShowSuggestions(true);
   };
@@ -125,7 +130,7 @@ export default function SearchBarV2({ initialSpecialty, initialService, initialC
             placeholder="Especialidad, procedimiento o clínica"
             value={query}
             onChange={(e) => handleQueryChange(e.target.value)}
-            onFocus={() => { const needle = normalizeText(query); setSuggestions(query ? allSuggestions.filter((s) => normalizeText(s.label).includes(needle)).slice(0, 20) : allSuggestions.slice(0, 20)); setShowSuggestions(true); }}
+            onFocus={() => { const needle = normalizeText(query); setSuggestions(query ? allSuggestions.filter((s) => normalizeText(s.label).includes(needle)).slice(0, 20) : allSuggestions); setShowSuggestions(true); }}
             onBlur={() => setTimeout(() => setShowSuggestions(false), 180)}
             autoComplete="off"
           />
@@ -165,7 +170,10 @@ export default function SearchBarV2({ initialSpecialty, initialService, initialC
           />
           {showCityList && filteredCities.length > 0 && (
             <div className="sbv2-dropdown">
-              {filteredCities.slice(0, 20).map((c) => (
+              {/* When the user has typed something we cap the list at 20 to
+                  keep matches focused; with an empty input we show every
+                  province so the user can browse the whole list. */}
+              {(city ? filteredCities.slice(0, 20) : filteredCities).map((c) => (
                 <button
                   key={c.city}
                   type="button"
