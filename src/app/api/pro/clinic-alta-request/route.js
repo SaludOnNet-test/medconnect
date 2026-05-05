@@ -5,6 +5,10 @@ import { clinicAltaRequestOps, clinicAltaRequestReceived, clinicAltaInfoResponde
 import { clinicAltaRequestSchema, formatZodError } from '@/lib/schemas';
 import { verifyCaptcha } from '@/lib/captcha';
 import { internalError, clientError } from '@/lib/errors';
+import { requireProEmail } from '@/lib/proAuth';
+
+// Reads Clerk session cookies, so it can't be statically rendered.
+export const dynamic = 'force-dynamic';
 
 const OPERATIONS_EMAIL = process.env.OPERATIONS_EMAIL || 'operaciones@medconnect.es';
 
@@ -20,11 +24,12 @@ const OPERATIONS_EMAIL = process.env.OPERATIONS_EMAIL || 'operaciones@medconnect
  *     clinicName (required), city, province, address, telephone,
  *     contactEmail, specialties, aseguradoras, notes }
  *
- * Auth note: this route does NOT require an admin token — it's meant to be
- * called from /pro/onboarding by a (Clerk-authenticated) professional. We
- * trust the email passed in the body, validating that an admin_users row
- * exists for it. Without that row the request is rejected (the user must
- * have first been granted the 'professional' role and an admin_users entry).
+ * Auth note: this route requires a Clerk-authenticated professional AND
+ * cross-checks that `requestedByEmail` is one of their verified addresses.
+ * Captcha (Turnstile) is a separate gate against bots; the Clerk check is
+ * what stops a logged-in pro from creating a request in someone else's
+ * name. Without that row the request is rejected (the user must have
+ * first been granted the 'professional' role and an admin_users entry).
  */
 export async function POST(request) {
   if (!DB_AVAILABLE) {
@@ -40,8 +45,12 @@ export async function POST(request) {
     return clientError(formatZodError(parsed.error), 400);
   }
   const data = parsed.data;
-  const requestedByEmail = data.requestedByEmail.toLowerCase();
+  const candidateEmail = data.requestedByEmail.toLowerCase();
   const clinicName = data.clinicName;
+
+  const auth = await requireProEmail(request, candidateEmail);
+  if (!auth.ok) return auth.response;
+  const requestedByEmail = auth.email;
 
   // Captcha gate. When TURNSTILE_SECRET_KEY isn't configured this is a
   // no-op (skipped: true) so local/preview flows still work.

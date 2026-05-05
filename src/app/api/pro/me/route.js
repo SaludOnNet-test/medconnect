@@ -1,5 +1,9 @@
 import { NextResponse } from 'next/server';
 import { query, sql, DB_AVAILABLE } from '@/lib/db';
+import { requireProEmail } from '@/lib/proAuth';
+
+// Reads Clerk session cookies, so it can't be statically rendered.
+export const dynamic = 'force-dynamic';
 
 /**
  * GET /api/pro/me?email=<professional-email>
@@ -39,10 +43,19 @@ import { query, sql, DB_AVAILABLE } from '@/lib/db';
  */
 export async function GET(request) {
   const { searchParams } = new URL(request.url);
-  const email = (searchParams.get('email') || '').trim();
-  if (!email) {
+  const candidateEmail = (searchParams.get('email') || '').trim();
+  if (!candidateEmail) {
     return NextResponse.json({ error: 'email is required' }, { status: 400 });
   }
+
+  // Auth: the caller must be signed into Clerk AND the email they're asking
+  // about must be one of their verified addresses. Without this anyone could
+  // read another pro's clinic mapping + verification status by guessing the
+  // email. (Pre-fix: this endpoint was an open IDOR.)
+  const auth = await requireProEmail(request, candidateEmail);
+  if (!auth.ok) return auth.response;
+  const email = auth.email;
+
   if (!DB_AVAILABLE) {
     return NextResponse.json(emptyResponse());
   }

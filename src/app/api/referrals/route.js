@@ -1,6 +1,10 @@
 import { NextResponse } from 'next/server';
 import { getPool, sql, DB_AVAILABLE } from '@/lib/db';
 import { limits } from '@/lib/rateLimit';
+import { requireProEmail } from '@/lib/proAuth';
+
+// Reads Clerk session cookies, so it can't be statically rendered.
+export const dynamic = 'force-dynamic';
 
 // ---------------------------------------------------------------------------
 // Row → camelCase object
@@ -30,6 +34,13 @@ function toReferral(row) {
 
 // ---------------------------------------------------------------------------
 // GET /api/referrals?professionalEmail=...
+//
+// Auth: requires `professionalEmail` query param AND cross-checks it
+// against the signed-in Clerk user's verified emails. Without this, the
+// endpoint used to return ALL referrals (including patient_email,
+// patient_name, patient_phone, patient_address) when called without a
+// param — a global PII leak — and let any pro read any other pro's
+// patient list when called with their email.
 // ---------------------------------------------------------------------------
 export async function GET(request) {
   if (!DB_AVAILABLE) {
@@ -37,17 +48,21 @@ export async function GET(request) {
   }
 
   const { searchParams } = new URL(request.url);
-  const professionalEmail = searchParams.get('professionalEmail');
+  const candidateEmail = (searchParams.get('professionalEmail') || '').trim();
+  if (!candidateEmail) {
+    return NextResponse.json({ error: 'professionalEmail query param required' }, { status: 400 });
+  }
+
+  const auth = await requireProEmail(request, candidateEmail);
+  if (!auth.ok) return auth.response;
+  const professionalEmail = auth.email;
 
   try {
     const pool = await getPool();
     const req = pool.request();
-    let queryStr = 'SELECT * FROM referrals';
-    if (professionalEmail) {
-      req.input('professionalEmail', sql.NVarChar(255), professionalEmail);
-      queryStr += ' WHERE professional_email = @professionalEmail';
-    }
-    queryStr += ' ORDER BY created_at DESC';
+    req.input('professionalEmail', sql.NVarChar(255), professionalEmail);
+    const queryStr =
+      'SELECT * FROM referrals WHERE LOWER(professional_email) = LOWER(@professionalEmail) ORDER BY created_at DESC';
 
     const result = await req.query(queryStr);
     return NextResponse.json(result.recordset.map(toReferral));
@@ -92,6 +107,17 @@ export async function POST(request) {
 
   if (!id || !patientEmail) {
     return NextResponse.json({ error: 'id and patientEmail are required' }, { status: 400 });
+  }
+
+  // Auth: when a `professionalEmail` is supplied (the normal path from
+  // /pro/dashboard's ReferralModal), it must match the signed-in Clerk
+  // user. Without this anyone could create referrals attributed to any
+  // other pro — fraud + commission attribution abuse. We accept missing
+  // professionalEmail (legacy callers) but in that case we still require
+  // a signed-in pro and stamp their email on the row.
+  if (professionalEmail) {
+    const auth = await requireProEmail(request, professionalEmail);
+    if (!auth.ok) return auth.response;
   }
 
   // Referrals are capped at 30 days out — anything further is a regular

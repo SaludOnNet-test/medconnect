@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { getPool, sql, DB_AVAILABLE } from '@/lib/db';
+import { requireProEmail } from '@/lib/proAuth';
 
 export const dynamic = 'force-dynamic';
 
@@ -33,25 +34,30 @@ function commissionFor(slotDate, createdAt) {
  * over `referrals` joined with `bookings` and `operations_cases`. No schema
  * change needed — data is already in place from the existing booking flow.
  *
- * Auth: scoped by `email` query param. The pro dashboard reads the signed-in
- * Clerk user's email and passes it through. We treat the email as the
- * identifier — same as `referrals.professional_email`. (Stronger auth would
- * cross-check Clerk's userId against a `professionals` table mapping; left
- * for a follow-up once the table exists.)
+ * Auth: scoped by `email` query param AND cross-checked against the signed-in
+ * Clerk user. The candidate email must be one of the user's verified Clerk
+ * addresses; otherwise we 403. Without this anyone could read another pro's
+ * earnings + recent referrals (which embed patient_email — an IDOR + PII
+ * leak). The pro dashboard already reads the signed-in user's email and
+ * passes it as the `email` query param; this just enforces ownership.
  */
 export async function GET(request) {
+  const { searchParams } = new URL(request.url);
+  const candidateEmail = (searchParams.get('email') || '').trim().toLowerCase();
+  if (!candidateEmail) {
+    return NextResponse.json({ error: 'email query param required' }, { status: 400 });
+  }
+
+  const auth = await requireProEmail(request, candidateEmail);
+  if (!auth.ok) return auth.response;
+  const email = auth.email;
+
   if (!DB_AVAILABLE) {
     return NextResponse.json(
       { error: 'DB not configured', commissionTiers: COMMISSION_TIERS,
         totalEarned: 0, last30dEarned: 0, byState: {}, recent: [] },
       { status: 200 },
     );
-  }
-
-  const { searchParams } = new URL(request.url);
-  const email = (searchParams.get('email') || '').trim().toLowerCase();
-  if (!email) {
-    return NextResponse.json({ error: 'email query param required' }, { status: 400 });
   }
 
   try {

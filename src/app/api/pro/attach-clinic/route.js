@@ -1,5 +1,9 @@
 import { NextResponse } from 'next/server';
 import { getPool, sql, DB_AVAILABLE } from '@/lib/db';
+import { requireProEmail } from '@/lib/proAuth';
+
+// Reads Clerk session cookies, so it can't be statically rendered.
+export const dynamic = 'force-dynamic';
 
 /**
  * POST /api/pro/attach-clinic
@@ -11,6 +15,12 @@ import { getPool, sql, DB_AVAILABLE } from '@/lib/db';
  * verification step, but for v1 instant-attach unblocks the dashboard.)
  *
  * Body: { email, clinicId }
+ *
+ * Auth: the caller must be signed into Clerk and the body `email` must be
+ * one of their verified addresses. Without this anyone could attach any
+ * pro to any clinic by guessing the email — a privilege-escalation
+ * vector that previously let a hostile user join a competitor's clinic
+ * unobserved.
  *
  * Pre-migration the column doesn't exist yet — we return a 503 with a
  * descriptive message so the UI can surface "system in maintenance" rather
@@ -25,14 +35,18 @@ export async function POST(request) {
   try { body = await request.json(); }
   catch { return NextResponse.json({ error: 'invalid json' }, { status: 400 }); }
 
-  const email = String(body?.email || '').trim().toLowerCase();
+  const candidateEmail = String(body?.email || '').trim().toLowerCase();
   const clinicId = Number(body?.clinicId);
-  if (!email || !email.includes('@')) {
+  if (!candidateEmail || !candidateEmail.includes('@')) {
     return NextResponse.json({ error: 'email required' }, { status: 400 });
   }
   if (!clinicId || Number.isNaN(clinicId)) {
     return NextResponse.json({ error: 'clinicId required' }, { status: 400 });
   }
+
+  const auth = await requireProEmail(request, candidateEmail);
+  if (!auth.ok) return auth.response;
+  const email = auth.email;
 
   try {
     const pool = await getPool();
