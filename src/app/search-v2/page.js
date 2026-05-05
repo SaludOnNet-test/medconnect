@@ -8,6 +8,7 @@ import Eyebrow from '@/components/brand/Eyebrow';
 import ClinicCardV2 from '@/components/ClinicCardV2';
 import ClinicBookingModal from '@/components/ClinicBookingModal';
 import { insuranceCompanies } from '@/data/mock';
+import { normalizeText } from '@/lib/text';
 
 // 2026-04-28 — Clerk auto-detection pulled. Deep-linking with
 // `?asProfessional=true` still flips the booking-modal flag, and once we
@@ -250,7 +251,19 @@ function SearchV2Content() {
   }, [dbProcedures, specialtySlug]);
 
   const isSinSeguro = insuranceFilter === 'Sin seguro - SaludOnNet';
-  const cityLabel   = cityFilter || cityParam || 'España';
+
+  // Title city echo. The raw value can be anything the user typed (the
+  // search box submits free text), so we only echo it in the page title
+  // when it normalises to a real province in the catalogue. "madrid"
+  // matches "Madrid", "malaga" matches "Málaga", but "asdfasdf" returns
+  // null and we drop the "en X" suffix entirely. (Jesús's 2026-05 review.)
+  const cityLabel = useMemo(() => {
+    const raw = (cityFilter || cityParam || '').trim();
+    if (!raw) return null;
+    const needle = normalizeText(raw);
+    const match = dbCities.find((c) => normalizeText(c.city) === needle);
+    return match ? match.city : null;
+  }, [cityFilter, cityParam, dbCities]);
 
   return (
     <>
@@ -264,11 +277,14 @@ function SearchV2Content() {
             <h1 className="sv2-title">
               {specialtySlug ? (
                 <>
-                  {dbSpecialties.find((s) => s.slug === specialtySlug)?.name || specialtySlug}{' '}
-                  <em>en {cityLabel}</em>
+                  {dbSpecialties.find((s) => s.slug === specialtySlug)?.name || specialtySlug}
+                  {cityLabel && <> <em>en {cityLabel}</em></>}
                 </>
               ) : (
-                <>Centros médicos <em>en {cityLabel}</em></>
+                <>
+                  Centros médicos
+                  {cityLabel && <> <em>en {cityLabel}</em></>}
+                </>
               )}
             </h1>
             <p className="sv2-subtitle">Cita prioritaria · disponibilidad en tiempo real</p>
