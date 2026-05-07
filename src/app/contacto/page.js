@@ -8,6 +8,7 @@ import ContactForm from './ContactForm';
 export const metadata = {
   title: 'Contacto — Med Connect',
   description: 'Escríbenos a hola@medconnect.es o envíanos un mensaje. Respuesta en menos de 24 h hábiles.',
+  alternates: { canonical: '/contacto' },
 };
 
 const ROWS = [

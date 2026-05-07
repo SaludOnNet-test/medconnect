@@ -5,6 +5,7 @@ import Eyebrow from '@/components/brand/Eyebrow';
 export const metadata = {
   title: 'Aviso Legal — Med Connect',
   description: 'Aviso legal de Med Connect conforme a la Ley 34/2002 de Servicios de la Sociedad de la Información (LSSI).',
+  alternates: { canonical: '/legal' },
 };
 
 export default function LegalPage() {

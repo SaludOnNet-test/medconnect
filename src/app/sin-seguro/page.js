@@ -5,6 +5,7 @@ import Footer from '@/components/Footer';
 export const metadata = {
   title: '¿Cómo funciona sin seguro? — Med Connect',
   description: 'Si no tienes seguro médico privado, también te conseguimos cita prioritaria con voucher de SaludOnNet que cubre el coste del acto médico.',
+  alternates: { canonical: '/sin-seguro' },
 };
 
 export default function SinSeguroPage() {

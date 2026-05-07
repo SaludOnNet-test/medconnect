@@ -5,6 +5,7 @@ import Eyebrow from '@/components/brand/Eyebrow';
 export const metadata = {
   title: 'Política de Privacidad — Med Connect',
   description: 'Política de privacidad y protección de datos de Med Connect conforme al RGPD y LOPDGDD.',
+  alternates: { canonical: '/privacidad' },
 };
 
 const PURPOSES = [

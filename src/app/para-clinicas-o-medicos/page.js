@@ -9,6 +9,7 @@ import ClinicLeadForm from './ClinicLeadForm';
 export const metadata = {
   title: 'Para clínicas o médicos — Med Connect',
   description: 'Dos formas de ganar con Med Connect: vende huecos prioritarios de tu agenda y cobra una compensación por cada uno, o deriva pacientes a otras clínicas y cobra una comisión por cada derivación confirmada.',
+  alternates: { canonical: '/para-clinicas-o-medicos' },
 };
 
 // Pros land on /pro/sign-up (audience-aware AuthLayout + auto role

@@ -9,6 +9,7 @@ import Button from '@/components/brand/Button';
 export const metadata = {
   title: 'Aseguradoras compatibles — Med Connect',
   description: 'Trabajamos con clínicas concertadas con Sanitas, Adeslas, DKV, AXA, Mapfre, Asisa, Cigna y Caser.',
+  alternates: { canonical: '/aseguradoras' },
 };
 
 // SSR — pulls the latest counts from /api/aseguradoras/stats on every

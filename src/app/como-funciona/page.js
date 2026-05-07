@@ -9,6 +9,7 @@ import HowItWorks from '@/components/HowItWorks';
 export const metadata = {
   title: 'Cómo funciona — Med Connect',
   description: 'Reserva prioritaria en clínicas concertadas con tu aseguradora. Pagas la prioridad, no la consulta. Tarifas transparentes desde 5 €.',
+  alternates: { canonical: '/como-funciona' },
 };
 
 const REALITIES = [

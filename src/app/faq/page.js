@@ -8,6 +8,12 @@ import Eyebrow from '@/components/brand/Eyebrow';
 export const metadata = {
   title: 'Preguntas frecuentes — Med Connect',
   description: 'Lo que aclaramos antes de que lo preguntes en recepción. Tarifa de prioridad, seguros, cancelaciones y más.',
+  // Without an explicit canonical, Google saw both the www and non-www
+  // versions of this page as duplicates and indexed neither
+  // ("Duplicate without user-selected canonical" in Search Console
+  // 2026-05-07 export). `metadataBase` in src/app/layout.js makes the
+  // relative path resolve to the absolute www URL.
+  alternates: { canonical: '/faq' },
 };
 
 const FAQ_ITEMS = [
