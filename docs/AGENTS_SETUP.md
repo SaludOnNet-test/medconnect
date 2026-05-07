@@ -108,12 +108,61 @@ incidents.
 
 ---
 
-## 4 — What's still pending per phase
+## 4 — Marketing agent (Phase 1) — optional GA4 hookup
+
+The marketing agent works **out of the box** with just the Azure SQL data
+already flowing into `analytics_events`. GA4 is an optional booster that
+adds organic-search and source/medium attribution.
+
+### Without GA4 (recommended for week 1)
+
+Nothing to do — the agent uses `analytics_events`, `bookings`, and
+`referrals` plus the SEO landing matrix (`src/lib/seoData.js`).
+
+### With GA4 (when you want organic-search insight)
+
+1. **Google Cloud project** (use any existing one or create
+   `medconnect-agents`). Enable **Google Analytics Data API**.
+2. **Service account**: IAM & Admin → Service Accounts → Create.
+   - Name: `medconnect-marketing-agent`.
+   - Skip granting project roles.
+   - Create JSON key, download.
+3. **Grant Viewer** on the GA4 property (Admin → Property Access
+   Management → Add user → paste the service account email →
+   role "Viewer").
+4. **Encode and push to Vercel**:
+   ```bash
+   cat service-account.json | base64 -w 0
+   ```
+   Add the result as `GA4_SERVICE_ACCOUNT_JSON` (or paste raw JSON; the
+   loader accepts both). Add `GA4_PROPERTY_ID` (just the numeric ID, e.g.
+   `387654321`).
+5. Re-deploy. The next agent run will detect GA4 is configured and
+   include it.
+
+### Cron schedule
+
+`0 7 * * 1` (UTC) = **Monday 08:00 Madrid (winter) / 09:00 (summer)**.
+Configured in `vercel.json`. Manual trigger always available via
+Telegram: `/marketing analizar [7d|30d]`.
+
+### Live config (no redeploy)
+
+From Telegram:
+```
+/marketing config max_proposals_per_run=3
+/marketing config analysis_window_days=14
+```
+Reads with no value print the whole config block.
+
+---
+
+## 5 — What's still pending per phase
 
 | Phase | Owner-side setup | Status |
 |---|---|---|
 | **0 — Andamiaje** | Telegram bot + env vars + migration | ⬜ pending owner |
-| **1 — Marketing MVP** | GA4 service account JSON (base64) → `GA4_SERVICE_ACCOUNT_JSON`, plus `GA4_PROPERTY_ID`. Cron `0 8 * * 1` will be added to `vercel.json`. | ⬜ |
+| **1 — Marketing MVP** | _Optional:_ GA4 service account JSON (base64) → `GA4_SERVICE_ACCOUNT_JSON`, plus `GA4_PROPERTY_ID`. Without these the agent uses Azure SQL only. Cron is wired in `vercel.json`. | 🟢 code shipped |
 | **2 — Security reactivo** | `SENTRY_AUTH_TOKEN`, `SENTRY_ORG`, `SENTRY_PROJECT`, `SENTRY_WEBHOOK_SECRET`, `GITHUB_TOKEN`, `GITHUB_REPO`, `VERCEL_PROJECT_ID`, `VERCEL_TEAM_ID`. Sentry webhook configured in their dashboard pointing at `/api/agents/sentry-webhook`. | ⬜ |
 | **3 — Security autónomo** | Flip `auto_rollback_enabled` and/or `auto_merge_enabled` to `true` via `/security config` from Telegram. Recommended only after **4+ weeks** of Phase 2 observation. | ⬜ |
 | **4 — Refinamientos** | Google Ads OAuth + Trends, embeddings on `agent_memory`, dashboard. | ⬜ |
@@ -168,5 +217,12 @@ If any check fails, the action degrades to a Telegram approval prompt.
 | `src/lib/agents/telegram.js` | Telegram Bot API HTTP wrapper, secret + HMAC validators |
 | `src/lib/agents/state.js` | All Azure SQL + Redis persistence helpers |
 | `src/lib/agents/guardrails.js` | Server-side checks for auto-actions |
+| `src/lib/agents/tools/db.js` | `query_analytics_events_db` — pre-approved query templates |
+| `src/lib/agents/tools/landings.js` | `list_landing_pages` — 88 SEO landings × metrics |
+| `src/lib/agents/tools/ga4.js` | `fetch_ga4_metrics` — service-account JWT + GA4 Data API |
+| `src/lib/agents/tools/proposeAction.js` | `propose_action` — wraps state + Telegram approval card |
+| `src/lib/agents/marketing/systemPrompt.js` | Stable cached system prompt for the marketing agent |
+| `src/lib/agents/marketing/run.js` | Marketing orchestrator (multi-turn tool loop) |
 | `src/app/api/agents/telegram-webhook/route.js` | Single webhook entry point, command + callback router |
+| `src/app/api/agents/marketing/run/route.js` | Cron + manual trigger endpoint for the marketing agent |
 | `scripts/migrate_agents_schema.js` | Idempotent schema migration (run once after deploy) |

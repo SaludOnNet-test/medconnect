@@ -23,7 +23,7 @@
 // Phases 1+ extend the same router with /marketing analizar, /security
 // investigar, sec:rollback, sec:hotfix, sec:reject etc.
 
-import { NextResponse } from 'next/server';
+import { NextResponse, after } from 'next/server';
 import { internalError, clientError } from '@/lib/errors';
 import {
   verifyTelegramSecret,
@@ -42,6 +42,7 @@ import {
   setConfig,
   getConfig,
 } from '@/lib/agents/state';
+import { runMarketingAgent } from '@/lib/agents/marketing/run';
 
 export const dynamic = 'force-dynamic';
 
@@ -155,13 +156,30 @@ async function handleMarketingCommand(chatId, parts) {
     return handleConfigCommand({ chatId, agent: 'marketing', kvString: parts.slice(1).join(' ') });
   }
   if (sub === 'analizar') {
-    // Phase 1 will dispatch to /api/agents/marketing/run. For now we ack so
-    // the operator knows the routing works.
+    // Parse optional period: "7d", "14d", "30d". Default 7.
+    const periodArg = (parts[1] || '7d').toLowerCase();
+    const m = periodArg.match(/^(\d+)d?$/);
+    const periodDays = m ? Math.max(1, Math.min(60, Number(m[1]))) : 7;
+
     await sendMessage({
       chatId,
-      text: '_Agente de marketing pendiente de Fase 1. Endpoint y lógica vendrán a continuación._',
+      text: `🔄 _Iniciando análisis de los últimos ${periodDays} días… te aviso cuando termine._`,
     });
-    return NextResponse.json({ ok: true });
+
+    // The full run can take 30-60 s. We use Next.js `after()` to defer it
+    // until *after* the 200 OK response goes back to Telegram, so the bot
+    // doesn't timeout (and doesn't retry the same update).
+    after(async () => {
+      try {
+        await runMarketingAgent({ trigger: 'manual', periodDays });
+      } catch (err) {
+        await sendMessage({
+          chatId,
+          text: `*[MKT] Error*: \`${String(err?.message || err).slice(0, 200)}\``,
+        }).catch(() => {});
+      }
+    });
+    return NextResponse.json({ ok: true, deferred: true });
   }
   await sendMessage({
     chatId,
