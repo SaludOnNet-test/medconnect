@@ -17,12 +17,37 @@ const apiHeaders = [
   { key: 'Cache-Control', value: 'no-store, max-age=0' },
 ];
 
+// Image generator routes (`/icon`, `/apple-icon`, `/opengraph-image`,
+// `/twitter-image`, `/favicon.ico`) return PNG/ICO bytes — they're
+// referenced from `<link rel="icon">` and OG tags, never browsed
+// directly. Google was registering them in the "Crawled - currently
+// not indexed" bucket because it followed the bytes from the parent
+// HTML and tried to index the binary URL itself as a separate page
+// (Search Console 2026-05-07 export). Tagging them noindex stops that
+// without affecting how social-media scrapers fetch the OG image (they
+// don't care about the X-Robots-Tag, only Google does).
+const imageGeneratorHeaders = [
+  { key: 'X-Robots-Tag', value: 'noindex' },
+];
+
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   async headers() {
     return [
       { source: '/(.*)', headers: securityHeaders },
       { source: '/api/:path*', headers: [...securityHeaders, ...apiHeaders] },
+      // The route segments below need explicit matchers (no glob)
+      // because the file-based routes don't include trailing path
+      // segments — `/icon` is the full path Next.js generates from
+      // `src/app/icon.js`, etc. The `(:hash)?` optional capture
+      // handles Next.js's content-hash query suffix
+      // (e.g. `/icon?26ae491debae8993`) which Google was treating as a
+      // distinct URL.
+      { source: '/icon', headers: imageGeneratorHeaders },
+      { source: '/apple-icon', headers: imageGeneratorHeaders },
+      { source: '/opengraph-image', headers: imageGeneratorHeaders },
+      { source: '/twitter-image', headers: imageGeneratorHeaders },
+      { source: '/favicon.ico', headers: imageGeneratorHeaders },
     ];
   },
   async redirects() {

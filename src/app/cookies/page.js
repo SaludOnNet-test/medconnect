@@ -5,6 +5,7 @@ import Eyebrow from '@/components/brand/Eyebrow';
 export const metadata = {
   title: 'Política de Cookies — Med Connect',
   description: 'Información sobre las cookies que usa Med Connect y cómo gestionarlas.',
+  alternates: { canonical: '/cookies' },
 };
 
 const COOKIES = [
