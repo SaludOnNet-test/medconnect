@@ -3,31 +3,50 @@
  * CookieBanner — GDPR/LOPDGDD compliant cookie consent
  *
  * - Shows banner on first visit (no consent stored)
- * - Accept: stores consent + loads GA4 and Clarity dynamically
+ * - Accept: stores consent + loads GA4, Google Ads, and Clarity dynamically
  * - "Rechazar y crear cuenta": redirects to /sign-up — creating an account implies consent
- * - GA4/Clarity are NEVER loaded without explicit consent
+ * - GA4 / Google Ads / Clarity are NEVER loaded without explicit consent
  * - Registered users: cookie consent is auto-accepted (set by /accept-cookies page after sign-up)
+ *
+ * NOTE: The user-facing banner text below must list every third-party service
+ * loaded here. If you add a new tag, update both the script block AND the
+ * disclosure paragraph for LOPDGDD compliance.
  */
 import { useState, useEffect } from 'react';
 import Script from 'next/script';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 
-const CONSENT_KEY = 'mc_cookie_consent';
-const GA4_ID      = process.env.NEXT_PUBLIC_GA4_ID;
-const CLARITY_ID  = process.env.NEXT_PUBLIC_CLARITY_ID;
+const CONSENT_KEY    = 'mc_cookie_consent';
+const GA4_ID         = process.env.NEXT_PUBLIC_GA4_ID;
+const CLARITY_ID     = process.env.NEXT_PUBLIC_CLARITY_ID;
+// Google Ads — used for conversion tracking on /book success. The same gtag
+// library powers GA4 + Ads, so we bootstrap once and add an extra `config`
+// call for the Ads ID. If GOOGLE_ADS_ID is absent, the second config simply
+// doesn't run and Ads conversions silently no-op (see lib/analytics.js).
+const GOOGLE_ADS_ID  = process.env.NEXT_PUBLIC_GOOGLE_ADS_ID;
 
 function TrackingScripts() {
+  // Either GA4 or Google Ads can bootstrap gtag. Pick whichever is configured
+  // first so the gtag.js loader URL has a non-null id; both `config` calls
+  // run regardless. Loading order: gtag library → init → optional Ads config.
+  const gtagBootstrapId = GA4_ID || GOOGLE_ADS_ID;
+
   return (
     <>
-      {GA4_ID && (
+      {gtagBootstrapId && (
         <>
-          <Script src={`https://www.googletagmanager.com/gtag/js?id=${GA4_ID}`} strategy="afterInteractive" />
-          <Script id="ga4-init" strategy="afterInteractive">{`
+          <Script
+            src={`https://www.googletagmanager.com/gtag/js?id=${gtagBootstrapId}`}
+            strategy="afterInteractive"
+          />
+          <Script id="gtag-init" strategy="afterInteractive">{`
             window.dataLayer=window.dataLayer||[];
             function gtag(){dataLayer.push(arguments);}
+            window.gtag=gtag;
             gtag('js',new Date());
-            gtag('config','${GA4_ID}',{page_path:window.location.pathname});
+            ${GA4_ID ? `gtag('config','${GA4_ID}',{page_path:window.location.pathname});` : ''}
+            ${GOOGLE_ADS_ID ? `gtag('config','${GOOGLE_ADS_ID}');` : ''}
           `}</Script>
         </>
       )}
@@ -78,7 +97,7 @@ export default function CookieBanner() {
       fontSize: '0.875rem', lineHeight: '1.5',
     }}>
       <p style={{ margin: 0, flex: 1, minWidth: '240px' }}>
-        Usamos cookies propias y de terceros (Google Analytics, Microsoft Clarity) para analizar el tráfico y mejorar tu experiencia.{' '}
+        Usamos cookies propias y de terceros (Google Analytics, Google Ads, Microsoft Clarity) para analizar el tráfico, medir nuestras campañas publicitarias y mejorar tu experiencia.{' '}
         <Link href="/cookies" style={{ color: '#c9a84c', textDecoration: 'underline' }}>Política de cookies</Link>
       </p>
       <div style={{ display: 'flex', gap: '0.75rem', flexShrink: 0, flexWrap: 'wrap', alignItems: 'center' }}>

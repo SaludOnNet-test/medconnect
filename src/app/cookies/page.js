@@ -12,6 +12,7 @@ const COOKIES = [
   ['mc_sid', 'Med Connect', 'Técnica', 'Identificador de sesión anónimo para analytics interno', 'Sesión'],
   ['_ga, _ga_*', 'Google Analytics', 'Analítica', 'Mide visitas y comportamiento de usuarios (solo con consentimiento)', '2 años'],
   ['_clck, _clsk', 'Microsoft Clarity', 'Analítica', 'Grabaciones de sesión y heatmaps (solo con consentimiento)', '1 año'],
+  ['_gcl_au, _gcl_aw, _gac_*', 'Google Ads', 'Marketing', 'Mide la eficacia de nuestras campañas publicitarias y atribuye conversiones (solo con consentimiento)', '90 días'],
 ];
 
 export default function CookiesPage() {

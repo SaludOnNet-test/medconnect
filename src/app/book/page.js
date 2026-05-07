@@ -7,7 +7,7 @@ import Header from '@/components/Header';
 import Footer from '@/components/Footer';
 import PaymentForm from '@/components/PaymentForm';
 import { services, insuranceCompanies, createReferral, getConvenienceFee, REFERRAL_STATES } from '@/data/mock';
-import { trackEvent } from '@/lib/analytics';
+import { trackEvent, trackConversion } from '@/lib/analytics';
 import { formatEUR } from '@/lib/format';
 import Icon from '@/components/icons/Icon';
 import './book.css';
@@ -394,6 +394,25 @@ function BookContent() {
     }
 
     trackEvent('book_completed', { provider: clinicName, amount: totalPrice, service: serviceId });
+
+    // Google Ads conversion. Value is the platform_fee (priority fee) — the
+    // actual MedConnect revenue per booking — NOT totalPrice, which for
+    // sin-seguro patients also includes the clinic's service fee that is
+    // passed through. transaction_id = reference dedupes if the user
+    // reloads the success page. Enhanced Conversions: email + phone are
+    // SHA-256 hashed inside trackConversion() before being sent.
+    // Fire-and-forget; never await — booking UX must not depend on the ad
+    // network being reachable.
+    trackConversion({
+      transactionId: reference,
+      value: Number(activeFee) || 0,
+      currency: 'EUR',
+      userData: {
+        email: patientEmail,
+        phone: lockInData?.patientPhone || form.phone || null,
+      },
+    });
+
     setStep('success');
     // Store calendarUrl for the success screen
     window._mcCalendarUrl = calendarUrl;
