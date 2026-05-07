@@ -43,6 +43,9 @@ import {
   getConfig,
 } from '@/lib/agents/state';
 import { runMarketingAgent } from '@/lib/agents/marketing/run';
+import { runSecurityAgent } from '@/lib/agents/security/run';
+import { rollbackVercel } from '@/lib/agents/tools/vercel';
+import { proposeHotfixPr } from '@/lib/agents/tools/github';
 
 export const dynamic = 'force-dynamic';
 
@@ -194,11 +197,26 @@ async function handleSecurityCommand(chatId, parts) {
     return handleConfigCommand({ chatId, agent: 'security', kvString: parts.slice(1).join(' ') });
   }
   if (sub === 'investigar') {
+    const issueId = (parts[1] || '').trim();
+    if (!issueId) {
+      await sendMessage({ chatId, text: 'Uso: `/security investigar <issueId>`' });
+      return NextResponse.json({ ok: true });
+    }
     await sendMessage({
       chatId,
-      text: '_Agente de seguridad pendiente de Fase 2. Webhook Sentry y tools llegarán después._',
+      text: `🔍 _Investigando issue \`${issueId}\` …_`,
     });
-    return NextResponse.json({ ok: true });
+    after(async () => {
+      try {
+        await runSecurityAgent({ trigger: 'manual', issueId });
+      } catch (err) {
+        await sendMessage({
+          chatId,
+          text: `*[SEC] Error*: \`${String(err?.message || err).slice(0, 200)}\``,
+        }).catch(() => {});
+      }
+    });
+    return NextResponse.json({ ok: true, deferred: true });
   }
   await sendMessage({
     chatId,
@@ -355,10 +373,13 @@ async function handleMarketingCallback({ callback, action, verb }) {
 }
 
 async function handleSecurityCallback({ callback, action, verb }) {
-  // Phase 2/3 will dispatch to the security executor module. For Phase 0 we
-  // record the choice so we can review the wiring end-to-end.
   if (verb === 'rej') {
     await updatePendingActionStatus({ id: action.id, status: 'rejected' });
+    await appendMemory({
+      agent: 'security',
+      topic: 'rejected_proposals',
+      content: { actionId: action.id, title: action.title, rationale: action.rationale },
+    });
     await answerCallbackQuery({ callbackQueryId: callback.id, text: '✗ Ignorada.' });
     if (action.telegram_chat_id && action.telegram_message_id) {
       await editMessage({
@@ -369,14 +390,81 @@ async function handleSecurityCallback({ callback, action, verb }) {
     }
     return NextResponse.json({ ok: true });
   }
-  if (verb === 'exec' || verb === 'ack') {
-    await answerCallbackQuery({
-      callbackQueryId: callback.id,
-      text: 'Ejecutor de seguridad pendiente de Fase 2/3.',
-      showAlert: true,
+
+  if (verb === 'det') {
+    await answerCallbackQuery({ callbackQueryId: callback.id });
+    let argsPreview = '';
+    try {
+      const args = JSON.parse(action.args_json || '{}');
+      argsPreview = '```json\n' + JSON.stringify(args, null, 2).slice(0, 1500) + '\n```';
+    } catch {/* ignore */}
+    await sendMessage({
+      chatId: callback.message.chat.id,
+      text: [`*${action.title}*`, '', action.rationale || '_(sin rationale)_', '', argsPreview].join('\n'),
     });
     return NextResponse.json({ ok: true });
   }
+
+  // ack / exec → execute the proposed action server-side.
+  if (verb === 'ack' || verb === 'exec') {
+    let parsedArgs = {};
+    try { parsedArgs = JSON.parse(action.args_json || '{}'); } catch {/* leave empty */}
+    const actionType = String(parsedArgs.type || '').toLowerCase();
+    const payload = parsedArgs.payload || {};
+
+    let result;
+    try {
+      if (actionType === 'rollback') {
+        result = await rollbackVercel({
+          deploymentId: payload.deploymentId,
+          reason: payload.reason || `operator-approved rollback (action ${action.id})`,
+        });
+      } else if (actionType === 'hotfix_pr') {
+        result = await proposeHotfixPr({
+          branch: payload.branch,
+          files: payload.files || [],
+          title: payload.title || action.title,
+          body: payload.body || action.rationale,
+        });
+      } else {
+        // Generic "investigation_summary" or "other" — nothing to execute.
+        result = { ok: true, noop: true, type: actionType };
+      }
+    } catch (err) {
+      result = { error: err?.message || String(err) };
+    }
+
+    const okStatus = result?.ok && !result?.error;
+    await updatePendingActionStatus({
+      id: action.id,
+      status: okStatus ? 'executed' : 'failed',
+      resultJson: result,
+    });
+    await appendMemory({
+      agent: 'security',
+      topic: 'executed_actions',
+      content: { actionId: action.id, type: actionType, ok: okStatus, result },
+    });
+
+    await answerCallbackQuery({
+      callbackQueryId: callback.id,
+      text: okStatus ? '✓ Ejecutada.' : `✗ Falló: ${(result?.error || '').slice(0, 80)}`,
+      showAlert: !okStatus,
+    });
+    if (action.telegram_chat_id && action.telegram_message_id) {
+      const headline = okStatus
+        ? `✅ *Ejecutada* — ${action.title}`
+        : `⚠️ *Falló* — ${action.title}\n\n\`${(result?.error || '').slice(0, 200)}\``;
+      const tail = result?.prUrl ? `\n\n[PR](${result.prUrl})` : '';
+      await editMessage({
+        chatId: action.telegram_chat_id,
+        messageId: action.telegram_message_id,
+        text: headline + tail,
+      });
+    }
+    return NextResponse.json({ ok: true, executed: okStatus });
+  }
+
   await answerCallbackQuery({ callbackQueryId: callback.id, text: 'Verbo no soportado.' });
   return NextResponse.json({ ok: true });
 }

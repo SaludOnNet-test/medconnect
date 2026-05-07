@@ -157,14 +157,95 @@ Reads with no value print the whole config block.
 
 ---
 
-## 5 — What's still pending per phase
+## 5 — Security agent (Phase 2/3) setup
+
+The security agent works in two layers:
+
+**Phase 2 — reactive proposals (default).** Sentry webhooks land at
+`/api/agents/sentry-webhook`. The agent investigates each issue, decides
+if it's noise (and ignores), or builds a proposal that pings you on
+Telegram with [Ejecutar rollback] / [Crear hotfix PR] / [Ignorar] buttons.
+**No autonomous code merges or rollbacks happen** — the seed config has
+`auto_rollback_enabled=false` and `auto_merge_enabled=false`.
+
+**Phase 3 — autonomous (opt-in).** When you're confident with Phase 2
+behaviour (recommend ≥ 4 weeks observing), flip the flags from Telegram:
+
+```
+/security config auto_rollback_enabled=true
+/security config auto_merge_enabled=true
+```
+
+The hardcoded guardrails in `src/lib/agents/guardrails.js` still apply
+even with auto enabled — if a path falls outside the whitelist, or the
+diff > `max_diff_lines`, or CI isn't green, the agent always degrades to
+a Telegram approval.
+
+### Env vars (push to Vercel)
+
+```
+# Sentry (programmatic access + webhook signing)
+SENTRY_AUTH_TOKEN=<internal-integration token, scopes: event:read, issue:read>
+SENTRY_ORG=<your sentry org slug>
+SENTRY_PROJECT=<your sentry project slug>
+SENTRY_WEBHOOK_SECRET=<random hex>
+
+# Vercel (rollback + deployment listing)
+VERCEL_TOKEN=<existing one is fine if it has Read+Write deployments>
+VERCEL_PROJECT_ID=<the medconnect project id>
+VERCEL_TEAM_ID=<saludonnet-tests-projects team id>
+VERCEL_WEBHOOK_SECRET=<random hex, used by /api/agents/vercel-webhook>
+
+# GitHub (read source + open hotfix PRs + auto-merge in Phase 3)
+GITHUB_TOKEN=<fine-grained PAT or app token>
+GITHUB_REPO=SaludOnNet-test/medconnect
+GITHUB_BASE_BRANCH=main           # optional, default 'main'
+```
+
+The GitHub token needs:
+- `contents:write` (commit to a branch)
+- `pull_requests:write` (open + merge)
+- read access to the repo's actions/check runs
+
+### Sentry webhook setup
+
+1. Sentry → Settings → Developer Settings → "New Internal Integration".
+2. Name: `MedConnect Agents`. Permissions: `Issue & Event: Read`,
+   `Organization: Read`. Webhook URL:
+   `https://medconnect.es/api/agents/sentry-webhook`.
+3. Webhook events: enable **Issue Alerts** (or Issue Events).
+4. Copy the **Client Secret** → Vercel env `SENTRY_WEBHOOK_SECRET`.
+   Copy the **Token** → Vercel env `SENTRY_AUTH_TOKEN`.
+5. In your Sentry **Alerts → Issue Alerts**, create a rule:
+   _"When an issue is first seen OR happens >= N times in a 1-min
+   window AND level >= error"_ → action: send to internal integration
+   `MedConnect Agents`.
+
+### Vercel webhook setup
+
+1. Vercel dashboard → Project (medconnect) → Settings → Git → Deploy
+   Hooks (and Webhooks).
+2. Create webhook for events `deployment.succeeded`, `deployment.ready`,
+   pointing at `https://medconnect.es/api/agents/vercel-webhook`.
+3. Copy the secret → Vercel env `VERCEL_WEBHOOK_SECRET`.
+
+### Manual triggers
+
+- `/security investigar <issueId>` from Telegram → agent investigates and
+  posts an analysis or proposal back.
+- `curl -X POST https://medconnect.es/api/agents/security/run?secret=$CRON_SECRET&issueId=MEDCONNECT-XYZ` for
+  the same from CLI.
+
+---
+
+## 6 — What's still pending per phase
 
 | Phase | Owner-side setup | Status |
 |---|---|---|
 | **0 — Andamiaje** | Telegram bot + env vars + migration | ⬜ pending owner |
-| **1 — Marketing MVP** | _Optional:_ GA4 service account JSON (base64) → `GA4_SERVICE_ACCOUNT_JSON`, plus `GA4_PROPERTY_ID`. Without these the agent uses Azure SQL only. Cron is wired in `vercel.json`. | 🟢 code shipped |
-| **2 — Security reactivo** | `SENTRY_AUTH_TOKEN`, `SENTRY_ORG`, `SENTRY_PROJECT`, `SENTRY_WEBHOOK_SECRET`, `GITHUB_TOKEN`, `GITHUB_REPO`, `VERCEL_PROJECT_ID`, `VERCEL_TEAM_ID`. Sentry webhook configured in their dashboard pointing at `/api/agents/sentry-webhook`. | ⬜ |
-| **3 — Security autónomo** | Flip `auto_rollback_enabled` and/or `auto_merge_enabled` to `true` via `/security config` from Telegram. Recommended only after **4+ weeks** of Phase 2 observation. | ⬜ |
+| **1 — Marketing MVP** | _Optional:_ GA4 service account JSON (base64) → `GA4_SERVICE_ACCOUNT_JSON`, plus `GA4_PROPERTY_ID`. Cron wired. | 🟢 code shipped |
+| **2 — Security reactivo** | Sentry/Vercel/GitHub env vars + Sentry & Vercel webhook registration (above). Auto-actions remain disabled. | 🟢 code shipped |
+| **3 — Security autónomo** | Flip `auto_rollback_enabled` and/or `auto_merge_enabled` to `true` via `/security config`. Recommended only after **4+ weeks** of Phase 2 observation. | 🟢 code shipped, gated off |
 | **4 — Refinamientos** | Google Ads OAuth + Trends, embeddings on `agent_memory`, dashboard. | ⬜ |
 
 ---
@@ -223,6 +304,14 @@ If any check fails, the action degrades to a Telegram approval prompt.
 | `src/lib/agents/tools/proposeAction.js` | `propose_action` — wraps state + Telegram approval card |
 | `src/lib/agents/marketing/systemPrompt.js` | Stable cached system prompt for the marketing agent |
 | `src/lib/agents/marketing/run.js` | Marketing orchestrator (multi-turn tool loop) |
+| `src/lib/agents/tools/sentry.js` | Sentry REST API client + webhook signature verifier |
+| `src/lib/agents/tools/vercel.js` | Vercel REST API client (deployments + rollback) + webhook signature verifier |
+| `src/lib/agents/tools/github.js` | GitHub REST API client (read files, propose PR, auto-merge gated) |
+| `src/lib/agents/security/systemPrompt.js` | Stable cached system prompt for the security agent |
+| `src/lib/agents/security/run.js` | Security orchestrator with guardrail-gated auto-actions |
 | `src/app/api/agents/telegram-webhook/route.js` | Single webhook entry point, command + callback router |
 | `src/app/api/agents/marketing/run/route.js` | Cron + manual trigger endpoint for the marketing agent |
+| `src/app/api/agents/sentry-webhook/route.js` | Sentry → security agent dispatcher (HMAC + filter + dedupe) |
+| `src/app/api/agents/vercel-webhook/route.js` | Vercel deploy events → opens 10-min post-deploy guard window |
+| `src/app/api/agents/security/run/route.js` | Manual trigger for security agent (with optional issueId) |
 | `scripts/migrate_agents_schema.js` | Idempotent schema migration (run once after deploy) |
