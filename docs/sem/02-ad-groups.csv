@@ -1,0 +1,8 @@
+Campaign,Ad group,Status,Default max CPC,Ad group type,Final URL
+MedConnect Brand,MedConnect Brand,Paused,0.50,Standard,https://www.medconnect.es/
+Non-brand Madrid,Cardiología Madrid,Paused,2.00,Standard,https://www.medconnect.es/especialistas/cardiologia/madrid
+Non-brand Madrid,Ginecología Madrid,Paused,1.80,Standard,https://www.medconnect.es/especialistas/ginecologia/madrid
+Non-brand Madrid,Traumatología Madrid,Paused,1.80,Standard,https://www.medconnect.es/especialistas/traumatologia/madrid
+Non-brand Madrid,Dermatología Madrid,Paused,1.80,Standard,https://www.medconnect.es/especialistas/dermatologia/madrid
+Insurer Brand (LEGAL GATE),Sanitas Madrid (PAUSED until legal),Paused,2.50,Standard,https://www.medconnect.es/aseguradoras
+Remarketing Display,Remarketing Specialty Pages,Paused,0.50,Display,https://www.medconnect.es/search-v2

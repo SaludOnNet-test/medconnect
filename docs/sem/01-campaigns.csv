@@ -1,0 +1,5 @@
+Campaign,Campaign Type,Campaign Subtype,Status,Budget,Budget type,Bid Strategy Type,Networks,Languages,Locations,Location Targeting,Start Date,End Date,Ad Schedule
+MedConnect Brand,Search,Standard,Paused,5,Daily,Manual CPC,Google Search,Spanish,Spain,Presence: People in or regularly in your targeted locations,2026-05-18,,All days
+Non-brand Madrid,Search,Standard,Paused,25,Daily,Manual CPC,Google Search,Spanish,"Madrid, Spain",Presence: People in or regularly in your targeted locations,2026-05-18,,All days
+Insurer Brand (LEGAL GATE),Search,Standard,Paused,5,Daily,Manual CPC,Google Search,Spanish,"Madrid, Spain",Presence: People in or regularly in your targeted locations,2026-05-18,,All days
+Remarketing Display,Display,Standard,Paused,4,Daily,Manual CPC,Display Network,Spanish,Spain,Presence: People in or regularly in your targeted locations,2026-05-18,,All days

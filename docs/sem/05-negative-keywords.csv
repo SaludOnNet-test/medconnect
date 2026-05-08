@@ -1,0 +1,49 @@
+Campaign,Keyword,Match Type,Negative
+Non-brand Madrid,gratis,Phrase,Yes
+Non-brand Madrid,gratuito,Phrase,Yes
+Non-brand Madrid,seguridad social,Phrase,Yes
+Non-brand Madrid,sanidad publica,Phrase,Yes
+Non-brand Madrid,hospital publico,Phrase,Yes
+Non-brand Madrid,oposiciones,Phrase,Yes
+Non-brand Madrid,formacion,Phrase,Yes
+Non-brand Madrid,curso,Phrase,Yes
+Non-brand Madrid,cursos,Phrase,Yes
+Non-brand Madrid,mir,Exact,Yes
+Non-brand Madrid,empleo,Phrase,Yes
+Non-brand Madrid,trabajo,Phrase,Yes
+Non-brand Madrid,sueldo,Phrase,Yes
+Non-brand Madrid,salario,Phrase,Yes
+Non-brand Madrid,opiniones,Phrase,Yes
+Non-brand Madrid,quejas,Phrase,Yes
+Non-brand Madrid,reclamacion,Phrase,Yes
+Non-brand Madrid,reclamación,Phrase,Yes
+Non-brand Madrid,foro,Phrase,Yes
+Non-brand Madrid,experiencias,Phrase,Yes
+Non-brand Madrid,urgencias,Phrase,Yes
+Non-brand Madrid,24 horas,Phrase,Yes
+Non-brand Madrid,24h,Phrase,Yes
+Non-brand Madrid,animales,Phrase,Yes
+Non-brand Madrid,veterinario,Phrase,Yes
+Non-brand Madrid,veterinaria,Phrase,Yes
+Non-brand Madrid,para perros,Phrase,Yes
+Non-brand Madrid,para gatos,Phrase,Yes
+Non-brand Madrid,ofertas,Phrase,Yes
+Non-brand Madrid,promocion,Phrase,Yes
+Non-brand Madrid,promoción,Phrase,Yes
+Non-brand Madrid,descuento,Phrase,Yes
+Non-brand Madrid,amazon,Phrase,Yes
+Non-brand Madrid,youtube,Phrase,Yes
+Non-brand Madrid,wikipedia,Phrase,Yes
+Insurer Brand (LEGAL GATE),gratis,Phrase,Yes
+Insurer Brand (LEGAL GATE),gratuito,Phrase,Yes
+Insurer Brand (LEGAL GATE),seguridad social,Phrase,Yes
+Insurer Brand (LEGAL GATE),oposiciones,Phrase,Yes
+Insurer Brand (LEGAL GATE),empleo,Phrase,Yes
+Insurer Brand (LEGAL GATE),trabajo,Phrase,Yes
+Insurer Brand (LEGAL GATE),opiniones,Phrase,Yes
+Insurer Brand (LEGAL GATE),urgencias,Phrase,Yes
+MedConnect Brand,medconnect linkedin,Phrase,Yes
+MedConnect Brand,medconnect ofertas empleo,Phrase,Yes
+MedConnect Brand,medconnect trabajo,Phrase,Yes
+MedConnect Brand,medconnect facturacion,Phrase,Yes
+MedConnect Brand,medconnect login,Phrase,Yes
