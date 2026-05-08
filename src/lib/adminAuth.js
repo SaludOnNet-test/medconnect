@@ -8,6 +8,12 @@ import { query, sql, DB_AVAILABLE } from '@/lib/db';
 
 const TOKEN_TTL_MS = 12 * 60 * 60 * 1000; // 12 h
 
+// scrypt parameters — matched to Node's defaults, sufficient for an admin
+// table that's measured in 10s of users (not customer-facing) and that
+// already has rate-limiting + password-strength gates upstream.
+const SCRYPT_KEY_LEN = 32;
+const SALT_BYTES = 16;
+
 // Resolve SESSION_SECRET lazily so `next build` doesn't fail when the env var
 // is missing at build time. In production we refuse to operate without an
 // explicit secret — the previous fallback chain (DB_SETUP_SECRET → 'dev-…')
@@ -29,19 +35,93 @@ function sign(payload) {
   return crypto.createHmac('sha256', getSessionSecret()).update(payload).digest('hex');
 }
 
+/**
+ * Hash a plaintext password.
+ *
+ * Format: `scrypt2:<salt-hex>:<hash-hex>`
+ *
+ * Why this changed (F12, 2026-05-08): the previous format used
+ * `crypto.scryptSync(password, SESSION_SECRET, 32)` — i.e. SESSION_SECRET
+ * acted as the scrypt salt for *every* user. Rotating SESSION_SECRET
+ * therefore invalidated every stored hash (the lockout incident on
+ * 2026-05-07 took the production admin panel offline until we deployed a
+ * one-shot recovery endpoint).
+ *
+ * The new format generates a per-user random salt and stores it
+ * alongside the hash. SESSION_SECRET is now reserved for HMAC of session
+ * tokens only (see `sign`/`verifyToken` below). Future SESSION_SECRET
+ * rotations are safe — they don't touch stored password hashes.
+ *
+ * Backward compatibility: `verifyPassword` still accepts the legacy
+ * `scrypt:` and `plain:` prefixes, and `authenticate()` auto-upgrades
+ * legacy rows to `scrypt2:` on the next successful login.
+ */
 function hashPassword(password) {
-  // Plain prefix is for the seeded default; once a user changes it we move to scrypt.
-  return 'scrypt:' + crypto.scryptSync(password, getSessionSecret(), 32).toString('hex');
+  const salt = crypto.randomBytes(SALT_BYTES);
+  const hash = crypto.scryptSync(password, salt, SCRYPT_KEY_LEN);
+  return `scrypt2:${salt.toString('hex')}:${hash.toString('hex')}`;
 }
 
+/**
+ * Verify a plaintext password against a stored hash. Accepts three
+ * formats during the F12 migration window:
+ *
+ *   - scrypt2:<salt-hex>:<hash-hex>   ← current (per-user salt)
+ *   - scrypt:<hash-hex>               ← legacy (SESSION_SECRET as salt)
+ *   - plain:<password>                ← legacy seeded admin only
+ *
+ * Returns `true` on match. The caller (typically `authenticate()`) is
+ * responsible for triggering an auto-upgrade UPDATE when the stored
+ * format is legacy — this lib function is intentionally side-effect-free
+ * so it stays cheap to call from rate-limited paths.
+ */
 export function verifyPassword(password, stored) {
-  if (!stored) return false;
-  if (stored.startsWith('plain:')) return stored.slice(6) === password;
-  if (stored.startsWith('scrypt:')) {
-    const expected = crypto.scryptSync(password, getSessionSecret(), 32).toString('hex');
-    return crypto.timingSafeEqual(Buffer.from(stored.slice(7), 'hex'), Buffer.from(expected, 'hex'));
+  if (!stored || typeof stored !== 'string') return false;
+
+  if (stored.startsWith('scrypt2:')) {
+    const parts = stored.slice(8).split(':');
+    if (parts.length !== 2) return false;
+    let salt, expected;
+    try {
+      salt = Buffer.from(parts[0], 'hex');
+      expected = Buffer.from(parts[1], 'hex');
+    } catch {
+      return false;
+    }
+    if (salt.length !== SALT_BYTES || expected.length !== SCRYPT_KEY_LEN) return false;
+    const computed = crypto.scryptSync(password, salt, SCRYPT_KEY_LEN);
+    return crypto.timingSafeEqual(computed, expected);
   }
+
+  if (stored.startsWith('plain:')) {
+    return stored.slice(6) === password;
+  }
+
+  if (stored.startsWith('scrypt:')) {
+    // Legacy format — SESSION_SECRET as salt. Auto-upgraded to
+    // `scrypt2:` on next successful login (see `authenticate()`).
+    let storedHash;
+    try {
+      storedHash = Buffer.from(stored.slice(7), 'hex');
+    } catch {
+      return false;
+    }
+    if (storedHash.length !== SCRYPT_KEY_LEN) return false;
+    const expected = crypto.scryptSync(password, getSessionSecret(), SCRYPT_KEY_LEN);
+    return crypto.timingSafeEqual(storedHash, expected);
+  }
+
   return false;
+}
+
+/**
+ * Returns true if the stored hash uses a legacy format that should be
+ * migrated on the next successful login. Exported for the auto-upgrade
+ * path in `authenticate()`.
+ */
+function isLegacyHash(stored) {
+  if (!stored || typeof stored !== 'string') return false;
+  return stored.startsWith('scrypt:') || stored.startsWith('plain:');
 }
 
 export function makeToken({ username, role }) {
@@ -82,6 +162,28 @@ export async function authenticate(username, password) {
   const row = result.recordset[0];
   if (!row || !row.is_active) return null;
   if (!verifyPassword(password, row.password_hash)) return null;
+
+  // Auto-upgrade legacy `scrypt:` / `plain:` hashes to the new `scrypt2:`
+  // format with a per-user random salt. Best-effort: if the UPDATE
+  // fails the user still logs in (we already verified them), they'll
+  // just get re-prompted to upgrade on their next successful login.
+  // After the F12 migration window, legacy rows organically disappear
+  // from the table.
+  if (isLegacyHash(row.password_hash)) {
+    try {
+      const upgraded = hashPassword(password);
+      await query(
+        `UPDATE admin_users SET password_hash = @hash WHERE username = @username`,
+        {
+          username: { type: sql.NVarChar(80), value: username },
+          hash: { type: sql.NVarChar(255), value: upgraded },
+        }
+      );
+    } catch (err) {
+      console.error('[auth] hash auto-upgrade failed for', username, err?.message);
+    }
+  }
+
   await query(
     `UPDATE admin_users SET last_login = SYSDATETIMEOFFSET() WHERE username = @username`,
     { username: { type: sql.NVarChar(80), value: username } }
