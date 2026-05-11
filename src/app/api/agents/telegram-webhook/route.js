@@ -37,12 +37,19 @@ import {
   getPendingAction,
   updatePendingActionStatus,
   listOpenPendingActions,
+  listPendingActionsByStatus,
   appendMemory,
   resolveCallbackShortId,
+  storeCallbackShortId,
   setConfig,
   getConfig,
 } from '@/lib/agents/state';
 import { runMarketingAgent } from '@/lib/agents/marketing/run';
+import {
+  buildClaudeCodePrompt,
+  buildClaudeUrl,
+} from '@/lib/agents/marketing/claudePrompt';
+import { signActionId } from '@/lib/agents/telegram';
 import { runSecurityAgent } from '@/lib/agents/security/run';
 import { rollbackVercel } from '@/lib/agents/tools/vercel';
 import { proposeHotfixPr } from '@/lib/agents/tools/github';
@@ -122,34 +129,66 @@ async function sendHelp(chatId) {
   const help = [
     '*MedConnect Agentes*',
     '',
-    '*Marketing*',
-    '`/marketing analizar [7d|30d]` — análisis bajo demanda (Fase 1)',
-    '`/marketing config <key>=<value>` — ajusta configuración',
+    '*Marketing* (manual, no hay cron)',
+    '`/marketing analizar [7d|30d]` — analiza ahora.',
+    '`/marketing config <key>=<value>` — ajusta configuración.',
+    '',
+    '_Flujo de aceptar:_ cuando aceptes una propuesta, el bot te genera un',
+    'prompt para Claude (plan mode) y dos botones: 🚀 abrir en Claude ahora,',
+    'o 📌 guardar para más tarde (queda en `/status`).',
     '',
     '*Security*',
-    '`/security investigar <issue_id>` — analiza un issue Sentry (Fase 2)',
-    '`/security config <key>=<value>` — ajusta configuración',
+    '`/security investigar <issue_id>` — analiza un issue Sentry.',
+    '`/security config <key>=<value>` — ajusta configuración.',
     '',
     '*General*',
-    '`/status` — pendientes abiertos',
-    '`/agents` — esta ayuda',
+    '`/status` — pendientes, aceptadas listas, guardadas para después.',
+    '`/agents` — esta ayuda.',
   ].join('\n');
   await sendMessage({ chatId, text: help });
   return NextResponse.json({ ok: true });
 }
 
 async function sendStatus(chatId) {
-  const open = await listOpenPendingActions({ limit: 10 });
-  if (open.length === 0) {
+  // Three buckets the operator cares about:
+  //   - pending: still needs a yes/no.
+  //   - accepted_pending_exec: said yes, prompt generated, not opened yet.
+  //   - saved_for_later: deliberately parked; run when convenient.
+  const [pendingRows, acceptedRows, savedRows] = await Promise.all([
+    listOpenPendingActions({ limit: 10 }),
+    listPendingActionsByStatus({ statuses: ['accepted_pending_exec'], limit: 10 }),
+    listPendingActionsByStatus({ statuses: ['saved_for_later'], limit: 10 }),
+  ]);
+
+  if (pendingRows.length === 0 && acceptedRows.length === 0 && savedRows.length === 0) {
     await sendMessage({ chatId, text: '_Sin propuestas pendientes._' });
     return NextResponse.json({ ok: true });
   }
-  const lines = ['*Pendientes abiertos*', ''];
-  for (const a of open) {
-    const ageMin = Math.round((Date.now() - new Date(a.created_at).getTime()) / 60000);
-    lines.push(`• \`${a.agent}\` · ${a.title} _(${ageMin} min, riesgo: ${a.risk_level})_`);
-  }
-  await sendMessage({ chatId, text: lines.join('\n') });
+
+  const fmtAge = (createdAt) => {
+    const minutes = Math.round((Date.now() - new Date(createdAt).getTime()) / 60000);
+    if (minutes < 60) return `${minutes} min`;
+    const hours = Math.round(minutes / 60);
+    if (hours < 48) return `${hours} h`;
+    return `${Math.round(hours / 24)} d`;
+  };
+
+  const block = (title, rows) => {
+    if (rows.length === 0) return null;
+    const out = [`*${title}*`, ''];
+    for (const a of rows) {
+      out.push(`• \`${a.agent}\` · ${a.title} _(${fmtAge(a.created_at)}, riesgo: ${a.risk_level})_`);
+    }
+    return out.join('\n');
+  };
+
+  const parts = [
+    block('Pendientes de decisión', pendingRows),
+    block('Aceptadas, listas para ejecutar', acceptedRows),
+    block('Guardadas para después', savedRows),
+  ].filter(Boolean);
+
+  await sendMessage({ chatId, text: parts.join('\n\n') });
   return NextResponse.json({ ok: true });
 }
 
@@ -296,17 +335,16 @@ async function handleCallback(callback) {
     await answerCallbackQuery({ callbackQueryId: callback.id, text: 'Acción no encontrada.' });
     return NextResponse.json({ ok: true });
   }
-  if (action.status !== 'pending') {
-    await answerCallbackQuery({ callbackQueryId: callback.id, text: `Estado: ${action.status}` });
-    return NextResponse.json({ ok: true });
-  }
+  // NOTE: We deliberately do NOT reject non-`pending` statuses here. Each
+  // verb checks what status it accepts (e.g. `save` only fires after an
+  // `ack` has flipped the row to `accepted_pending_exec`).
 
-  // Marketing handlers — Phase 0 covers all three.
+  // Marketing handlers.
   if (agent === 'mkt') {
     return handleMarketingCallback({ callback, action, verb });
   }
 
-  // Security handlers — Phase 0 just acknowledges; full exec lives in Phase 2/3.
+  // Security handlers.
   if (agent === 'sec') {
     return handleSecurityCallback({ callback, action, verb });
   }
@@ -316,23 +354,120 @@ async function handleCallback(callback) {
 
 async function handleMarketingCallback({ callback, action, verb }) {
   if (verb === 'ack') {
-    await updatePendingActionStatus({ id: action.id, status: 'acknowledged' });
+    if (action.status !== 'pending') {
+      await answerCallbackQuery({ callbackQueryId: callback.id, text: `Estado: ${action.status}` });
+      return NextResponse.json({ ok: true });
+    }
+    // 1. Update the row and persist memory.
+    await updatePendingActionStatus({ id: action.id, status: 'accepted_pending_exec' });
     await appendMemory({
       agent: 'marketing',
       topic: 'acknowledged_proposals',
       content: { actionId: action.id, title: action.title },
     });
+
+    // 2. Build the Claude Code prompt + deep link.
+    const promptText = buildClaudeCodePrompt(action);
+    const { url: claudeUrl, truncated } = buildClaudeUrl(promptText);
+
+    // 3. Acknowledge the button click quickly (Telegram closes the spinner).
     await answerCallbackQuery({ callbackQueryId: callback.id, text: '✓ Aceptada.' });
+
+    // 4. Edit the original card to point at the new message.
     if (action.telegram_chat_id && action.telegram_message_id) {
       await editMessage({
         chatId: action.telegram_chat_id,
         messageId: action.telegram_message_id,
-        text: `✅ *Aceptada* — ${action.title}`,
+        text: `✅ *Aceptada* — ${action.title}\n_Prompt para Claude generado en el siguiente mensaje._`,
+      });
+    }
+
+    // 5. Generate a fresh shortId mapping for the new card's callback button
+    //    (so an attacker can't replay the old `ack` shortId on a different
+    //    verb; old shortId still resolves to the same action but no verb
+    //    accepts it now in `pending` state).
+    const newShortId = await storeCallbackShortId(action.id);
+    const hmacTag = signActionId(action.id);
+
+    // 6. Send the prompt as a copy-friendly message + the two action buttons.
+    //    Markdown code fence preserves whitespace + lets the user tap-hold to
+    //    copy on mobile.
+    const lines = [
+      '*Prompt para Claude (plan mode)*',
+      '',
+      'Pulsa el botón para abrir Claude en plan mode con este prompt cargado. ' +
+        'Si quieres pinearlo en la sidebar de Claude Code, ábrelo primero y luego pin.',
+      '',
+      '```',
+      promptText.slice(0, 3500), // Telegram message body cap ~4096 chars
+      '```',
+    ];
+    if (truncated) {
+      lines.push('');
+      lines.push('_El deep link va truncado por límite de URL; el prompt completo está arriba (cópialo si lo necesitas íntegro)._');
+    }
+    if (promptText.length > 3500) {
+      lines.push('');
+      lines.push('_Prompt largo: el bloque está recortado; usa el botón para abrirlo completo o copia desde el deep link._');
+    }
+
+    const buttons = [[
+      { text: '🚀 Abrir en Claude (plan mode)', url: claudeUrl },
+      { text: '📌 Guardar para después', callback_data: `mkt:save:${newShortId}:${hmacTag}` },
+    ]];
+
+    await sendMessage({
+      chatId: callback.message.chat.id,
+      text: lines.join('\n'),
+      buttons,
+    });
+
+    return NextResponse.json({ ok: true });
+  }
+
+  if (verb === 'save') {
+    if (action.status !== 'accepted_pending_exec') {
+      await answerCallbackQuery({
+        callbackQueryId: callback.id,
+        text: `No guardable en estado: ${action.status}`,
+      });
+      return NextResponse.json({ ok: true });
+    }
+    await updatePendingActionStatus({ id: action.id, status: 'saved_for_later' });
+    await appendMemory({
+      agent: 'marketing',
+      topic: 'saved_for_later',
+      content: { actionId: action.id, title: action.title },
+    });
+    await answerCallbackQuery({ callbackQueryId: callback.id, text: '📌 Guardada.' });
+
+    // Edit the prompt message in place: drop the "Guardar" button, keep
+    // "Abrir en Claude" so the operator can launch when ready.
+    if (callback.message?.message_id) {
+      // Re-build the URL from the same prompt — we don't have the text in
+      // memory here, so re-derive from the action row.
+      const promptText = buildClaudeCodePrompt(action);
+      const { url: claudeUrl } = buildClaudeUrl(promptText);
+      const newButtons = [[
+        { text: '🚀 Abrir en Claude (plan mode)', url: claudeUrl },
+      ]];
+      await editMessage({
+        chatId: callback.message.chat.id,
+        messageId: callback.message.message_id,
+        text:
+          `📌 *Guardada para después* — ${action.title}\n\n` +
+          'Cuando quieras lanzarla, pulsa el botón para abrir Claude.',
+        buttons: newButtons,
       });
     }
     return NextResponse.json({ ok: true });
   }
+
   if (verb === 'rej') {
+    if (action.status !== 'pending') {
+      await answerCallbackQuery({ callbackQueryId: callback.id, text: `Estado: ${action.status}` });
+      return NextResponse.json({ ok: true });
+    }
     await updatePendingActionStatus({ id: action.id, status: 'rejected' });
     await appendMemory({
       agent: 'marketing',
@@ -374,6 +509,10 @@ async function handleMarketingCallback({ callback, action, verb }) {
 
 async function handleSecurityCallback({ callback, action, verb }) {
   if (verb === 'rej') {
+    if (action.status !== 'pending') {
+      await answerCallbackQuery({ callbackQueryId: callback.id, text: `Estado: ${action.status}` });
+      return NextResponse.json({ ok: true });
+    }
     await updatePendingActionStatus({ id: action.id, status: 'rejected' });
     await appendMemory({
       agent: 'security',
@@ -407,6 +546,10 @@ async function handleSecurityCallback({ callback, action, verb }) {
 
   // ack / exec → execute the proposed action server-side.
   if (verb === 'ack' || verb === 'exec') {
+    if (action.status !== 'pending') {
+      await answerCallbackQuery({ callbackQueryId: callback.id, text: `Estado: ${action.status}` });
+      return NextResponse.json({ ok: true });
+    }
     let parsedArgs = {};
     try { parsedArgs = JSON.parse(action.args_json || '{}'); } catch {/* leave empty */}
     const actionType = String(parsedArgs.type || '').toLowerCase();
