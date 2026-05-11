@@ -54,7 +54,18 @@ async function recordDbEvent(name, params) {
  *   search_performed  — user submitted a search
  *   clinic_viewed     — booking modal opened for a clinic
  *   slot_selected     — user tapped a specific time slot
+ *                       props: { source: 'modal' } (more values may be added
+ *                       if other UIs start emitting; the marketing agent
+ *                       expects `source` to be set).
  *   book_started      — user arrived at /book
+ *                       props: { source: 'direct' | 'lock-in' }
+ *                       'direct'  = patient came from search/modal flow.
+ *                       'lock-in' = patient confirmed a professional's
+ *                                   referral; never selected a slot.
+ *                       Splitting `book_started` by source is critical because
+ *                       the lock-in flow never emits `slot_selected` (the
+ *                       referring professional picks the time), so a single
+ *                       global funnel reads as broken.
  *   book_completed    — booking confirmed successfully
  *   referral_created  — derivador sent a referral
  */

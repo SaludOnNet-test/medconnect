@@ -260,7 +260,10 @@ export default function ClinicBookingModal({
                       className={`cbm-time-btn cbm-time-btn--tier-${f.tier} ${isActive ? 'cbm-time-btn--active' : ''}`}
                       onClick={() => {
                         setSelectedSlot(slot);
-                        trackEvent('slot_selected', { provider_id: provider.id, date: slot.date, time: slot.time, tier: f.tier });
+                        // `source` matches the value used in book_started so
+                        // the marketing agent can pair the events when
+                        // computing flow-specific conversion rates.
+                        trackEvent('slot_selected', { provider_id: provider.id, date: slot.date, time: slot.time, tier: f.tier, source: 'modal' });
                       }}
                       title={f.label || ''}
                     >
