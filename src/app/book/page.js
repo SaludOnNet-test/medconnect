@@ -1,5 +1,5 @@
 'use client';
-import { useState, useEffect, useCallback, Suspense } from 'react';
+import { useState, useEffect, useCallback, useRef, Suspense } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import dynamic from 'next/dynamic';
 import Link from 'next/link';
@@ -82,9 +82,33 @@ function BookContent() {
     isSinSeguroParam ? false : (insuranceParam ? true : null)
   );
 
-  // Track book_started on mount
+  // Track book_started on mount.
+  //
+  // Two paths land on /book:
+  //   - 'direct'  : patient picked the slot themselves via ClinicBookingModal,
+  //                 went through search → clinic_viewed → slot_selected.
+  //   - 'lock-in' : professional referred a patient and pre-selected the slot;
+  //                 the patient confirms identity in /lock-in/[id] and lands
+  //                 here at ?step=payment. There is NO slot_selected for this
+  //                 flow because the patient never picks a time.
+  //
+  // We tag the event with `source` so the marketing agent can split the
+  // funnel correctly. Before this field existed, the agent saw
+  // `slot_selected << book_started` and flagged it as a bug.
+  //
+  // The useRef guard prevents a duplicate fire if React re-mounts the
+  // component (StrictMode, fast-refresh in dev, RSC re-hydration in prod).
+  // Without it, the same booking session could inflate book_started counts.
+  const bookStartedFired = useRef(false);
   useEffect(() => {
-    trackEvent('book_started', { provider: searchParams.get('providerName'), service: serviceId });
+    if (bookStartedFired.current) return;
+    bookStartedFired.current = true;
+    const source = searchParams.get('lockInId') ? 'lock-in' : 'direct';
+    trackEvent('book_started', {
+      provider: searchParams.get('providerName'),
+      service: serviceId,
+      source,
+    });
   }, []);
 
   // Handle lock-in redirect: auto-jump to payment step

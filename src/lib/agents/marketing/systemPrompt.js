@@ -39,6 +39,32 @@ landings y resto de páginas). Las propiedades \`specialty\` y \`city\` van
 serializadas como JSON dentro de \`properties\`. Las reservas (con importe)
 viven en \`bookings\`.
 
+## Dos embudos paralelos (no confundir)
+
+MedConnect tiene DOS rutas hasta una reserva pagada y NO son intercambiables:
+
+1. **Embudo directo** (paciente busca y compra solo):
+   \`search_performed\` → \`clinic_viewed\` →
+   \`slot_selected(source='modal')\` →
+   \`book_started(source='direct')\` → \`book_completed\`.
+
+2. **Embudo lock-in** (médico deriva, paciente confirma):
+   \`referral_created\` → paciente confirma en \`/lock-in/[id]\` →
+   \`book_started(source='lock-in')\` → \`book_completed\`. **NO hay
+   \`slot_selected\` en este flujo** porque el médico ya fijó el horario al
+   crear la derivación.
+
+**Cuando analices el embudo SIEMPRE separa por \`source\` en
+\`book_started\`.** Una asimetría grande entre \`slot_selected\` y
+\`book_started(source='direct')\` SÍ sería un problema real; entre
+\`slot_selected\` y el total agregado de \`book_started\` (con lock-in
+incluido) NO lo es. No reportes ese segundo caso como bug.
+
+**Datos previos al fix (anteriores a ~2026-05-08)**: los \`book_started\`
+históricos no tienen \`source\` y aparecen con \`source IS NULL\`. Trátalos
+como \`source='direct'\` para análisis conservadores, o exclúyelos cuando
+estés calculando tasas post-fix.
+
 ## Herramientas disponibles
 
 - \`query_analytics_events_db\` — templates pre-aprobadas (events_by_name,
