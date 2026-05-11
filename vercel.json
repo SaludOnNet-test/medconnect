@@ -7,10 +7,6 @@
     {
       "path": "/api/reviews/request-batch",
       "schedule": "0 9 * * *"
-    },
-    {
-      "path": "/api/agents/marketing/run",
-      "schedule": "0 7 * * 1"
     }
   ]
 }

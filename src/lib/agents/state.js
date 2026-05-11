@@ -242,6 +242,37 @@ export async function listOpenPendingActions({ agent, limit = 10 } = {}) {
   return r.recordset;
 }
 
+/**
+ * Same as listOpenPendingActions but accepts a custom status list. Useful for
+ * surfacing 'accepted_pending_exec' and 'saved_for_later' in /status without
+ * re-issuing N separate queries.
+ *
+ * `statuses` must be a non-empty array of plain strings; we paramterise each
+ * one to keep the query injection-safe.
+ */
+export async function listPendingActionsByStatus({ statuses, agent, limit = 20 } = {}) {
+  if (!Array.isArray(statuses) || statuses.length === 0) return [];
+  const pool = await getPool();
+  const req = pool.request().input('limit', sql.Int, limit);
+  const placeholders = statuses.map((s, i) => {
+    const name = `s${i}`;
+    req.input(name, sql.VarChar(20), s);
+    return `@${name}`;
+  });
+  let where = `status IN (${placeholders.join(', ')})`;
+  if (agent) {
+    req.input('agent', sql.VarChar(20), agent);
+    where += ` AND agent = @agent`;
+  }
+  const r = await req.query(`
+    SELECT TOP (@limit) id, agent, tool, title, rationale, risk_level, status, created_at, expires_at
+      FROM pending_actions
+     WHERE ${where}
+     ORDER BY created_at DESC;
+  `);
+  return r.recordset;
+}
+
 export async function updatePendingActionStatus({ id, status, resultJson }) {
   const pool = await getPool();
   await pool.request()
