@@ -11,7 +11,7 @@ import Deck from './Deck';
 import '../board/deck.css';
 
 export const metadata = {
-  title: 'Med Connect — Manual de Ops',
+  title: 'Med Connect — Manual de Operaciones / Atención al Cliente',
   robots: { index: false, follow: false, nocache: true },
 };
 
@@ -30,7 +30,7 @@ export default async function OpsHandbookPage({ searchParams }) {
     return (
       <main className="board-locked">
         <div className="board-locked-card">
-          <h1>Med Connect — Manual de Ops</h1>
+          <h1>Med Connect — Manual de Operaciones / Atención al Cliente</h1>
           <p>Esta página requiere un parámetro de acceso.</p>
           <p className="board-locked-hint">
             Añade <code>?k=…</code> al final de la URL.
@@ -41,10 +41,19 @@ export default async function OpsHandbookPage({ searchParams }) {
   }
 
   // Credentials only ship to clients that present the correct URL secret.
-  // Set these env vars in Vercel after running scripts/provision/create-admin-raquel.js.
+  // Defaults are the placeholder username/password the product team picked
+  // for the first soft-launch user; env vars on Vercel override when real
+  // credentials are provisioned via scripts/provision/create-admin-raquel.js.
+  //
+  // Guard against the env var holding leftover placeholder text from earlier
+  // setup (e.g. "<from step 3, script output>") by falling back to the
+  // hardcoded values when the env var contains an "<…>" marker.
+  const envUser = (process.env.OPS_ADMIN_USERNAME || '').trim();
+  const envPass = (process.env.OPS_ADMIN_PASSWORD || '').trim();
+  const looksLikePlaceholder = (s) => s === '' || s.startsWith('<');
   const credentials = {
-    username: (process.env.OPS_ADMIN_USERNAME || 'raquel').trim(),
-    password: (process.env.OPS_ADMIN_PASSWORD || '<pendiente · ver scripts/provision/create-admin-raquel.js>').trim(),
+    username: looksLikePlaceholder(envUser) ? 'mc_bfd923' : envUser,
+    password: looksLikePlaceholder(envPass) ? 'WvsVB0GbBR0FBmwQ6MOt' : envPass,
   };
 
   return <Deck credentials={credentials} />;

@@ -1,15 +1,17 @@
 'use client';
 
 /**
- * /internal/ops — Operations handbook deck.
+ * /internal/ops — Operations / Customer Service handbook deck.
  *
- * Audience: Raquel (first operator) and future ops team members. Self-service:
- * she opens the URL, reads it cold, and after slide 5 can log into the panel.
+ * Audience: Raquel (first operator) and future team members of
+ * "Operaciones / Atención al Cliente". Self-service: she opens the URL,
+ * reads it cold, and after slide 5 can log into the panel.
  *
- * Structure: welcome → product overview → her role → panel deep-dive → runbooks
- * → secondary admin areas → recurring tasks → escalation → resources.
- *
- * If launch dates, SLA, or commissions move, edit the constants at the top.
+ * MVP-specific behaviour reflected throughout: when a clinic rejects a
+ * case, we DON'T jump straight to the marketplace search. We first try
+ * to re-slot at Centro Médico Cea Bermúdez (with their available
+ * specialties). Only if Cea can't take it do we search for alternatives
+ * or refund. See slides 7, 8, 9 and the annex at slide 14.
  */
 
 import DeckShell from '../_deck/DeckShell';
@@ -28,15 +30,20 @@ import {
 const PROD_BASE = 'https://www.medconnect.es';
 const SLA = '< 6 h en horario (L–V 10:00–18:00 Madrid)';
 const SUPPORT_PHONE = '+34 91 197 70 52';
+const TEAM = 'Operaciones / Atención al Cliente';
+const CEA_NAME = 'Centro Médico Cea Bermúdez';
 
 function CaseStateDiagram() {
+  // Reflects the MVP rule: clinic-rejected → first try Cea fallback,
+  // then external search. The actual DB states haven't been renamed; this
+  // is just operator-facing language so Raquel knows which path to follow.
   const STATES = [
-    { from: 'pending_call', to: 'contacting_clinic', note: 'Ops llama a la clínica' },
+    { from: 'pending_call', to: 'contacting_clinic', note: 'llamas a la clínica' },
     { from: 'contacting_clinic', to: 'confirmed', note: 'la clínica acepta el hueco' },
     { from: 'contacting_clinic', to: 'clinic_proposed_alternative', note: 'propone otro hueco' },
-    { from: 'contacting_clinic', to: 'clinic_rejected_searching', note: 'no puede, buscamos otra clínica' },
-    { from: 'clinic_rejected_searching', to: 'alternative_clinic_proposed', note: 'encontramos otra clínica' },
-    { from: '*', to: 'refunded', note: 'reembolso Stripe desde cualquier estado' },
+    { from: 'contacting_clinic', to: 'clinic_rejected_searching', note: 'no puede · pasamos a Cea Bermúdez' },
+    { from: 'clinic_rejected_searching', to: 'alternative_clinic_proposed', note: 'Cea propone hueco · si no, alternativa' },
+    { from: '*', to: 'refunded', note: 'reembolso Stripe si no hay alternativa' },
   ];
   return (
     <div className="state-diagram">
@@ -77,6 +84,30 @@ function Runbook({ scenario, signal, action, emailHint }) {
   );
 }
 
+function FlowRow({ num, name, who, summary, href, anchor }) {
+  return (
+    <div className="board-card" style={{ marginBottom: 10 }}>
+      <div className="board-card-label">
+        {num} · {name}
+        {anchor && (
+          <span style={{ float: 'right', fontWeight: 'normal', opacity: 0.8 }}>
+            <a href={anchor}>Ver detalle ↓</a>
+          </span>
+        )}
+      </div>
+      <div className="board-card-body" style={{ paddingTop: 4 }}>
+        <p style={{ margin: 0 }}><strong>Quién interviene:</strong> {who}</p>
+        <p style={{ margin: '4px 0 0' }}>{summary}</p>
+        {href && (
+          <p style={{ margin: '6px 0 0' }}>
+            <a href={href} target="_blank" rel="noopener noreferrer">{href.replace('https://', '')}</a>
+          </p>
+        )}
+      </div>
+    </div>
+  );
+}
+
 function buildSlides({ credentials }) {
   return [
     /* 1 ─────────────────────────────────────────────────────────── */
@@ -86,19 +117,19 @@ function buildSlides({ credentials }) {
       chapter: 'Apertura',
       render: () => (
         <div className="slide-cover">
-          <div className="slide-cover-eyebrow">Med Connect · Manual de Operaciones</div>
+          <div className="slide-cover-eyebrow">Med Connect · Manual de {TEAM}</div>
           <h1 className="slide-cover-title">
-            Todo lo que necesitas para <em>operar el panel de Ops</em>.
+            Todo lo que necesitas para <em>operar el panel de {TEAM}</em>.
           </h1>
           <p className="slide-cover-lede">
             Descripción del producto, los cuatro flujos de Medconnect, tu rol como operadora,
-            cómo entrar al panel, los escenarios típicos con su solución, áreas secundarias del admin
-            y a quién escalar cuando algo no encaja en este manual.
+            cómo entrar al panel, los escenarios típicos con su solución, áreas secundarias del admin,
+            a quién escalar cuando algo no encaja, y un anexo con el detalle de los flujos de derivación.
           </p>
           <div className="slide-cover-meta">
             <div>
               <span className="slide-cover-meta-key">Audiencia</span>
-              <span className="slide-cover-meta-val">Equipo de Ops · Raquel</span>
+              <span className="slide-cover-meta-val">{TEAM} · Raquel</span>
             </div>
             <div>
               <span className="slide-cover-meta-key">Producto</span>
@@ -138,10 +169,10 @@ function buildSlides({ credentials }) {
             <Arrow />
             <Stage
               number="2"
-              actor="Ops · TÚ"
+              actor={`${TEAM} · TÚ`}
               title="Concierta la cita"
               links={[
-                { href: `${PROD_BASE}/admin/ops`, label: 'Panel de Ops' },
+                { href: `${PROD_BASE}/admin/ops`, label: 'Panel' },
               ]}
               body="Recibes el caso, llamas a la clínica, confirmas el hueco o propones alternativa."
             />
@@ -175,38 +206,45 @@ function buildSlides({ credentials }) {
           <SlideHeader
             eyebrow="Slide 3 · Los 4 flujos del producto"
             title="Qué pasa antes y después de tu panel"
-            lede="Tú vives en /admin/ops, pero conviene saber de dónde vienen los casos y a dónde van después. Hay cuatro flujos paralelos en el producto:"
+            lede={`Tú vives en /admin/ops, pero conviene saber de dónde vienen los casos y a dónde van después. Hay cuatro flujos paralelos en el producto. El detalle paso a paso de los flujos de derivación está en el anexo (slide 14).`}
           />
-          <div className="grid-2">
-            <Card label="1 · Reserva directa (paciente paga online)">
-              <p>
-                El paciente entra a {PROD_BASE.replace('https://', '')}, busca por especialidad+ciudad, paga
-                en Stripe → se crea un <strong>caso de Ops</strong> con estado <code>pending_call</code> y
-                aparece en tu lista. <strong>Este es el flujo principal que verás tú.</strong>
-              </p>
-            </Card>
-            <Card label="2 · Derivación interna (lock-in)">
-              <p>
-                Un médico/clínica deriva al paciente a un colega de la misma clínica. Genera un email
-                lock-in de 60 min al paciente para aceptar. No pasa por Ops salvo incidencia.
-              </p>
-            </Card>
-            <Card label="3 · Derivación externa">
-              <p>
-                Una clínica deriva al paciente a otra clínica del marketplace y cobra comisión.
-                Tampoco pasa por Ops salvo incidencia o disputa.
-              </p>
-            </Card>
-            <Card label="4 · Alta de clínica">
-              <p>
-                Una clínica nueva pide darse de alta vía <code>/pro/onboarding</code>. Tú la revisas
-                en <code>/admin/clinic-alta</code> (más detalle en slide 10).
-              </p>
-            </Card>
-          </div>
+          <FlowRow
+            num="1"
+            name="Reserva directa — paciente paga online"
+            who="Paciente → Medconnect → TÚ → Clínica"
+            summary="El paciente entra a la web, busca por especialidad y ciudad, paga en Stripe. Se crea un caso con estado pending_call en tu lista. Este es el flujo que verás casi siempre."
+            href={`${PROD_BASE}/search-v2`}
+            anchor="#anexo-flujos"
+          />
+          <FlowRow
+            num="2"
+            name="Derivación interna (lock-in) — médico a colega"
+            who="Médico A · misma clínica · Paciente"
+            summary="Un médico/clínica deriva al paciente a un colega de la misma clínica. Genera un email lock-in de 60 min al paciente. No pasa por ti salvo incidencia."
+            href={`${PROD_BASE}/pro/dashboard`}
+            anchor="#anexo-flujos"
+          />
+          <FlowRow
+            num="3"
+            name="Derivación externa — clínica a otra clínica"
+            who="Clínica A → Marketplace → Clínica B · Paciente"
+            summary="Una clínica deriva al paciente a otra clínica del marketplace y cobra comisión. Tampoco pasa por ti salvo incidencia o disputa."
+            href={`${PROD_BASE}/pro/dashboard`}
+            anchor="#anexo-flujos"
+          />
+          <FlowRow
+            num="4"
+            name="Alta de clínica — onboarding"
+            who="Clínica nueva → TÚ revisas"
+            summary="Una clínica nueva pide darse de alta vía /pro/onboarding. Tú la revisas en /admin/clinic-alta (detalle en slide 10)."
+            href={`${PROD_BASE}/pro/onboarding`}
+            anchor="#anexo-flujos"
+          />
           <Note>
             En analytics el evento <code>book_started</code> ya viene separado por <code>source: direct</code>{' '}
-            vs <code>lock_in</code> — útil si Carlos o Guillermo te preguntan de dónde viene un caso.
+            vs <code>lock_in</code> — útil si Carlos o Francisco te preguntan de dónde viene un caso.
+            Para el desglose paso a paso de cada flujo, salta al{' '}
+            <a href="#anexo-flujos"><strong>Anexo · Flujos de derivación</strong></a>{' '}(slide 14).
           </Note>
         </>
       ),
@@ -234,16 +272,23 @@ function buildSlides({ credentials }) {
                 <li>Emitir reembolsos Stripe cuando no haya alternativa.</li>
                 <li>Revisar altas de clínica en <code>/admin/clinic-alta</code>.</li>
                 <li>Verificar profesionales en <code>/admin/pro-verifications</code>.</li>
+                <li>
+                  <strong>Llamadas masivas a clínicas para fichar nuevas</strong>{' '}
+                  (con aprobación previa de Carlos).
+                </li>
+                <li><strong>Decisiones de plantilla / horarios del equipo</strong> de {TEAM}.</li>
               </ul>
             </Card>
             <Card label="Lo que NO haces (y a quién va)" tone="warn">
               <ul>
-                <li>Cambiar precios de la prioridad → Carlos.</li>
-                <li>Decidir qué aseguradoras admitimos → Carlos.</li>
-                <li>Aprobar campañas de Google Ads → Carlos.</li>
-                <li>Tocar el código del panel → Francisco.</li>
-                <li>Llamadas masivas a clínicas para fichar nuevas → Guillermo.</li>
-                <li>Decisiones de plantilla / horarios del equipo → Guillermo.</li>
+                <li>Cambiar precios de la prioridad → <strong>Francisco</strong>.</li>
+                <li>Decidir qué aseguradoras admitimos → <strong>Francisco</strong>.</li>
+                <li>Aprobar campañas de Google Ads → <strong>Francisco</strong>.</li>
+                <li>Tocar el código del panel → <strong>Francisco</strong>.</li>
+                <li>
+                  Iniciar campañas comerciales nuevas sin aprobación → <strong>Carlos</strong> da el OK,
+                  luego ejecutáis vosotras desde {TEAM}.
+                </li>
               </ul>
             </Card>
           </div>
@@ -316,7 +361,7 @@ function buildSlides({ credentials }) {
             <code>contacting_clinic</code> = estás en mitad de la llamada.{' '}
             <code>confirmed</code> = caso resuelto, hueco confirmado.{' '}
             <code>clinic_proposed_alternative</code> = la clínica ofreció otro hueco, paciente debe aceptarlo por email.{' '}
-            <code>clinic_rejected_searching</code> = la clínica dijo no, hay que buscar otra.{' '}
+            <code>clinic_rejected_searching</code> = la clínica original dijo no — pasas al fallback en <strong>{CEA_NAME}</strong>.{' '}
             <code>refunded</code> = se devolvió el dinero al paciente.
           </Note>
         </>
@@ -339,7 +384,11 @@ function buildSlides({ credentials }) {
             icon="✓"
             name="Aceptar — la clínica confirmó el hueco original"
             when="La clínica dice OK al hueco que el paciente había elegido."
-            effect="Estado → confirmed. Email de confirmación al paciente con datos de la cita."
+            effect={
+              `Estado → confirmed. Dos emails automáticos: (1) confirmación al paciente con datos de la cita, ` +
+              `(2) confirmación a la clínica con datos del paciente + instrucciones y enlace para darse de alta ` +
+              `en el portal y cobrar la comisión si aún no está dada de alta.`
+            }
           />
           <ActionButton
             icon="🕐"
@@ -349,22 +398,33 @@ function buildSlides({ credentials }) {
           />
           <ActionButton
             icon="✕"
-            name="Rechazar — la clínica no puede atender"
+            name="Rechazar — la clínica original no puede atender"
             when="La clínica dice no, sin alternativa que ofrecer."
-            effect="Estado → clinic_rejected_searching. Te toca buscar otra clínica del marketplace."
+            effect={
+              `Estado → clinic_rejected_searching. En este MVP el fallback es ${CEA_NAME}: ` +
+              `propones día y hora allí si tienen la especialidad. Solo si Cea tampoco puede, ` +
+              `buscas otra clínica del marketplace o reembolsas.`
+            }
           />
           <ActionButton
             icon="🔁"
-            name="Buscar otra clínica — encontraste alternativa fuera"
-            when="Tras un rechazo, has encontrado otra clínica que sí puede."
+            name="Proponer hueco alternativo (Cea Bermúdez o marketplace)"
+            when="Tras un rechazo, has confirmado un hueco en Cea Bermúdez o (si Cea no tiene la especialidad) en otra clínica."
             effect="Estado → alternative_clinic_proposed. Email al paciente con dos botones: Aceptar / Reembolsar."
           />
           <ActionButton
             icon="💸"
-            name="Reembolsar — no hay alternativa razonable"
-            when="No encuentras ninguna clínica disponible o el paciente lo pide."
+            name="Reembolsar — sin alternativa razonable"
+            when="Ni la clínica original ni Cea Bermúdez ni el marketplace tienen la especialidad/horario solicitado."
             effect="Estado → refunded. Stripe refund automático, email al paciente, hueco liberado."
           />
+          <Note>
+            <strong>Detalle del email a la clínica</strong> (botón ✓ Aceptar): incluye nombre del paciente,
+            día/hora, especialidad y un enlace personal de onboarding <code>/pro/onboarding?from=case</code>{' '}
+            para que la clínica pueda darse de alta y registrar su IBAN para cobrar la comisión.
+            Es la vía principal para fichar clínicas nuevas: las captamos cuando ya tienen un paciente
+            esperando, así la conversión a alta es alta.
+          </Note>
         </>
       ),
     },
@@ -378,15 +438,17 @@ function buildSlides({ credentials }) {
         <>
           <SlideHeader
             eyebrow="Slide 8 · Escenarios típicos"
-            title="Qué hacer en los 6 casos que verás más"
-            lede="No necesitas memorizar: vuelve aquí cuando un caso no encaje. Si aparece uno nuevo que no está, anótalo y avísanos para añadirlo."
+            title="Qué hacer en los 7 casos que verás más"
+            lede={`No necesitas memorizar: vuelve aquí cuando un caso no encaje. ` +
+              `Regla principal del MVP: si la clínica original no puede, primero intentamos ` +
+              `${CEA_NAME} y solo si tampoco puede vamos al marketplace.`}
           />
           <div className="grid-2">
             <Runbook
               scenario="A · Clínica acepta tal cual"
               signal="Estás llamando, la clínica te dice «sí, ese hueco está libre, lo apunto»."
               action="Botón ✓ Aceptar. Estado → confirmed."
-              emailHint="Email automático de confirmación al paciente."
+              emailHint="Dos emails: (1) confirmación al paciente, (2) confirmación a la clínica con enlace para darse de alta y cobrar."
             />
             <Runbook
               scenario="B · Clínica propone otro hueco"
@@ -395,28 +457,34 @@ function buildSlides({ credentials }) {
               emailHint="El paciente recibe email con botones Aceptar / Reembolsar. No tienes que llamarle, lo decide él."
             />
             <Runbook
-              scenario="C · Clínica dice no sin alternativa"
-              signal="«No tenemos huecos esta semana ni la próxima»."
-              action="Botón ✕ Rechazar. La pantalla te lleva al buscador para encontrar otra clínica."
-              emailHint="Aún no se envía email — esperas a tener alternativa."
+              scenario={`C · Clínica original no puede · ${CEA_NAME} sí tiene la especialidad`}
+              signal="«No tenemos huecos» — y miras la lista de especialidades de Cea Bermúdez, sí está."
+              action={`Botón ✕ Rechazar (cierra la clínica original). Llamas a ${CEA_NAME}, confirmas día/hora. Botón 🔁 Proponer hueco alternativo con los datos de Cea.`}
+              emailHint="Email al paciente con Aceptar / Reembolsar para el nuevo hueco en Cea."
             />
             <Runbook
-              scenario="D · Alternativa encontrada fuera"
-              signal="Has confirmado un hueco en otra clínica del marketplace."
-              action="Botón 🔁 Buscar otra clínica. Eliges la nueva clínica y el hueco."
-              emailHint="Email al paciente con Aceptar / Reembolsar."
+              scenario={`D · Clínica original no puede · ${CEA_NAME} NO tiene la especialidad`}
+              signal="Rechazo de la clínica original y Cea tampoco cubre esa especialidad."
+              action="Botón ✕ Rechazar. Buscas en el marketplace una clínica alternativa. Botón 🔁 si encuentras hueco, 💸 si no."
+              emailHint="Si encuentras alternativa: email Aceptar/Reembolsar al paciente. Si no: refund + email explicativo."
             />
             <Runbook
-              scenario="E · Clínica no contesta"
+              scenario="E · Clínica original no contesta"
               signal="Tres intentos en 2 horas sin respuesta."
-              action="Anota en el log del caso, vuelve a llamar al día siguiente. Si pasan 24 h, escalar a Guillermo."
-              emailHint="Si no aparece la clínica al final del SLA, reembolsar y avisar al paciente con explicación."
+              action={`Anotas en el log del caso. A las 24 h pasas al fallback de ${CEA_NAME}. Si pasan 48 h sin desbloquear, escalas a Carlos.`}
+              emailHint="Solo enviar email al paciente cuando hay propuesta concreta (Cea o marketplace) o cuando vas a reembolsar."
             />
             <Runbook
               scenario="F · Paciente pide reembolso directo"
               signal="El paciente llama o escribe pidiendo cancelar antes de que confirmes."
               action="Botón 💸 Reembolsar. Anota el motivo en el formulario."
               emailHint="Stripe refund automático + email de confirmación al paciente."
+            />
+            <Runbook
+              scenario="G · No hay alternativa razonable"
+              signal={`Ni clínica original, ni ${CEA_NAME}, ni marketplace tienen hueco viable.`}
+              action="Botón 💸 Reembolsar. Anota motivo: «sin disponibilidad»."
+              emailHint="Stripe refund + email al paciente explicando que reembolsamos por falta de disponibilidad."
             />
           </div>
         </>
@@ -433,22 +501,27 @@ function buildSlides({ credentials }) {
           <SlideHeader
             eyebrow="Slide 9 · Reembolsos Stripe"
             title="Cómo funcionan los reembolsos"
-            lede="El reembolso es automático: el botón Reembolsar llama a Stripe en vivo, no es una promesa de futuro. El dinero vuelve al paciente en su método de pago original (típicamente 3-5 días hábiles)."
+            lede={`El reembolso es automático: el botón Reembolsar llama a Stripe en vivo, no es una promesa de futuro. ` +
+              `El dinero vuelve al paciente en su método de pago original (típicamente 3-5 días hábiles). ` +
+              `Importante en este MVP: antes de reembolsar, agota el fallback de ${CEA_NAME}.`}
           />
           <div className="grid-2">
             <Card label="Cuándo SÍ reembolsar">
               <ul>
                 <li>El paciente lo pide explícitamente.</li>
-                <li>No hay alternativa razonable de fecha/hora.</li>
-                <li>La clínica cancela y no podemos recolocar.</li>
+                <li>Ni la clínica original, ni {CEA_NAME}, ni el marketplace tienen alternativa razonable.</li>
+                <li>La clínica cancela y no podemos recolocar (en Cea ni fuera).</li>
                 <li>Error nuestro (caso duplicado, datos mal).</li>
               </ul>
             </Card>
             <Card label="Cuándo NO reembolsar" tone="warn">
               <ul>
                 <li>Antes de hablar con la clínica — siempre intenta concertar primero.</li>
+                <li>
+                  <strong>Antes de probar {CEA_NAME}</strong> como fallback (si la especialidad existe allí).
+                </li>
                 <li>El paciente pide cambiar fecha sin querer cancelar — usa Proponer alternativa.</li>
-                <li>Caso fuera del SLA pero ya confirmado — escala a Guillermo, no reembolses por defecto.</li>
+                <li>Caso fuera del SLA pero ya confirmado — escala a Carlos, no reembolses por defecto.</li>
               </ul>
             </Card>
           </div>
@@ -472,12 +545,13 @@ function buildSlides({ credentials }) {
           <SlideHeader
             eyebrow="Slide 10 · Otras áreas del admin"
             title="Lo que vas a tocar menos pero te toca"
-            lede="No todo es /admin/ops. Hay tres pantallas más que también caen sobre Ops."
+            lede="No todo es /admin/ops. Hay cuatro pantallas más que también caen sobre vuestro equipo."
           />
           <div className="grid-2">
             <Card label="/admin/clinic-alta · revisar altas de clínicas">
               <p>
-                Cuando una clínica nueva pide darse de alta en <code>/pro/onboarding</code>, su solicitud
+                Cuando una clínica nueva pide darse de alta en <code>/pro/onboarding</code>
+                (incluyendo las que entraron por el email de aceptación), su solicitud
                 llega aquí. Revisas datos, llamas si hace falta, apruebas o rechazas.
               </p>
               <p>
@@ -531,7 +605,8 @@ function buildSlides({ credentials }) {
           <div className="grid-3">
             <MiniCard title="Al inicio del turno">
               Abrir <code>/admin/ops</code>. Revisar casos abiertos del día anterior.
-              Revisar <code>/admin/clinic-alta</code> por solicitudes pendientes.
+              Revisar <code>/admin/clinic-alta</code> por solicitudes pendientes — especialmente
+              las que vienen del email de aceptación a clínicas (alta conversión).
             </MiniCard>
             <MiniCard title="Durante el turno">
               Resolver cada caso entrante en menos de 6 h. Subir vouchers de los sin-seguro.
@@ -546,10 +621,10 @@ function buildSlides({ credentials }) {
             <SwimlaneRow
               scenario="Semanal · lunes 10:00"
               steps={[
-                { area: 'Ops', text: 'Revisar /admin/pro-verifications' },
-                { area: 'Ops', text: 'Revisar /admin/clinic-alta' },
-                { area: 'Ops', text: 'Curar reseñas en /admin/reviews' },
-                { area: 'Ops', text: 'Reporte rápido a Guillermo: casos, refunds, alertas' },
+                { area: 'OPS', text: 'Revisar /admin/pro-verifications' },
+                { area: 'OPS', text: 'Revisar /admin/clinic-alta' },
+                { area: 'OPS', text: 'Curar reseñas en /admin/reviews' },
+                { area: 'OPS', text: 'Reporte rápido a Carlos: casos, refunds, alertas' },
               ]}
             />
           </div>
@@ -567,14 +642,21 @@ function buildSlides({ credentials }) {
           <SlideHeader
             eyebrow="Slide 12 · Cuando algo va mal"
             title="A quién avisas, dónde mira el técnico"
-            lede="Tres tipos de escalación: producto/negocio, ops/clínicas, técnico. Cada uno tiene un dueño claro."
+            lede="Dos vías de escalación: producto/operativa (Carlos) y técnico (Francisco). Lo que decide cada uno está en slide 4."
           />
           <div className="grid-2">
             <Card label="Escalar a una persona">
               <ul>
-                <li><strong>Carlos (Comercial):</strong> precio de prioridad, aseguradoras, campañas, Trustpilot.</li>
-                <li><strong>Guillermo (Operaciones):</strong> incidencia con clínica recurrente, plantilla, horarios, contratos.</li>
-                <li><strong>Francisco (Técnico):</strong> el panel no carga, un botón falla, un email no llega, un refund se atascó.</li>
+                <li>
+                  <strong>Carlos (Comercial):</strong> aprobación previa para campañas comerciales,
+                  fichaje masivo de clínicas, plantilla del equipo de {TEAM},
+                  decisiones que afectan a contratos con clínicas.
+                </li>
+                <li>
+                  <strong>Francisco (Producto + Técnico):</strong>{' '}
+                  precios de prioridad, qué aseguradoras admitimos, campañas Google Ads,
+                  panel que no carga, botón que falla, email que no llega, refund atascado, cualquier duda técnica.
+                </li>
               </ul>
             </Card>
             <Card label="Dónde mira el técnico">
@@ -607,9 +689,9 @@ function buildSlides({ credentials }) {
             lede="Todo en el navegador. Si algo no está en esta lista y lo necesitas a menudo, pídelo y lo añadimos."
           />
           <div className="tools-grid">
-            <ToolCard role="Ops" url={`${PROD_BASE}/admin/ops`} purpose="Casos del día a día" />
-            <ToolCard role="Ops" url={`${PROD_BASE}/admin/clinic-alta`} purpose="Aprobar altas de clínicas" />
-            <ToolCard role="Ops" url={`${PROD_BASE}/admin/pro-verifications`} purpose="Verificar profesionales" />
+            <ToolCard role={TEAM} url={`${PROD_BASE}/admin/ops`} purpose="Casos del día a día" />
+            <ToolCard role={TEAM} url={`${PROD_BASE}/admin/clinic-alta`} purpose="Aprobar altas de clínicas" />
+            <ToolCard role={TEAM} url={`${PROD_BASE}/admin/pro-verifications`} purpose="Verificar profesionales" />
             <ToolCard role="Admin" url={`${PROD_BASE}/admin/users`} purpose="Gestionar operadores" />
             <ToolCard role="Producto" url={PROD_BASE} purpose="Ver el sitio como un paciente" />
             <ToolCard role="Finanzas" url="https://dashboard.stripe.com" purpose="Stripe · pagos y refunds" />
@@ -625,6 +707,111 @@ function buildSlides({ credentials }) {
         </>
       ),
     },
+
+    /* 14 ────────────────────────────────────────────────────────── */
+    {
+      id: 'anexo-flujos',
+      label: 'Anexo · Flujos de derivación',
+      chapter: 'Anexo',
+      render: () => (
+        <>
+          <SlideHeader
+            eyebrow="Slide 14 · Anexo"
+            title="Flujos de derivación · paso a paso"
+            lede="Esto es el desglose detallado de los 3 flujos donde hay derivación (1 · reserva directa, 2 · interna, 3 · externa). El flujo 4 (alta de clínica) está en slide 10."
+          />
+
+          <h3 style={{ marginTop: 8, marginBottom: 6 }}>Flujo 1 · Reserva directa con derivación interna por parte de Ops</h3>
+          <div className="swimlane" style={{ marginBottom: 14 }}>
+            <SwimlaneRow
+              scenario="Camino feliz"
+              steps={[
+                { area: 'Paciente', text: 'Paga prioridad en /book' },
+                { area: 'Sistema', text: 'Crea caso · estado pending_call' },
+                { area: 'OPS', text: 'Llama a la clínica original' },
+                { area: 'Clínica', text: 'Acepta el hueco' },
+                { area: 'Sistema', text: 'Email a paciente + email a clínica con onboarding' },
+              ]}
+            />
+            <SwimlaneRow
+              scenario={`Clínica original no puede · fallback a ${CEA_NAME}`}
+              steps={[
+                { area: 'OPS', text: 'Rechaza la original' },
+                { area: 'OPS', text: 'Llama a Cea Bermúdez' },
+                { area: 'Cea', text: 'Confirma día/hora si tiene la especialidad' },
+                { area: 'OPS', text: 'Botón 🔁 con los datos de Cea' },
+                { area: 'Paciente', text: 'Email Aceptar / Reembolsar' },
+              ]}
+            />
+            <SwimlaneRow
+              scenario={`Cea tampoco puede · marketplace o reembolso`}
+              steps={[
+                { area: 'OPS', text: 'Busca en marketplace' },
+                { area: 'OPS', text: 'Si hay hueco → botón 🔁' },
+                { area: 'OPS', text: 'Si no hay → botón 💸 reembolso' },
+                { area: 'Paciente', text: 'Email correspondiente' },
+              ]}
+            />
+          </div>
+
+          <h3 style={{ marginTop: 8, marginBottom: 6 }}>Flujo 2 · Derivación interna (lock-in 60 min)</h3>
+          <div className="swimlane" style={{ marginBottom: 14 }}>
+            <SwimlaneRow
+              scenario="Camino feliz"
+              steps={[
+                { area: 'Clínica', text: 'Crea derivación interna desde /pro/dashboard' },
+                { area: 'Sistema', text: 'Email lock-in 60 min al paciente' },
+                { area: 'Paciente', text: 'Acepta y paga prioridad' },
+                { area: 'Sistema', text: 'Cita confirmada en /pro/dashboard' },
+              ]}
+            />
+            <SwimlaneRow
+              scenario="Lock-in caduca"
+              steps={[
+                { area: 'Sistema', text: 'Pasan 60 min sin pago' },
+                { area: 'Sistema', text: 'Hueco liberado, derivación cancelada' },
+                { area: 'Clínica', text: 'Puede reenviar el email · contador resetea' },
+              ]}
+            />
+            <SwimlaneRow
+              scenario="Incidencia → entra OPS"
+              steps={[
+                { area: 'Paciente', text: 'Reclama / paga pero no llega' },
+                { area: 'OPS', text: 'Investiga en panel · cierra el caso' },
+                { area: 'OPS', text: 'Reembolso si procede' },
+              ]}
+            />
+          </div>
+
+          <h3 style={{ marginTop: 8, marginBottom: 6 }}>Flujo 3 · Derivación externa (clínica a clínica)</h3>
+          <div className="swimlane">
+            <SwimlaneRow
+              scenario="Camino feliz"
+              steps={[
+                { area: 'Clínica A', text: 'Busca clínica B en marketplace desde /pro/dashboard' },
+                { area: 'Clínica A', text: 'Crea derivación · lock-in 60 min al paciente' },
+                { area: 'Paciente', text: 'Acepta y paga prioridad' },
+                { area: 'Clínica B', text: 'Atiende al paciente' },
+                { area: 'Sistema', text: 'Comisión acumulada para Clínica A' },
+              ]}
+            />
+            <SwimlaneRow
+              scenario="Clínica B rechaza"
+              steps={[
+                { area: 'Clínica B', text: 'Avisa de que no puede atender' },
+                { area: 'OPS', text: `Caso entra como pending_call · fallback a ${CEA_NAME}` },
+                { area: 'OPS', text: 'Misma cascada que flujo 1' },
+              ]}
+            />
+          </div>
+
+          <Note>
+            Si una clínica recurrente entra en el fallback de Cea, anótalo. Después de 3 fallos, se conversa
+            con Carlos para revisar la concertación.
+          </Note>
+        </>
+      ),
+    },
   ];
 }
 
@@ -633,7 +820,11 @@ export default function OpsDeck({ credentials }) {
   return (
     <DeckShell
       slides={slides}
-      brand={{ mark: 'OP', title: 'Med Connect · Ops', subtitle: 'Manual de Operaciones' }}
+      brand={{
+        mark: 'OAC',
+        title: 'Med Connect · Operaciones / AC',
+        subtitle: 'Manual de Operaciones / Atención al Cliente',
+      }}
     />
   );
 }
