@@ -90,6 +90,55 @@
   color: var(--accent-press);
 }
 
+/*
+ * Banner shown above the onboarding flow when the visitor arrives from
+ * the clinic-acceptance email (?from=case). The CTA copy lives in the
+ * page; this is just the box chrome — sage-green to stay coherent with
+ * onboarding-card--success.
+ */
+.onboarding-banner-case {
+  display: flex;
+  gap: var(--space-3);
+  align-items: flex-start;
+  padding: var(--space-3) var(--space-4);
+  margin-bottom: var(--space-4);
+  background: rgba(74, 124, 89, 0.08);
+  border: 1px solid var(--sage-500);
+  border-radius: 10px;
+  color: var(--ink);
+}
+
+.onboarding-banner-case .onboarding-banner-mark {
+  flex: 0 0 auto;
+  color: var(--sage-500);
+  margin-top: 2px;
+}
+
+.onboarding-banner-case strong {
+  display: block;
+  font-size: 15px;
+  margin-bottom: 4px;
+}
+
+.onboarding-banner-case p {
+  margin: 0;
+  font-size: 14px;
+  color: var(--ink-soft, #475569);
+  line-height: 1.45;
+}
+
+/*
+ * Form hint shown below an input — used for the new IBAN field.
+ * Inherits .form-input width so it sits flush under the input.
+ */
+.form-hint {
+  display: block;
+  margin-top: 4px;
+  font-size: 12px;
+  color: var(--ink-soft, #6b7280);
+  line-height: 1.45;
+}
+
 .onboarding-card--success {
   border-color: var(--sage-500);
 }

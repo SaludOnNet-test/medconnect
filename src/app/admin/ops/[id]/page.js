@@ -52,6 +52,14 @@ export default function OpsCaseDetail({ params }) {
   const [emailDraft, setEmailDraft] = useState('');
   const [emailBusy, setEmailBusy] = useState(false);
 
+  // Clinic email override for the "✓ Aceptar" action. The acceptance
+  // handler emails the clinic (best-effort) with the booking + an
+  // onboarding CTA so they can register and collect their commission.
+  // If admin_users already has a row for the clinic the backend uses
+  // that address automatically; this input is for clinics that aren't
+  // on Medconnect yet — without it the email goes nowhere.
+  const [clinicEmailOverride, setClinicEmailOverride] = useState('');
+
   useEffect(() => {
     if (!getAdminToken()) router.replace('/admin/login');
   }, [router]);
@@ -429,13 +437,28 @@ export default function OpsCaseDetail({ params }) {
               <p style={{ color: '#6b7280', fontSize: 13 }}>Este caso ya está cerrado. No hay acciones disponibles.</p>
             ) : (
               <div className="ops-actions">
+                <label style={{ display: 'block', fontSize: 12, fontWeight: 600, color: '#374151', marginBottom: 4 }}>
+                  Email de la clínica (opcional, para enviar la confirmación + onboarding)
+                  <input
+                    type="email"
+                    value={clinicEmailOverride}
+                    onChange={(e) => setClinicEmailOverride(e.target.value)}
+                    placeholder="rellena solo si la clínica no está dada de alta aún"
+                    style={{ width: '100%', marginTop: 4, padding: '6px 8px', fontSize: 13 }}
+                  />
+                  <span style={{ display: 'block', marginTop: 4, fontSize: 11, fontWeight: 400, color: '#6b7280' }}>
+                    Si la clínica ya está en Medconnect, el sistema usa su email automáticamente. Si no,
+                    rellena aquí y le llegará un email con los datos del paciente y el enlace para darse de
+                    alta y cobrar la comisión.
+                  </span>
+                </label>
                 <button
                   className="ops-action-btn ops-action-success"
-                  onClick={() => doAction('clinic_accepted')}
+                  onClick={() => doAction('clinic_accepted', { clinicEmail: clinicEmailOverride.trim() || null })}
                   disabled={busy}
                 >
                   ✓ La clínica aceptó el slot original<br />
-                  <span style={{ fontSize: 11, fontWeight: 500, opacity: 0.85 }}>Confirma cita y notifica al paciente</span>
+                  <span style={{ fontSize: 11, fontWeight: 500, opacity: 0.85 }}>Confirma cita y notifica al paciente + a la clínica</span>
                 </button>
 
                 <details className="ops-form">
