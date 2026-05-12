@@ -3,10 +3,12 @@ import Stripe from 'stripe';
 import { getCase, updateCase, appendCallLog, CASE_STATUS } from '@/lib/opsCases';
 import { requireRole } from '@/lib/adminAuth';
 import { sendEmail } from '@/lib/email';
+import { query, sql } from '@/lib/db';
 import {
   patientFinalConfirmation,
   patientAlternativeSlot,
   patientRefunded,
+  clinicConfirmationWithOnboarding,
 } from '@/lib/emailTemplates';
 
 const BASE_URL = process.env.NEXT_PUBLIC_BASE_URL || 'https://medconnect-bay.vercel.app';
@@ -22,6 +24,65 @@ async function notifyConfirmation(c) {
     hasInsurance: !!c.has_insurance,
   });
   await sendEmail({ to: c.patient_email, subject: tpl.subject, html: tpl.html });
+}
+
+/**
+ * After the clinic accepts a booking, mirror the patient-facing confirmation
+ * to the clinic with full patient details + an onboarding CTA.
+ *
+ * Email resolution order:
+ *  1. `clinicEmail` explicitly provided in the request body (operator typed it).
+ *  2. The `admin_users.username` for the clinic's pro user (when the clinic
+ *     is already onboarded — username is the email per Clerk).
+ *  3. Skip and log — without an email we can't notify; the operator can
+ *     still forward manually from their own mailbox.
+ *
+ * Always best-effort: failure here must NOT break the case-confirmation flow
+ * the patient is waiting on.
+ */
+async function notifyClinicConfirmation(c, providedEmail) {
+  try {
+    let to = (providedEmail || '').trim().toLowerCase() || null;
+    let alreadyOnboarded = false;
+
+    if (!to && c.original_clinic_id) {
+      const r = await query(
+        `SELECT TOP 1 username FROM admin_users
+         WHERE clinic_id = @cid AND role = 'professional' AND is_active = 1`,
+        { cid: { type: sql.Int, value: Number(c.original_clinic_id) } },
+      );
+      if (r.recordset[0]) {
+        to = r.recordset[0].username;
+        alreadyOnboarded = true;
+      }
+    }
+
+    if (!to) {
+      console.warn('[ops/clinic-confirm] no clinic email resolved for case', c.id, 'clinic', c.original_clinic_id);
+      return { sent: false, reason: 'no_email_on_file' };
+    }
+
+    const clinicIdParam = c.original_clinic_id ? `&clinic=${c.original_clinic_id}` : '';
+    const tpl = clinicConfirmationWithOnboarding({
+      clinicName: c.original_clinic_name,
+      patientName: c.patient_name,
+      patientPhone: c.patient_phone,
+      patientEmail: c.patient_email,
+      specialty: c.specialty,
+      slotDate: c.original_slot_date,
+      slotTime: c.original_slot_time,
+      hasInsurance: c.has_insurance == null ? null : !!c.has_insurance,
+      insuranceCompany: c.insurance_company,
+      onboardingUrl: `${BASE_URL}/pro/onboarding?from=case${clinicIdParam}`,
+      alreadyOnboarded,
+    });
+    await sendEmail({ to, subject: tpl.subject, html: tpl.html });
+    return { sent: true, to, alreadyOnboarded };
+  } catch (err) {
+    // Never let a clinic-confirmation failure block the patient flow.
+    console.error('[ops/clinic-confirm] failed to send', err?.message);
+    return { sent: false, reason: 'error' };
+  }
 }
 
 async function notifyAlternative(c) {
@@ -101,8 +162,15 @@ export async function POST(request, { params }) {
         await updateCase(id, { status: CASE_STATUS.CLINIC_ACCEPTED, assigned_to: session.username });
         c = await getCase(id);
         await notifyConfirmation(c);
+        // Best-effort: also email the clinic with the booking + onboarding CTA.
+        // `clinicEmail` is an optional override from the operator UI for
+        // clinics not yet on the platform (where admin_users lookup fails).
+        const clinicMail = await notifyClinicConfirmation(c, body.clinicEmail);
         await updateCase(id, { status: CASE_STATUS.CONFIRMED });
-        await appendCallLog(id, 'Clínica aceptó el slot original. Cita confirmada al paciente.', session.username);
+        const tail = clinicMail.sent
+          ? ` Email a clínica enviado a ${clinicMail.to}${clinicMail.alreadyOnboarded ? ' (ya onboarded)' : ' (CTA onboarding)'}`
+          : ` Email a clínica no enviado: ${clinicMail.reason || 'desconocido'}.`;
+        await appendCallLog(id, 'Clínica aceptó el slot original. Cita confirmada al paciente.' + tail, session.username);
         break;
       }
       case 'clinic_proposed_alternative': {

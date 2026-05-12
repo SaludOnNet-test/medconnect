@@ -586,6 +586,98 @@ export function patientFinalConfirmation({ patientName, providerName, slotDate, 
 }
 
 // ─────────────────────────────────────────────
+// 11b. Clinic — confirmation when ops accepted the booking on their behalf.
+//      Includes booking details for them to record in their internal agenda
+//      AND a CTA to onboard on Medconnect's pro portal so they can collect
+//      the commission. Sent in parallel with patientFinalConfirmation when
+//      the operator hits the "✓ Aceptar" button.
+//
+//      Designed to also work as a cold acquisition email: a clinic that has
+//      never used Medconnect should be able to read this end-to-end and
+//      understand (a) that we just sent them a paying patient, (b) why
+//      onboarding is worth their time. Keep the copy concrete.
+// ─────────────────────────────────────────────
+export function clinicConfirmationWithOnboarding({
+  clinicName,
+  patientName,
+  patientPhone,
+  patientEmail,
+  specialty,
+  slotDate,
+  slotTime,
+  hasInsurance,
+  insuranceCompany,
+  onboardingUrl,
+  alreadyOnboarded,
+}) {
+  const fmtDate = slotDate
+    ? new Date(slotDate + 'T00:00:00').toLocaleDateString('es-ES', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })
+    : slotDate;
+  const onboardCta = alreadyOnboarded
+    ? `Tu clínica ya está dada de alta en Medconnect — la cita aparecerá en tu panel pro.`
+    : `Para cobrar tu comisión por esta cita y las que vengan, da de alta tu clínica en el portal:`;
+  const ctaLabel = alreadyOnboarded ? 'Abrir mi panel pro' : 'Dar de alta mi clínica';
+  const ctaHref = alreadyOnboarded
+    ? `${BASE_URL}/pro/dashboard`
+    : (onboardingUrl || `${BASE_URL}/pro/onboarding?from=case`);
+  const html = baseWrapper(`
+    <tr><td style="background:#1a3c5e;padding:24px;text-align:center;">
+      <div style="width:60px;height:60px;background:rgba(201,168,76,0.25);border-radius:50%;margin:0 auto 12px;display:flex;align-items:center;justify-content:center;font-size:28px;color:#c9a84c;">📋</div>
+      <h2 style="margin:0;color:#ffffff;font-size:22px;font-weight:800;">Tienes una cita confirmada en Medconnect</h2>
+      <p style="margin:8px 0 0;color:rgba(255,255,255,0.85);font-size:14px;">Datos del paciente y próximos pasos abajo</p>
+    </td></tr>
+    ${bodySection(`
+      <p style="margin:0 0 16px;font-size:15px;color:#374151;line-height:1.55;">
+        Hola <strong>${clinicName || 'equipo de la clínica'}</strong>, acabamos de hablar por teléfono y nos has confirmado
+        que aceptáis esta cita de un paciente que ha pagado prioridad en <a href="${BASE_URL}" style="color:#1a3c5e;font-weight:700;">Medconnect</a>.
+        Aquí van los datos para que los anotéis en vuestra agenda.
+      </p>
+      <div style="background:#f9f7f4;border:1px solid #e8e4df;border-radius:10px;padding:18px;margin-bottom:20px;">
+        <p style="margin:0 0 4px;font-size:13px;font-weight:700;color:#1a3c5e;text-transform:uppercase;letter-spacing:0.05em;">La cita</p>
+        <p style="margin:0;font-size:18px;font-weight:800;color:#1f2937;">${fmtDate} · ${slotTime || ''}</p>
+        ${specialty ? `<p style="margin:4px 0 0;font-size:14px;color:#475569;">Especialidad: <strong>${specialty}</strong></p>` : ''}
+        <hr style="margin:14px 0;border:none;border-top:1px solid #e8e4df;">
+        <p style="margin:0 0 4px;font-size:13px;font-weight:700;color:#1a3c5e;text-transform:uppercase;letter-spacing:0.05em;">El paciente</p>
+        <p style="margin:0;font-size:16px;font-weight:700;color:#1f2937;">${patientName || '(nombre no facilitado)'}</p>
+        ${patientPhone ? `<p style="margin:2px 0 0;font-size:14px;color:#475569;">Teléfono: <a href="tel:${patientPhone}" style="color:#1a3c5e;">${patientPhone}</a></p>` : ''}
+        ${patientEmail ? `<p style="margin:2px 0 0;font-size:14px;color:#475569;">Email: <a href="mailto:${patientEmail}" style="color:#1a3c5e;">${patientEmail}</a></p>` : ''}
+        ${hasInsurance && insuranceCompany ? `<p style="margin:6px 0 0;font-size:13px;color:#475569;">Aseguradora: <strong>${insuranceCompany}</strong> — la consulta corre por su póliza.</p>` : ''}
+        ${hasInsurance === false ? `<p style="margin:6px 0 0;font-size:13px;color:#475569;">Sin seguro — el paciente recibe un voucher SaludOnNet por separado.</p>` : ''}
+      </div>
+
+      <h3 style="margin:0 0 8px;font-size:16px;color:#1a3c5e;">Próximos pasos</h3>
+      <ol style="margin:0 0 20px;padding-left:20px;font-size:14px;color:#374151;line-height:1.7;">
+        <li>Anotad la cita en vuestra agenda interna en la fecha y hora indicadas.</li>
+        <li>Atended al paciente como cualquier cita de su aseguradora${hasInsurance && insuranceCompany ? ` (${insuranceCompany})` : ''}.</li>
+        <li>${alreadyOnboarded ? 'La cita aparecerá automáticamente en vuestro panel pro de Medconnect.' : 'Dad de alta la clínica en el portal para cobrar la comisión (botón abajo).'}</li>
+        <li>Si surge cualquier imprevisto, escribid a <a href="mailto:operaciones@medconnect.es" style="color:#1a3c5e;">operaciones@medconnect.es</a> o llamad al ${SUPPORT_PHONE_INLINE}.</li>
+      </ol>
+
+      <div style="background:#f0fdf4;border:1px solid #bbf7d0;border-radius:10px;padding:18px;margin-bottom:20px;">
+        <p style="margin:0 0 10px;font-size:14px;color:#15803d;font-weight:700;">💰 ${onboardCta}</p>
+        <div style="text-align:center;">
+          ${ctaButton(ctaHref, ctaLabel, '#1a3c5e', '#ffffff')}
+        </div>
+        <p style="margin:12px 0 0;font-size:12px;color:#475569;text-align:center;">
+          ${alreadyOnboarded ? '' : 'Tarda 3 minutos: datos básicos de la clínica + IBAN para recibir las comisiones. Sin compromiso.'}
+        </p>
+      </div>
+
+      <p style="margin:0;font-size:13px;color:#6b7280;line-height:1.55;">
+        Para cualquier duda, contestadnos a este email o llamadnos.
+        Gracias por colaborar con Medconnect.
+      </p>
+    `)}
+  `);
+  return {
+    subject: `Cita confirmada en Medconnect — ${patientName || 'paciente'} · ${fmtDate} ${slotTime || ''}`,
+    html,
+  };
+}
+
+const SUPPORT_PHONE_INLINE = '+34 91 197 70 52';
+
+// ─────────────────────────────────────────────
 // 12. Patient — refund issued
 // ─────────────────────────────────────────────
 export function patientRefunded({ patientName, providerName, slotDate, slotTime, amount, reason }) {
