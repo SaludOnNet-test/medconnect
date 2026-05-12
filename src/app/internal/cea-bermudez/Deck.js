@@ -171,49 +171,66 @@ function buildSlides({ credentials }) {
           <SlideHeader
             eyebrow="Slide 4 · Comisiones y cobros"
             title="Cómo gana Cea con Medconnect"
-            lede="Importes orientativos del MVP — los confirmamos contigo antes del lanzamiento público. Todo es por reserva confirmada (paciente atendido), no por reserva creada."
+            lede={
+              `Solo hay dos tipos de comisión en el sistema (atender y derivar). ` +
+              `En cada uno de los tres flujos que usa Cea aplica uno u otro. ` +
+              `Toda comisión se devenga solo cuando el paciente se presenta a la cita.`
+            }
           />
+
           <div className="grid-2">
-            <Card label="Las 3 fuentes de comisión" tone="success">
-              <p style={{ margin: '0 0 10px', fontSize: 13, opacity: 0.85 }}>
-                Modelo MVP. Toda comisión se devenga solo cuando el paciente <strong>se presenta</strong> a la cita.
+            <Card label="Comisión por ATENDER al paciente" tone="success">
+              <p style={{ margin: '0 0 8px', fontSize: 22, fontWeight: 700, color: '#15803d' }}>
+                50&nbsp;% del importe de la prioridad
               </p>
-              <ul style={{ paddingLeft: 16 }}>
-                <li>
-                  <strong>Reservas propias (derivación interna)</strong> — la recepcionista crea la reserva para
-                  un médico de Cea y un médico de Cea atiende al paciente. La comisión es la de aceptar:
-                  {' '}<strong>50% del importe que paga el paciente</strong> por la prioridad.
-                  Derivarse a sí mismos no añade comisión extra encima — es solo la parte de atender.
-                </li>
-                <li style={{ marginTop: 8 }}>
-                  <strong>Derivación externa</strong> — la recepcionista deriva al paciente a otra clínica del
-                  marketplace y otra clínica le atiende. Cea cobra la comisión de derivar:
-                  {' '}<strong>5 € si la cita es en las primeras 2 semanas, 3 € entre 2 y 4 semanas</strong>.
-                </li>
-                <li style={{ marginTop: 8 }}>
-                  <strong>Pacientes que llegan desde medconnect.es</strong> — un paciente reserva online con un
-                  médico de Cea y nosotros os llamamos para confirmar. La comisión es la de aceptar:
-                  {' '}<strong>50% del importe que paga el paciente</strong> por la prioridad.
-                </li>
-              </ul>
-              <p style={{ margin: '10px 0 0', fontSize: 13, opacity: 0.85 }}>
-                Además, en los tres flujos Cea factura la consulta al seguro del paciente como hasta ahora —
-                Medconnect no toca ese cobro, solo gestiona la prioridad y la comisión.
+              <p style={{ margin: 0, fontSize: 14 }}>
+                Cuando un paciente con prioridad pagada se sienta delante de un médico de Cea, Cea gana
+                la mitad de lo que pagó. Da igual cómo llegó el paciente: lock-in propio, reenviado por
+                otra clínica del marketplace, o reservado online en medconnect.es y enrutado por
+                Operaciones / Atención al Cliente.
               </p>
             </Card>
-            <Card label="Cómo y cuándo se paga">
-              <ul>
-                <li>Acumulado visible en tiempo real en <code>/pro/dashboard</code> · pestaña Comisiones.</li>
-                <li>Liquidación mensual (primera semana del mes siguiente).</li>
-                <li>Transferencia al IBAN que Cea registró en el alta.</li>
-                <li>Cada liquidación viene con detalle: tipo de comisión, paciente, fecha, importe.</li>
-                <li style={{ marginTop: 8, opacity: 0.85 }}>
-                  Las comisiones solo se devengan cuando el paciente <strong>de verdad se presenta</strong> a la cita.
-                  Si el paciente cancela o no aparece, no hay comisión.
-                </li>
-              </ul>
+            <Card label="Comisión por DERIVAR a otra clínica">
+              <p style={{ margin: '0 0 8px', fontSize: 22, fontWeight: 700, color: '#1a3c5e' }}>
+                5&nbsp;€ &nbsp;·&nbsp; 3&nbsp;€
+              </p>
+              <p style={{ margin: 0, fontSize: 14 }}>
+                <strong>5&nbsp;€</strong> si la cita es en las primeras 2 semanas,
+                {' '}<strong>3&nbsp;€</strong> entre 2 y 4 semanas. Pago fijo por derivación confirmada en
+                otra clínica. Sin derivación externa (cuando Cea es la que atiende), no hay comisión de
+                derivar — es solo la parte de aceptar.
+              </p>
             </Card>
           </div>
+
+          <Card label="Qué le toca a Cea en cada uno de los 3 flujos">
+            <ul style={{ paddingLeft: 16, margin: 0 }}>
+              <li>
+                <strong>Reservas propias (derivación interna)</strong> — Cea deriva y atiende.
+                Cobra solo <strong>ATENDER (50&nbsp;%)</strong>. Derivarse a sí misma no añade comisión extra.
+              </li>
+              <li style={{ marginTop: 6 }}>
+                <strong>Derivación externa</strong> — Cea deriva, otra clínica atiende.
+                Cobra solo <strong>DERIVAR (5&nbsp;€ / 3&nbsp;€)</strong>.
+              </li>
+              <li style={{ marginTop: 6 }}>
+                <strong>Pacientes que llegan desde medconnect.es</strong> — paciente reserva online con un
+                médico de Cea y Operaciones llama para confirmar. Cobra solo <strong>ATENDER (50&nbsp;%)</strong>.
+              </li>
+            </ul>
+            <p style={{ margin: '10px 0 0', fontSize: 13, opacity: 0.85 }}>
+              <strong>Ejemplo:</strong> si la prioridad cuesta 9,99 €, Cea gana 5,00 € por atender o 5 € por derivar
+              (en la primera semana). En tarifas sin-seguro la prioridad va de 49 € a 169 €, así que el 50 % de aceptar
+              escala bastante.
+            </p>
+          </Card>
+
+          <Note>
+            Además, en los tres flujos Cea factura la consulta al seguro del paciente como hasta ahora —
+            Medconnect no toca ese cobro, solo gestiona la prioridad y la comisión. Liquidación mensual
+            (primera semana del mes siguiente) al IBAN registrado en el alta. Acumulado visible en{' '}
+            <code>/pro/dashboard</code> con desglose por <em>atender</em> vs <em>derivar</em>.
+          </Note>
         </>
       ),
     },
