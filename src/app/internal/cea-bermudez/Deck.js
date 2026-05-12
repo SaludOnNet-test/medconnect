@@ -174,29 +174,44 @@ function buildSlides({ credentials }) {
             lede="Importes orientativos del MVP — los confirmamos contigo antes del lanzamiento público. Todo es por reserva confirmada (paciente atendido), no por reserva creada."
           />
           <div className="grid-2">
-            <Card label="Comisión por derivación externa" tone="success">
-              <ul style={{ listStyle: 'none', paddingLeft: 0 }}>
-                <li><strong>Semanas 1–2:</strong> 5 € por derivación confirmada.</li>
-                <li><strong>Semanas 3–4:</strong> 3 € por derivación confirmada.</li>
-                <li style={{ marginTop: 8, opacity: 0.85 }}>
-                  Estos importes son del periodo de prueba; los revisamos contigo antes del lanzamiento estable.
+            <Card label="Las 3 fuentes de comisión" tone="success">
+              <p style={{ margin: '0 0 10px', fontSize: 13, opacity: 0.85 }}>
+                Importes orientativos del MVP. <strong>A confirmar contigo</strong> antes del lanzamiento estable.
+              </p>
+              <ul style={{ paddingLeft: 16 }}>
+                <li>
+                  <strong>Reservas propias (derivación interna)</strong> — la recepcionista crea la reserva
+                  para un médico de Cea, el paciente paga la prioridad. <strong>5 € sem 1–2 · 3 € sem 3–4</strong>{' '}
+                  por reserva confirmada y atendida.
+                </li>
+                <li style={{ marginTop: 8 }}>
+                  <strong>Derivación externa</strong> — Cea no puede atender, la recepcionista deriva a otra
+                  clínica del marketplace. <strong>5 € sem 1–2 · 3 € sem 3–4</strong> por derivación confirmada.
+                </li>
+                <li style={{ marginTop: 8 }}>
+                  <strong>Pacientes que llegan desde medconnect.es</strong> — un paciente reserva online con un
+                  médico de Cea y nosotros os llamamos para confirmar. <strong>5 € sem 1–2 · 3 € sem 3–4</strong>{' '}
+                  por cita atendida.
                 </li>
               </ul>
+              <p style={{ margin: '10px 0 0', fontSize: 13, opacity: 0.85 }}>
+                Además, en los tres flujos Cea factura la consulta al seguro del paciente como hasta ahora —
+                Medconnect no toca ese cobro, solo gestiona la prioridad y la comisión.
+              </p>
             </Card>
             <Card label="Cómo y cuándo se paga">
               <ul>
-                <li>Acumulado visible en tiempo real en <code>/pro/dashboard</code>.</li>
+                <li>Acumulado visible en tiempo real en <code>/pro/dashboard</code> · pestaña Comisiones.</li>
                 <li>Liquidación mensual (primera semana del mes siguiente).</li>
                 <li>Transferencia al IBAN que Cea registró en el alta.</li>
-                <li>Cada liquidación viene con detalle: nº de derivaciones, fechas, importes.</li>
+                <li>Cada liquidación viene con detalle: tipo de comisión, paciente, fecha, importe.</li>
+                <li style={{ marginTop: 8, opacity: 0.85 }}>
+                  Las comisiones solo se devengan cuando el paciente <strong>de verdad se presenta</strong> a la cita.
+                  Si el paciente cancela o no aparece, no hay comisión.
+                </li>
               </ul>
             </Card>
           </div>
-          <Note>
-            Para el flujo de <strong>reservas propias</strong> y el de <strong>recepción desde medconnect.es</strong>,
-            la consulta la cobra Cea directamente al seguro del paciente como hasta ahora —
-            Medconnect no toca ese cobro, solo gestiona la prioridad. Esos flujos te traen pacientes, no comisión.
-          </Note>
         </>
       ),
     },
@@ -211,29 +226,52 @@ function buildSlides({ credentials }) {
           <SlideHeader
             eyebrow="Slide 5 · Reportes"
             title="Lo que ves tú en el dashboard"
-            lede="Con la misma cuenta con la que entra la recepcionista (slide 7), tú ves los reportes. No es un dashboard separado — es el mismo /pro/dashboard, con vista a todo lo que ha pasado en la clínica."
+            lede="Con la misma cuenta con la que entra la recepcionista (slide 8) tú ves los reportes. No hay un dashboard separado para gerencia — es el mismo /pro/dashboard, pero a ti te interesan los números y a ella las pestañas operativas."
           />
           <div className="grid-2">
-            <Card label="Lo que verás cada vez que entres">
+            <Card label="Las 4 cifras que vas a mirar">
               <ul>
-                <li><strong>Acumulado de comisiones</strong> desde el primer día.</li>
-                <li><strong>Últimos 30 días</strong> — comisiones, derivaciones exitosas.</li>
-                <li><strong>Derivaciones pendientes</strong> — paciente recibió email pero aún no acepta.</li>
-                <li><strong>Reservas propias</strong> activas y completadas.</li>
+                <li>
+                  <strong>Comisiones acumuladas</strong> — euros totales ganados desde que arrancasteis con
+                  Medconnect. Suma de las tres fuentes (reservas propias + derivación externa +
+                  pacientes recibidos vía medconnect.es).
+                </li>
+                <li style={{ marginTop: 6 }}>
+                  <strong>Comisiones últimos 30 días</strong> — lo ganado en el último mes móvil. Es el número
+                  que más sirve para saber si Medconnect está aportando ingreso real o no.
+                </li>
+                <li style={{ marginTop: 6 }}>
+                  <strong>Pacientes pendientes de confirmar</strong> — lock-ins que la recepcionista ha enviado
+                  al paciente pero el paciente aún no ha pagado. El email vale 60 minutos; si no paga, el hueco
+                  se libera. Aquí los ves vivos.
+                </li>
+                <li style={{ marginTop: 6 }}>
+                  <strong>Pacientes confirmados y atendidos</strong> — listado de los que ya tienen cita pagada,
+                  con fecha, médico y origen (reserva propia / derivación externa / desde medconnect.es).
+                </li>
               </ul>
             </Card>
-            <Card label="Lo que NO verás (y dónde está)">
+            <Card label="Lo que NO verás">
               <ul>
-                <li>Tarifas que cobra Medconnect al paciente → estas son nuestras.</li>
-                <li>Datos personales de pacientes que llegan a otras clínicas → GDPR.</li>
-                <li>Métricas globales del marketplace → en el panel de Carlos/Guillermo.</li>
-                <li>Para datos históricos pasados, contacta a Ops (slide 6).</li>
+                <li>
+                  Las tarifas que cobra Medconnect al paciente — esa parte no es vuestra.
+                </li>
+                <li>
+                  Datos personales de pacientes que se derivaron a otras clínicas — protección de datos.
+                </li>
+                <li>
+                  Métricas globales del marketplace.
+                </li>
+                <li>
+                  Datos históricos detallados (más de 90 días) — para esos, escríbeme.
+                </li>
               </ul>
             </Card>
           </div>
           <Note>
-            Si quieres un reporte específico (por médico, por especialidad, por aseguradora), pídelo a Francisco
-            o a Ops. Hoy el dashboard tiene los agregados básicos; lo afinamos según uso.
+            Si quieres un reporte que no aparece en el dashboard (por médico concreto, por especialidad, por
+            aseguradora, un mes específico), <strong>pídemelo a mí, Francisco</strong>. El dashboard tiene los
+            agregados básicos; cualquier corte más fino lo saco yo a mano. Datos en el correo en 24 h.
           </Note>
         </>
       ),
@@ -248,25 +286,45 @@ function buildSlides({ credentials }) {
         <>
           <SlideHeader
             eyebrow="Slide 6 · A quién contactar"
-            title="Vías de soporte para ti"
-            lede="Tres frentes. Sabe a quién escribir y la respuesta llega mucho antes."
+            title="Cualquier pregunta, consulta o queja → Francisco"
+            lede="Punto único de contacto para todo lo que tenga que ver con Medconnect. No tienes que recordar a quién escribir según el tema — me lo cuentas a mí y yo lo reenruto si hace falta."
           />
-          <div className="grid-3">
-            <MiniCard title="Negocio / comercial">
-              <strong>Carlos</strong> — precios de prioridad, ampliación de servicios, propuestas comerciales,
-              campañas de marketing dirigidas a Cea.
-            </MiniCard>
-            <MiniCard title="Operaciones">
-              <strong>Guillermo · Raquel (Ops)</strong> — incidencias con pacientes, refunds disputados,
-              cambios en la operación diaria, formación adicional para la recepcionista.
-            </MiniCard>
-            <MiniCard title="Técnico">
-              <strong>Francisco</strong> — el dashboard no carga, un email no llega, un botón da error,
-              dudas sobre cómo funciona algo concreto del panel.
-            </MiniCard>
+          <div className="grid-2">
+            <Card label="Tu contacto directo" tone="success">
+              <p style={{ margin: '0 0 8px' }}>
+                <strong>Francisco</strong> — responsable de producto y tecnología.
+              </p>
+              <p style={{ margin: '0 0 8px', fontSize: 14 }}>
+                Cualquier pregunta, consulta o queja sobre Medconnect: precios de prioridad, comisiones,
+                reportes que necesites, incidencias con pacientes, refunds disputados, el panel no carga,
+                un botón falla, un email no llega, dudas sobre cómo funciona algo.
+              </p>
+              <p style={{ margin: '0', fontSize: 14, opacity: 0.85 }}>
+                Tiempo de respuesta objetivo: <strong>4 h en horario laboral</strong>; urgencias por llamada.
+              </p>
+            </Card>
+            <Card label="Cuándo escala Francisco a otra persona">
+              <ul>
+                <li>
+                  <strong>Carlos</strong> — temas comerciales que requieran decisión del director comercial:
+                  ampliación del acuerdo con Cea, nuevos servicios, propuestas comerciales abiertas.
+                </li>
+                <li style={{ marginTop: 6 }}>
+                  <strong>Operaciones / Atención al Cliente (Raquel)</strong> — incidencias operativas con
+                  pacientes concretos, gestión de citas que necesitan intervención manual, formación adicional
+                  para la recepción.
+                </li>
+                <li style={{ marginTop: 6, opacity: 0.85, fontSize: 13 }}>
+                  Tú no tienes que decidir a quién mandar el tema. Llegas a Francisco y él reenruta.
+                </li>
+              </ul>
+            </Card>
           </div>
           <Note>
-            Si no sabes a quién escribir, escribe a Francisco — reenruta. Mejor preguntar que asumir.
+            En la recepcionista pasa lo mismo: si surge una incidencia operativa rápida (paciente que no ha
+            recibido el email, hueco que ya no está…), puede llamar directamente a Raquel (Operaciones /
+            Atención al Cliente, slide 13). Si la duda no es así de inmediata, mejor que te lo pase a ti y tú
+            me lo cuentas a mí.
           </Note>
         </>
       ),
@@ -399,15 +457,40 @@ function buildSlides({ credentials }) {
             <Step n="4" title="Click «Crear lock-in»">
               El paciente recibe un email con un enlace de 60 minutos para confirmar y pagar la prioridad.
             </Step>
-            <Step n="5" title="Esperar 60 min — el paciente acepta o caduca">
-              Si acepta: pasa a estado &laquo;confirmada&raquo; en tu pestaña, hueco bloqueado, tú apuntas en la agenda interna.
-              Si caduca: el hueco vuelve a estar libre.
+            <Step n="5" title="ANTES de que se vaya el paciente · explícale lo que tiene que hacer y por qué urge">
+              <p style={{ margin: '0 0 6px' }}>
+                Este paso es el más importante de todos. Si no insistes aquí, la mitad de los lock-ins
+                caducan sin convertirse. Díselo claro, con estas palabras o parecidas:
+              </p>
+              <ul style={{ paddingLeft: 18 }}>
+                <li>
+                  &laquo;Te acabo de enviar un <strong>email</strong> con un enlace para pagar la prioridad
+                  y bloquear este hueco. Mira tu bandeja de entrada ahora, también el spam por si acaso.&raquo;
+                </li>
+                <li>
+                  &laquo;El enlace vale <strong>60 minutos</strong>. Si pulsas el botón, pagas con tarjeta
+                  y ya está — el hueco es tuyo y mañana te vemos.&raquo;
+                </li>
+                <li>
+                  &laquo;Si en 60 minutos no lo pagas, el hueco vuelve a estar libre y otro paciente puede
+                  cogerlo. Por eso urge.&raquo;
+                </li>
+                <li>
+                  <strong>&laquo;Si tienes cualquier problema — el email no te llega, la tarjeta no
+                  funciona, dudas con el pago — llámame o pásate por mostrador y te ayudo en el momento.&raquo;</strong>
+                </li>
+              </ul>
+              <p style={{ margin: '8px 0 0', fontSize: 13, opacity: 0.85 }}>
+                Después: si acepta, pasa a estado &laquo;confirmada&raquo; en tu pestaña, hueco bloqueado,
+                tú apuntas en la agenda interna. Si caduca, el hueco vuelve a estar libre.
+              </p>
             </Step>
           </ol>
           <Note>
-            <strong>Truco:</strong> haz el proceso delante del paciente, mientras está en mostrador o al teléfono.
-            Así él recibe el email, lo abre en su móvil y paga ahí mismo. El 90% de los lock-ins que se confirman
-            se confirman en los primeros 5 minutos.
+            <strong>Truco:</strong> haz todo el proceso <em>delante</em> del paciente, mientras está en mostrador
+            o al teléfono. Así él recibe el email, lo abre en su móvil y paga ahí mismo. El 90% de los lock-ins
+            que se confirman se confirman en los primeros 5 minutos — y se confirman porque la recepcionista
+            insistió en este paso 5.
           </Note>
         </>
       ),
