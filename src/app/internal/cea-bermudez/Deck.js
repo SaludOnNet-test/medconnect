@@ -181,19 +181,19 @@ function buildSlides({ credentials }) {
               <ul style={{ paddingLeft: 16 }}>
                 <li>
                   <strong>Reservas propias (derivación interna)</strong> — la recepcionista crea la reserva para
-                  un médico de Cea y un médico de Cea atiende al paciente. Cea hace los dos lados (derivar y
-                  aceptar), así que se queda con la comisión combinada:
+                  un médico de Cea y un médico de Cea atiende al paciente. La comisión es la de aceptar:
                   {' '}<strong>50% del importe que paga el paciente</strong> por la prioridad.
+                  Derivarse a sí mismos no añade comisión extra encima — es solo la parte de atender.
                 </li>
                 <li style={{ marginTop: 8 }}>
                   <strong>Derivación externa</strong> — la recepcionista deriva al paciente a otra clínica del
-                  marketplace (Cea no atiende). Cea solo cobra la <em>mitad de derivar</em>:
-                  {' '}<strong>25% del importe que paga el paciente</strong>.
+                  marketplace y otra clínica le atiende. Cea cobra la comisión de derivar:
+                  {' '}<strong>5 € si la cita es en las primeras 2 semanas, 3 € entre 2 y 4 semanas</strong>.
                 </li>
                 <li style={{ marginTop: 8 }}>
                   <strong>Pacientes que llegan desde medconnect.es</strong> — un paciente reserva online con un
-                  médico de Cea y nosotros os llamamos para confirmar. Cea solo cobra la <em>mitad de aceptar</em>:
-                  {' '}<strong>25% del importe que paga el paciente</strong>.
+                  médico de Cea y nosotros os llamamos para confirmar. La comisión es la de aceptar:
+                  {' '}<strong>50% del importe que paga el paciente</strong> por la prioridad.
                 </li>
               </ul>
               <p style={{ margin: '10px 0 0', fontSize: 13, opacity: 0.85 }}>
