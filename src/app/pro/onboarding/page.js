@@ -3,15 +3,39 @@
 // Auth-gated onboarding page — never statically prerendered.
 export const dynamic = 'force-dynamic';
 
-import { useCallback, useEffect, useState } from 'react';
+import { Suspense, useCallback, useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
-import { useUser } from '@clerk/nextjs';
+import { useUserSafe as useUser } from '@/lib/clerkSafe';
 import Header from '@/components/Header';
 import Footer from '@/components/Footer';
 import Icon from '@/components/icons/Icon';
 import TurnstileWidget from '@/components/TurnstileWidget';
 import './onboarding.css';
+
+/**
+ * Surfaces the "I just accepted a patient" banner when the user arrives
+ * from the clinic-acceptance email (`?from=case`). Wrapped in `<Suspense>`
+ * by the page so `useSearchParams()` doesn't force a CSR bailout of the
+ * whole route during static prerender.
+ */
+function FromCaseBanner() {
+  const searchParams = useSearchParams();
+  const fromCase = searchParams?.get('from') === 'case';
+  if (!fromCase) return null;
+  return (
+    <div className="onboarding-banner-case">
+      <div className="onboarding-banner-mark"><Icon name="check-circle-2" size={24} /></div>
+      <div>
+        <strong>Acabas de aceptar una cita en Medconnect.</strong>
+        <p>
+          Date de alta abajo para que el panel pro registre la consulta y puedas cobrar la
+          comisión correspondiente. Te lleva tres minutos.
+        </p>
+      </div>
+    </div>
+  );
+}
 
 // Surface the Turnstile site key flag in the component so the submit
 // button can wait for the captcha token only when the widget is active.
@@ -64,12 +88,10 @@ export default function ProOnboarding() {
   const [picking, setPicking] = useState(null); // clinicId being attached
   const [pickerError, setPickerError] = useState(null);
 
-  // Surface the "I just accepted a patient" entry point. The acceptance
-  // email links here with `?from=case&clinic=<id>`; we render a banner to
-  // tell the clinic that registering unlocks the commission for that
-  // visit (and every subsequent one).
-  const searchParams = useSearchParams();
-  const fromCase = searchParams?.get('from') === 'case';
+  // The "I just accepted a patient" banner lives in <FromCaseBanner />
+  // below — it reads `?from=case` via useSearchParams and gets wrapped in
+  // its own Suspense boundary so the rest of the page can statically
+  // prerender even though useSearchParams forces dynamic.
 
   // ── Alta form state ──
   const [altaForm, setAltaForm] = useState({
@@ -229,18 +251,7 @@ export default function ProOnboarding() {
             </p>
           </header>
 
-          {fromCase && (
-            <div className="onboarding-banner-case">
-              <div className="onboarding-banner-mark"><Icon name="check-circle-2" size={24} /></div>
-              <div>
-                <strong>Acabas de aceptar una cita en Medconnect.</strong>
-                <p>
-                  Date de alta abajo para que el panel pro registre la consulta y puedas cobrar la
-                  comisión correspondiente. Te lleva tres minutos.
-                </p>
-              </div>
-            </div>
-          )}
+          <Suspense fallback={null}><FromCaseBanner /></Suspense>
 
           {meLoading && (
             <div className="onboarding-card onboarding-card--neutral">

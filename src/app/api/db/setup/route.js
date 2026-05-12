@@ -305,6 +305,21 @@ export async function GET(request) {
       IF NOT EXISTS (SELECT * FROM sys.columns WHERE Name = 'is_internal' AND Object_ID = Object_ID('referrals'))
       ALTER TABLE referrals ADD is_internal BIT NULL;
     `);
+    // Backfill is_internal for existing referrals — idempotent because the
+    // WHERE clause limits to rows that are still NULL. Mirrors the logic
+    // in scripts/migrate_referrals_is_internal.js so calling /api/db/setup
+    // is enough to fully migrate the column. Rows where the derivador's
+    // admin_users row has no clinic_id stay NULL and are treated as
+    // external by the commissions API.
+    await pool.request().query(`
+      UPDATE r
+      SET is_internal = CASE WHEN a.clinic_id = r.provider_id THEN 1 ELSE 0 END
+      FROM referrals r
+      JOIN admin_users a ON LOWER(a.username) = LOWER(r.professional_email)
+      WHERE r.is_internal IS NULL
+        AND a.clinic_id IS NOT NULL
+        AND r.provider_id IS NOT NULL;
+    `);
 
     // ── Migration: pro verification (is_verified + verification_request_id + pro_verification_requests) ──
     // Mirrors scripts/migration_add_pro_verification.py. Pro submits the
@@ -426,6 +441,21 @@ export async function GET(request) {
     await pool.request().query(`
       IF NOT EXISTS (SELECT * FROM sys.columns WHERE Name = 'is_internal' AND Object_ID = Object_ID('referrals'))
       ALTER TABLE referrals ADD is_internal BIT NULL;
+    `);
+    // Backfill is_internal for existing referrals — idempotent because the
+    // WHERE clause limits to rows that are still NULL. Mirrors the logic
+    // in scripts/migrate_referrals_is_internal.js so calling /api/db/setup
+    // is enough to fully migrate the column. Rows where the derivador's
+    // admin_users row has no clinic_id stay NULL and are treated as
+    // external by the commissions API.
+    await pool.request().query(`
+      UPDATE r
+      SET is_internal = CASE WHEN a.clinic_id = r.provider_id THEN 1 ELSE 0 END
+      FROM referrals r
+      JOIN admin_users a ON LOWER(a.username) = LOWER(r.professional_email)
+      WHERE r.is_internal IS NULL
+        AND a.clinic_id IS NOT NULL
+        AND r.provider_id IS NOT NULL;
     `);
 
     // ── Migration: pro verification (is_verified + verification_request_id + pro_verification_requests) ──

@@ -3,9 +3,9 @@ import Link from 'next/link';
 import Image from 'next/image';
 import { useEffect, useRef, useState } from 'react';
 import { usePathname } from 'next/navigation';
-import { useUser, useClerk } from '@clerk/nextjs';
 import Button from '@/components/brand/Button';
 import Icon from '@/components/icons/Icon';
+import { useUserSafe, useClerkSafe } from '@/lib/clerkSafe';
 import './Header.css';
 
 // Note: Clerk v7 moved <SignedIn>/<SignedOut> to server-only
@@ -38,8 +38,8 @@ import './Header.css';
 // this when `useUser()` reports a signed-in user, so we can use the
 // hooks freely here.
 function SignedInArea() {
-  const { user } = useUser();
-  const clerk = useClerk();
+  const { user } = useUserSafe();
+  const clerk = useClerkSafe();
   const [open, setOpen] = useState(false);
   const ref = useRef(null);
 
@@ -127,7 +127,7 @@ export default function Header() {
   // hydration and Clerk fetching the session. We render the signed-out
   // shell during that window so the static prerender's HTML matches the
   // first client paint — avoids hydration mismatch warnings.
-  const { isSignedIn, isLoaded } = useUser();
+  const { isSignedIn, isLoaded } = useUserSafe();
   const showSignedIn = isLoaded && isSignedIn;
 
   useEffect(() => {
