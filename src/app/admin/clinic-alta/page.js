@@ -181,6 +181,7 @@ export default function ClinicAltaPage() {
                 {req.contact_email && (<><dt>Contacto</dt><dd>{req.contact_email}</dd></>)}
                 {req.specialties && (<><dt>Especialidades</dt><dd>{req.specialties}</dd></>)}
                 {req.aseguradoras && (<><dt>Aseguradoras</dt><dd>{req.aseguradoras}</dd></>)}
+                {req.iban && (<><dt>IBAN</dt><dd style={{ fontFamily: 'monospace' }}>{req.iban}</dd></>)}
                 {req.notes && (<><dt>Notas</dt><dd>{req.notes}</dd></>)}
                 <dt>Creada</dt><dd>{fmtDate(req.created_at)}</dd>
                 {req.resolved_at && (<><dt>Resuelta</dt><dd>{fmtDate(req.resolved_at)} {req.resolved_by ? `(${req.resolved_by})` : ''}</dd></>)}

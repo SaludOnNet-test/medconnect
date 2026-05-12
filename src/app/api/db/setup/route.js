@@ -288,6 +288,14 @@ export async function GET(request) {
       CREATE INDEX IX_admin_users_clinic_id ON admin_users(clinic_id) WHERE clinic_id IS NOT NULL;
     `);
 
+    // IBAN capture on clinic_alta_requests so clinics can register their
+    // payout account during onboarding. Optional, additive — existing rows
+    // stay NULL. SEPA IBANs cap at 34 chars (Spain is 24).
+    await pool.request().query(`
+      IF NOT EXISTS (SELECT * FROM sys.columns WHERE Name = 'iban' AND Object_ID = Object_ID('clinic_alta_requests'))
+      ALTER TABLE clinic_alta_requests ADD iban NVARCHAR(34) NULL;
+    `);
+
     // ── Migration: pro verification (is_verified + verification_request_id + pro_verification_requests) ──
     // Mirrors scripts/migration_add_pro_verification.py. Pro submits the
     // verification modal -> pro_verification_requests row + ops review flips
@@ -390,6 +398,14 @@ export async function GET(request) {
     await pool.request().query(`
       IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE name = 'IX_admin_users_clinic_id' AND object_id = OBJECT_ID('admin_users'))
       CREATE INDEX IX_admin_users_clinic_id ON admin_users(clinic_id) WHERE clinic_id IS NOT NULL;
+    `);
+
+    // IBAN capture on clinic_alta_requests so clinics can register their
+    // payout account during onboarding. Optional, additive — existing rows
+    // stay NULL. SEPA IBANs cap at 34 chars (Spain is 24).
+    await pool.request().query(`
+      IF NOT EXISTS (SELECT * FROM sys.columns WHERE Name = 'iban' AND Object_ID = Object_ID('clinic_alta_requests'))
+      ALTER TABLE clinic_alta_requests ADD iban NVARCHAR(34) NULL;
     `);
 
     // ── Migration: pro verification (is_verified + verification_request_id + pro_verification_requests) ──

@@ -68,6 +68,7 @@ export async function POST(request) {
     contactEmail: data.contactEmail || null,
     specialties: data.specialties,
     aseguradoras: data.aseguradoras,
+    iban: data.iban,
     notes: data.notes,
   };
 
@@ -113,6 +114,9 @@ export async function POST(request) {
     if (existingOpen?.status === 'more_info_requested') {
       isInfoResponse = true;
       requestId = existingOpen.id;
+      // IBAN is captured opportunistically. Some legacy databases predate
+      // the column — we wrap the IBAN update in a try/catch below so the
+      // primary path keeps working until the migration lands.
       await pool.request()
         .input('id', sql.Int, requestId)
         .input('name', sql.NVarChar(255), fields.requestedByName)
@@ -141,6 +145,18 @@ export async function POST(request) {
               info_response_at = SYSDATETIMEOFFSET()
           WHERE id = @id
         `);
+      if (fields.iban) {
+        try {
+          await pool.request()
+            .input('id', sql.Int, requestId)
+            .input('iban', sql.NVarChar(34), fields.iban)
+            .query(`UPDATE clinic_alta_requests SET iban = @iban WHERE id = @id`);
+        } catch (ibanErr) {
+          if (!String(ibanErr?.message || '').includes('Invalid column name')) {
+            console.error('[clinic-alta-request] iban update error', ibanErr);
+          }
+        }
+      }
     } else {
       // Insert a fresh request.
       const insertResult = await pool.request()
@@ -166,6 +182,19 @@ export async function POST(request) {
                   @specialties, @aseguradoras, @notes, 'pending')
         `);
       requestId = insertResult.recordset[0].id;
+      if (fields.iban) {
+        // Same opportunistic IBAN update as the update branch.
+        try {
+          await pool.request()
+            .input('id', sql.Int, requestId)
+            .input('iban', sql.NVarChar(34), fields.iban)
+            .query(`UPDATE clinic_alta_requests SET iban = @iban WHERE id = @id`);
+        } catch (ibanErr) {
+          if (!String(ibanErr?.message || '').includes('Invalid column name')) {
+            console.error('[clinic-alta-request] iban update error', ibanErr);
+          }
+        }
+      }
     }
 
     // Link the request from admin_users so /api/pro/me can surface

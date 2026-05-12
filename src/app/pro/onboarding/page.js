@@ -5,6 +5,7 @@ export const dynamic = 'force-dynamic';
 
 import { useCallback, useEffect, useState } from 'react';
 import Link from 'next/link';
+import { useSearchParams } from 'next/navigation';
 import { useUser } from '@clerk/nextjs';
 import Header from '@/components/Header';
 import Footer from '@/components/Footer';
@@ -63,6 +64,13 @@ export default function ProOnboarding() {
   const [picking, setPicking] = useState(null); // clinicId being attached
   const [pickerError, setPickerError] = useState(null);
 
+  // Surface the "I just accepted a patient" entry point. The acceptance
+  // email links here with `?from=case&clinic=<id>`; we render a banner to
+  // tell the clinic that registering unlocks the commission for that
+  // visit (and every subsequent one).
+  const searchParams = useSearchParams();
+  const fromCase = searchParams?.get('from') === 'case';
+
   // ── Alta form state ──
   const [altaForm, setAltaForm] = useState({
     clinicName: '',
@@ -73,6 +81,7 @@ export default function ProOnboarding() {
     contactEmail: '',
     specialties: '',
     aseguradoras: '',
+    iban: '',
     notes: '',
   });
   const [altaSubmitting, setAltaSubmitting] = useState(false);
@@ -219,6 +228,19 @@ export default function ProOnboarding() {
               empezar a recibir pacientes a través de tu panel.
             </p>
           </header>
+
+          {fromCase && (
+            <div className="onboarding-banner-case">
+              <div className="onboarding-banner-mark"><Icon name="check-circle-2" size={24} /></div>
+              <div>
+                <strong>Acabas de aceptar una cita en Medconnect.</strong>
+                <p>
+                  Date de alta abajo para que el panel pro registre la consulta y puedas cobrar la
+                  comisión correspondiente. Te lleva tres minutos.
+                </p>
+              </div>
+            </div>
+          )}
 
           {meLoading && (
             <div className="onboarding-card onboarding-card--neutral">
@@ -468,6 +490,21 @@ export default function ProOnboarding() {
                     value={altaForm.aseguradoras}
                     onChange={(e) => setAltaField('aseguradoras', e.target.value)}
                   />
+                </div>
+                <div className="form-group">
+                  <label htmlFor="clinic-iban">IBAN para cobrar comisiones (opcional)</label>
+                  <input
+                    id="clinic-iban"
+                    className="form-input"
+                    placeholder="ES00 0000 0000 00 0000000000"
+                    value={altaForm.iban}
+                    onChange={(e) => setAltaField('iban', e.target.value)}
+                    maxLength={34}
+                  />
+                  <span className="form-hint">
+                    Formato SEPA. Solo lo usamos para la liquidación mensual de comisiones.
+                    Puedes añadirlo más tarde si no lo tienes a mano.
+                  </span>
                 </div>
                 <div className="form-group">
                   <label htmlFor="clinic-notes">Notas para el equipo</label>

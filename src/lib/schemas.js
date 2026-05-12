@@ -72,6 +72,7 @@ export const clinicAltaRequestSchema = z.object({
   contactEmail: emailSchema.optional().or(z.literal('').transform(() => undefined)),
   specialties: optionalText(2000),
   aseguradoras: optionalText(2000),
+  iban: optionalText(34),
   notes: optionalText(2000),
   captchaToken,
 });
