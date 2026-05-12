@@ -176,22 +176,24 @@ function buildSlides({ credentials }) {
           <div className="grid-2">
             <Card label="Las 3 fuentes de comisión" tone="success">
               <p style={{ margin: '0 0 10px', fontSize: 13, opacity: 0.85 }}>
-                Importes orientativos del MVP. <strong>A confirmar contigo</strong> antes del lanzamiento estable.
+                Modelo MVP. Toda comisión se devenga solo cuando el paciente <strong>se presenta</strong> a la cita.
               </p>
               <ul style={{ paddingLeft: 16 }}>
                 <li>
-                  <strong>Reservas propias (derivación interna)</strong> — la recepcionista crea la reserva
-                  para un médico de Cea, el paciente paga la prioridad. <strong>5 € sem 1–2 · 3 € sem 3–4</strong>{' '}
-                  por reserva confirmada y atendida.
+                  <strong>Reservas propias (derivación interna)</strong> — la recepcionista crea la reserva para
+                  un médico de Cea y un médico de Cea atiende al paciente. Cea hace los dos lados (derivar y
+                  aceptar), así que se queda con la comisión combinada:
+                  {' '}<strong>50% del importe que paga el paciente</strong> por la prioridad.
                 </li>
                 <li style={{ marginTop: 8 }}>
-                  <strong>Derivación externa</strong> — Cea no puede atender, la recepcionista deriva a otra
-                  clínica del marketplace. <strong>5 € sem 1–2 · 3 € sem 3–4</strong> por derivación confirmada.
+                  <strong>Derivación externa</strong> — la recepcionista deriva al paciente a otra clínica del
+                  marketplace (Cea no atiende). Cea solo cobra la <em>mitad de derivar</em>:
+                  {' '}<strong>25% del importe que paga el paciente</strong>.
                 </li>
                 <li style={{ marginTop: 8 }}>
                   <strong>Pacientes que llegan desde medconnect.es</strong> — un paciente reserva online con un
-                  médico de Cea y nosotros os llamamos para confirmar. <strong>5 € sem 1–2 · 3 € sem 3–4</strong>{' '}
-                  por cita atendida.
+                  médico de Cea y nosotros os llamamos para confirmar. Cea solo cobra la <em>mitad de aceptar</em>:
+                  {' '}<strong>25% del importe que paga el paciente</strong>.
                 </li>
               </ul>
               <p style={{ margin: '10px 0 0', fontSize: 13, opacity: 0.85 }}>
@@ -286,45 +288,42 @@ function buildSlides({ credentials }) {
         <>
           <SlideHeader
             eyebrow="Slide 6 · A quién contactar"
-            title="Cualquier pregunta, consulta o queja → Francisco"
-            lede="Punto único de contacto para todo lo que tenga que ver con Medconnect. No tienes que recordar a quién escribir según el tema — me lo cuentas a mí y yo lo reenruto si hace falta."
+            title="Dos canales: pacientes vivos a Operaciones, todo lo demás a Francisco"
+            lede="Solo hay dos números que recordar. La regla es sencilla: si tienes un paciente esperando ahora mismo y no es un fallo del sistema, llamas a Operaciones / Atención al Cliente. Para todo lo demás (preguntas, consultas, quejas, datos, errores de panel), me escribes a mí."
           />
           <div className="grid-2">
-            <Card label="Tu contacto directo" tone="success">
+            <Card label="Casos vivos de pacientes → Operaciones / Atención al Cliente">
+              <p style={{ margin: '0 0 8px' }}>
+                <strong>Raquel</strong> — equipo de Operaciones / Atención al Cliente.
+              </p>
+              <p style={{ margin: '0 0 8px', fontSize: 14 }}>
+                Cuando hay un paciente concreto cuya situación necesita resolverse <em>ya</em> y no es un fallo
+                del sistema: refunds, recolocación de huecos, paciente que no aparece en agenda, dudas con un
+                caso abierto, escalada operativa. La recepcionista la llama directamente.
+              </p>
+              <p style={{ margin: 0, fontSize: 13, opacity: 0.85 }}>
+                Horario: L–V 10:00–18:00 Madrid. Fuera de horario, los casos esperan al día siguiente.
+              </p>
+            </Card>
+            <Card label="Todo lo demás → Francisco" tone="success">
               <p style={{ margin: '0 0 8px' }}>
                 <strong>Francisco</strong> — responsable de producto y tecnología.
               </p>
               <p style={{ margin: '0 0 8px', fontSize: 14 }}>
-                Cualquier pregunta, consulta o queja sobre Medconnect: precios de prioridad, comisiones,
-                reportes que necesites, incidencias con pacientes, refunds disputados, el panel no carga,
-                un botón falla, un email no llega, dudas sobre cómo funciona algo.
+                Cualquier pregunta, consulta o queja que no sea un paciente vivo: precios de prioridad,
+                comisiones, reportes específicos que necesites, propuestas, el panel no carga, un botón falla,
+                un email no llega, dudas sobre cómo funciona algo, formación adicional.
               </p>
-              <p style={{ margin: '0', fontSize: 14, opacity: 0.85 }}>
+              <p style={{ margin: 0, fontSize: 14, opacity: 0.85 }}>
                 Tiempo de respuesta objetivo: <strong>4 h en horario laboral</strong>; urgencias por llamada.
+                Para temas comerciales abiertos, yo reenruto a Carlos.
               </p>
-            </Card>
-            <Card label="Cuándo escala Francisco a otra persona">
-              <ul>
-                <li>
-                  <strong>Carlos</strong> — temas comerciales que requieran decisión del director comercial:
-                  ampliación del acuerdo con Cea, nuevos servicios, propuestas comerciales abiertas.
-                </li>
-                <li style={{ marginTop: 6 }}>
-                  <strong>Operaciones / Atención al Cliente (Raquel)</strong> — incidencias operativas con
-                  pacientes concretos, gestión de citas que necesitan intervención manual, formación adicional
-                  para la recepción.
-                </li>
-                <li style={{ marginTop: 6, opacity: 0.85, fontSize: 13 }}>
-                  Tú no tienes que decidir a quién mandar el tema. Llegas a Francisco y él reenruta.
-                </li>
-              </ul>
             </Card>
           </div>
           <Note>
-            En la recepcionista pasa lo mismo: si surge una incidencia operativa rápida (paciente que no ha
-            recibido el email, hueco que ya no está…), puede llamar directamente a Raquel (Operaciones /
-            Atención al Cliente, slide 13). Si la duda no es así de inmediata, mejor que te lo pase a ti y tú
-            me lo cuentas a mí.
+            <strong>En resumen:</strong> ¿hay un paciente concreto esperando? → Raquel (Operaciones / AC).
+            ¿No hay paciente concreto, o es un fallo del sistema? → Francisco.
+            Si dudas, llámame a mí y yo reenruto.
           </Note>
         </>
       ),
