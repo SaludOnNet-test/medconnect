@@ -40,20 +40,15 @@ export default async function OpsHandbookPage({ searchParams }) {
     );
   }
 
-  // Credentials only ship to clients that present the correct URL secret.
-  // Defaults are the placeholder username/password the product team picked
-  // for the first soft-launch user; env vars on Vercel override when real
-  // credentials are provisioned via scripts/provision/create-admin-raquel.js.
-  //
-  // Guard against the env var holding leftover placeholder text from earlier
-  // setup (e.g. "<from step 3, script output>") by falling back to the
-  // hardcoded values when the env var contains an "<…>" marker.
-  const envUser = (process.env.OPS_ADMIN_USERNAME || '').trim();
-  const envPass = (process.env.OPS_ADMIN_PASSWORD || '').trim();
-  const looksLikePlaceholder = (s) => s === '' || s.startsWith('<');
+  // Hardcoded placeholders the product team picked for the first
+  // soft-launch user. Env vars are intentionally NOT consulted — the
+  // earlier env-var-with-fallback pattern leaked the literal placeholder
+  // text "<from step 3, script output>" into the deck when the Vercel
+  // env var was set to that placeholder string. Now the deck always
+  // shows these two values; rotation happens via a code change.
   const credentials = {
-    username: looksLikePlaceholder(envUser) ? 'mc_bfd923' : envUser,
-    password: looksLikePlaceholder(envPass) ? 'WvsVB0GbBR0FBmwQ6MOt' : envPass,
+    username: 'mc_bfd923',
+    password: 'WvsVB0GbBR0FBmwQ6MOt',
   };
 
   return <Deck credentials={credentials} />;

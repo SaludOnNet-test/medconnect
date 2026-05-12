@@ -5,7 +5,7 @@ export const dynamic = 'force-dynamic';
 
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
-import { useUser } from '@clerk/nextjs';
+import { useUserSafe as useUser } from '@/lib/clerkSafe';
 import Header from '@/components/Header';
 import Footer from '@/components/Footer';
 import ReferralModal from '@/components/ReferralModal';
