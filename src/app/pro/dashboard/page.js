@@ -462,9 +462,20 @@ export default function ProDashboard() {
             </div>
           </div>
           {serverCommissions && (
-            <p style={{ fontSize: '0.78rem', color: '#8892A4', margin: '0.5rem 0 1.25rem', textAlign: 'right' }}>
-              Tarifas: 5€ si la cita es en las primeras 2 semanas, 3€ entre 2 y 4 semanas (máx. 30 días).
-            </p>
+            <div style={{ fontSize: '0.78rem', color: '#8892A4', margin: '0.5rem 0 1.25rem', textAlign: 'right' }}>
+              <p style={{ margin: 0 }}>
+                <strong>Por atender pacientes:</strong> 50 % del importe de la prioridad que paga el paciente.
+                <strong style={{ marginLeft: 8 }}>Por derivar a otra clínica:</strong> 5 € si la cita es en las primeras 2 semanas,
+                3 € entre 2 y 4 semanas (máx. 30 días).
+              </p>
+              {serverCommissions.breakdown && (
+                <p style={{ margin: '4px 0 0' }}>
+                  Desglose: <strong>{(serverCommissions.breakdown.accepting || 0).toFixed(2)} €</strong> por atender ·
+                  {' '}<strong>{(serverCommissions.breakdown.deriving || 0).toFixed(2)} €</strong> por derivar.
+                  {' '}<em>Las derivaciones internas (vosotros derivais y atendéis) cobran solo la parte de aceptar — no se suma una sobre otra.</em>
+                </p>
+              )}
+            </div>
           )}
 
           {/* Tabs Navigation */}

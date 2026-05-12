@@ -296,6 +296,16 @@ export async function GET(request) {
       ALTER TABLE clinic_alta_requests ADD iban NVARCHAR(34) NULL;
     `);
 
+    // is_internal flag on referrals: 1 when the derivador's clinic equals
+    // the destination clinic (derivación interna), 0 when it's a different
+    // clinic (derivación externa), NULL when we couldn't classify because
+    // the derivador isn't mapped to a clinic_id. The commissions API treats
+    // NULL as external (safer default — yields the smaller commission).
+    await pool.request().query(`
+      IF NOT EXISTS (SELECT * FROM sys.columns WHERE Name = 'is_internal' AND Object_ID = Object_ID('referrals'))
+      ALTER TABLE referrals ADD is_internal BIT NULL;
+    `);
+
     // ── Migration: pro verification (is_verified + verification_request_id + pro_verification_requests) ──
     // Mirrors scripts/migration_add_pro_verification.py. Pro submits the
     // verification modal -> pro_verification_requests row + ops review flips
@@ -406,6 +416,16 @@ export async function GET(request) {
     await pool.request().query(`
       IF NOT EXISTS (SELECT * FROM sys.columns WHERE Name = 'iban' AND Object_ID = Object_ID('clinic_alta_requests'))
       ALTER TABLE clinic_alta_requests ADD iban NVARCHAR(34) NULL;
+    `);
+
+    // is_internal flag on referrals: 1 when the derivador's clinic equals
+    // the destination clinic (derivación interna), 0 when it's a different
+    // clinic (derivación externa), NULL when we couldn't classify because
+    // the derivador isn't mapped to a clinic_id. The commissions API treats
+    // NULL as external (safer default — yields the smaller commission).
+    await pool.request().query(`
+      IF NOT EXISTS (SELECT * FROM sys.columns WHERE Name = 'is_internal' AND Object_ID = Object_ID('referrals'))
+      ALTER TABLE referrals ADD is_internal BIT NULL;
     `);
 
     // ── Migration: pro verification (is_verified + verification_request_id + pro_verification_requests) ──
