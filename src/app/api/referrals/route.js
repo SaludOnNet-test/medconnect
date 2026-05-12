@@ -138,27 +138,83 @@ export async function POST(request) {
 
   try {
     const pool = await getPool();
-    await pool.request()
-      .input('id', sql.NVarChar(50), id)
-      .input('state', sql.NVarChar(30), 'PENDING')
-      .input('patient_email', sql.NVarChar(255), patientEmail)
-      .input('professional_email', sql.NVarChar(255), professionalEmail || null)
-      .input('profession_name', sql.NVarChar(255), professionName || null)
-      .input('provider_id', sql.Int, providerId || null)
-      .input('provider_name', sql.NVarChar(255), providerName || null)
-      .input('slot_date', sql.NVarChar(20), slotDate || null)
-      .input('slot_time', sql.NVarChar(10), slotTime || null)
-      .input('fee', sql.Decimal(10, 2), fee || null)
-      .input('specialty', sql.NVarChar(100), specialty || null)
-      .input('lock_in_warning_at', sql.DateTimeOffset, lockInWarningAt ? new Date(lockInWarningAt) : null)
-      .query(`
-        INSERT INTO referrals
-          (id, state, patient_email, professional_email, profession_name,
-           provider_id, provider_name, slot_date, slot_time, fee, specialty, lock_in_warning_at)
-        VALUES
-          (@id, @state, @patient_email, @professional_email, @profession_name,
-           @provider_id, @provider_name, @slot_date, @slot_time, @fee, @specialty, @lock_in_warning_at)
-      `);
+
+    // Classify internal vs external at write time so the commissions API
+    // can apply the right rule on read without an extra join per row.
+    // Internal = derivador's clinic == destination clinic (one clinic does
+    // both halves of the trade). NULL when we can't classify because the
+    // derivador isn't mapped to a clinic yet — commissions defaults that
+    // to external (the smaller payout).
+    let isInternal = null;
+    if (professionalEmail && providerId) {
+      try {
+        const lookup = await pool.request()
+          .input('email', sql.NVarChar(255), professionalEmail)
+          .query(`SELECT TOP 1 clinic_id FROM admin_users WHERE LOWER(username) = LOWER(@email)`);
+        const derivadorClinicId = lookup.recordset[0]?.clinic_id;
+        if (derivadorClinicId != null) {
+          isInternal = Number(derivadorClinicId) === Number(providerId) ? 1 : 0;
+        }
+      } catch (lookupErr) {
+        // Pre-migration admin_users without clinic_id will throw "Invalid
+        // column name" — swallow silently and leave is_internal NULL.
+        if (!String(lookupErr?.message || '').includes('Invalid column name')) {
+          console.error('[POST /api/referrals] is_internal lookup failed', lookupErr?.message);
+        }
+      }
+    }
+
+    // The is_internal write is wrapped in a fallback INSERT (without the
+    // column) so the route keeps working against a DB where the migration
+    // hasn't run yet — useful in preview environments.
+    try {
+      await pool.request()
+        .input('id', sql.NVarChar(50), id)
+        .input('state', sql.NVarChar(30), 'PENDING')
+        .input('patient_email', sql.NVarChar(255), patientEmail)
+        .input('professional_email', sql.NVarChar(255), professionalEmail || null)
+        .input('profession_name', sql.NVarChar(255), professionName || null)
+        .input('provider_id', sql.Int, providerId || null)
+        .input('provider_name', sql.NVarChar(255), providerName || null)
+        .input('slot_date', sql.NVarChar(20), slotDate || null)
+        .input('slot_time', sql.NVarChar(10), slotTime || null)
+        .input('fee', sql.Decimal(10, 2), fee || null)
+        .input('specialty', sql.NVarChar(100), specialty || null)
+        .input('lock_in_warning_at', sql.DateTimeOffset, lockInWarningAt ? new Date(lockInWarningAt) : null)
+        .input('is_internal', sql.Bit, isInternal)
+        .query(`
+          INSERT INTO referrals
+            (id, state, patient_email, professional_email, profession_name,
+             provider_id, provider_name, slot_date, slot_time, fee, specialty, lock_in_warning_at, is_internal)
+          VALUES
+            (@id, @state, @patient_email, @professional_email, @profession_name,
+             @provider_id, @provider_name, @slot_date, @slot_time, @fee, @specialty, @lock_in_warning_at, @is_internal)
+        `);
+    } catch (insertErr) {
+      if (!String(insertErr?.message || '').includes('Invalid column name')) throw insertErr;
+      // Fallback: pre-migration DB. Insert without is_internal.
+      await pool.request()
+        .input('id', sql.NVarChar(50), id)
+        .input('state', sql.NVarChar(30), 'PENDING')
+        .input('patient_email', sql.NVarChar(255), patientEmail)
+        .input('professional_email', sql.NVarChar(255), professionalEmail || null)
+        .input('profession_name', sql.NVarChar(255), professionName || null)
+        .input('provider_id', sql.Int, providerId || null)
+        .input('provider_name', sql.NVarChar(255), providerName || null)
+        .input('slot_date', sql.NVarChar(20), slotDate || null)
+        .input('slot_time', sql.NVarChar(10), slotTime || null)
+        .input('fee', sql.Decimal(10, 2), fee || null)
+        .input('specialty', sql.NVarChar(100), specialty || null)
+        .input('lock_in_warning_at', sql.DateTimeOffset, lockInWarningAt ? new Date(lockInWarningAt) : null)
+        .query(`
+          INSERT INTO referrals
+            (id, state, patient_email, professional_email, profession_name,
+             provider_id, provider_name, slot_date, slot_time, fee, specialty, lock_in_warning_at)
+          VALUES
+            (@id, @state, @patient_email, @professional_email, @profession_name,
+             @provider_id, @provider_name, @slot_date, @slot_time, @fee, @specialty, @lock_in_warning_at)
+        `);
+    }
 
     // Fetch the inserted row to return it
     const result = await pool.request()
