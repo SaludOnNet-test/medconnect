@@ -7,7 +7,7 @@ import ContactForm from './ContactForm';
 
 export const metadata = {
   title: 'Contacto — Med Connect',
-  description: 'Escríbenos a hola@medconnect.es o envíanos un mensaje. Respuesta en menos de 24 h hábiles.',
+  description: 'Escríbenos a info@medconnect.es o envíanos un mensaje. Respuesta en menos de 24 h hábiles.',
   alternates: { canonical: '/contacto' },
 };
 
@@ -15,8 +15,8 @@ const ROWS = [
   {
     icon: 'mail',
     label: 'Email',
-    value: 'hola@medconnect.es',
-    href: 'mailto:hola@medconnect.es',
+    value: 'info@medconnect.es',
+    href: 'mailto:info@medconnect.es',
     sub: 'Respuesta en menos de 24 h hábiles',
   },
   {
@@ -35,8 +35,8 @@ const ROWS = [
   {
     icon: 'briefcase-medical',
     label: 'Para clínicas',
-    value: 'hola@medconnect.es',
-    href: 'mailto:hola@medconnect.es?subject=Alta%20cl%C3%ADnica',
+    value: 'info@medconnect.es',
+    href: 'mailto:info@medconnect.es?subject=Alta%20cl%C3%ADnica',
     sub: 'Demo en 48 h',
   },
 ];

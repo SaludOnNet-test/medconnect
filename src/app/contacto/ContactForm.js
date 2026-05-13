@@ -6,7 +6,7 @@ import Eyebrow from '@/components/brand/Eyebrow';
 
 /**
  * General contact form. Until we have an /api/contact endpoint, opens a
- * prefilled mailto: to hola@medconnect.es so leads still reach ops.
+ * prefilled mailto: to info@medconnect.es so leads still reach ops.
  *
  * Reason selector — added so the team can route incoming messages without
  * reading the whole body. Pages that link here can pre-select a reason via
@@ -63,7 +63,7 @@ export default function ContactForm() {
     const body = encodeURIComponent(
       `Razón de contacto: ${reasonText}\n\n${form.message}\n\n— ${form.name}\n${form.email}`,
     );
-    window.location.href = `mailto:hola@medconnect.es?subject=${subject}&body=${body}`;
+    window.location.href = `mailto:info@medconnect.es?subject=${subject}&body=${body}`;
     setSubmitted(true);
   }
 

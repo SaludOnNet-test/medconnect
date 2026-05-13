@@ -26,7 +26,7 @@ export default async function BookingRefundPage({ searchParams }) {
           </p>
           <p style={{ color: 'var(--muted)', fontSize: '0.85rem', marginBottom: '2rem' }}>
             Si tienes alguna duda puedes contactarnos en{' '}
-            <a href="mailto:ayuda@medconnect.es" style={{ color: 'var(--navy)' }}>ayuda@medconnect.es</a>
+            <a href="mailto:operaciones@medconnect.es" style={{ color: 'var(--navy)' }}>operaciones@medconnect.es</a>
           </p>
           <Link href="/" className="btn btn-navy">
             Volver al inicio

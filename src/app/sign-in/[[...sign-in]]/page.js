@@ -43,7 +43,7 @@ function SignInWithFallback() {
           <li>Si eres administrador: añade <code>{host}</code> a los <em>Allowed origins</em> en el dashboard de Clerk.</li>
         </ul>
         <p style={{ margin: 0, fontSize: 'var(--text-xs)', color: 'var(--fg-subtle)' }}>
-          ¿Necesitas ayuda? Escribe a <a href="mailto:hola@medconnect.es">hola@medconnect.es</a>.
+          ¿Necesitas ayuda? Escribe a <a href="mailto:info@medconnect.es">info@medconnect.es</a>.
         </p>
       </Card>
     );

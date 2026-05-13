@@ -29,7 +29,7 @@ export default function LegalPage() {
                   ['CIF', 'B87648150'],
                   ['Inscripción', 'Registro Mercantil de Madrid'],
                   ['Domicilio', 'Madrid, España'],
-                  ['Email de contacto', 'hola@medconnect.es'],
+                  ['Email de contacto', 'info@medconnect.es'],
                   ['Actividad', 'Intermediación en la reserva de citas médicas privadas'],
                 ].map(([k, v]) => (
                   <tr key={k}>
