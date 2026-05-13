@@ -27,7 +27,7 @@ export default function ClinicLeadForm() {
       `Email: ${form.email}\nTeléfono: ${form.phone}\n` +
       (form.insurers ? `Aseguradoras concertadas: ${form.insurers}\n` : '')
     );
-    window.location.href = `mailto:hola@medconnect.es?subject=Alta%20cl%C3%ADnica%20o%20m%C3%A9dico&body=${body}`;
+    window.location.href = `mailto:info@medconnect.es?subject=Alta%20cl%C3%ADnica%20o%20m%C3%A9dico&body=${body}`;
     setSubmitted(true);
   }
 

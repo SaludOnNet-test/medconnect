@@ -58,7 +58,7 @@ export default function FAQPage() {
       <PageHeader
         eyebrow="Preguntas frecuentes"
         title={<>Lo que te aclaramos antes de que lo preguntes <em>en recepción.</em></>}
-        lede="Si tu duda no está aquí, escríbenos a hola@medconnect.es y te respondemos en menos de 24 h."
+        lede="Si tu duda no está aquí, escríbenos a info@medconnect.es y te respondemos en menos de 24 h."
       />
 
       <section className="info-section info-section--alt">
@@ -77,7 +77,7 @@ export default function FAQPage() {
           </p>
           <div className="cta-actions">
             <Button href="/" variant="primary" size="lg">Buscar mi cita</Button>
-            <Button href="mailto:hola@medconnect.es" variant="ghostInv" size="lg">Escribirnos</Button>
+            <Button href="mailto:info@medconnect.es" variant="ghostInv" size="lg">Escribirnos</Button>
           </div>
         </div>
       </section>

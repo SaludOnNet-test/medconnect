@@ -28,7 +28,7 @@ const COLUMNS = [
     links: [
       ['FAQ', '/faq'],
       ['Contacto', '/contacto'],
-      ['hola@medconnect.es', 'mailto:hola@medconnect.es'],
+      ['info@medconnect.es', 'mailto:info@medconnect.es'],
     ],
   },
 ];
