@@ -88,12 +88,36 @@ async function notifyClinicConfirmation(c, providedEmail) {
 
 async function notifyAlternative(c) {
   if (!c.patient_email || !c.patient_response_token) return;
+  // Resolve the destination clinic's address from the DB so the email
+  // shows the real street/city instead of just a name. Best-effort —
+  // if the lookup fails (legacy alternative_clinic_id is null because
+  // the operator typed the name free-text), the email still gets sent
+  // with just the clinic name.
+  let alternativeAddress = null;
+  let alternativeCity = null;
+  if (c.alternative_clinic_id) {
+    try {
+      const r = await query(
+        `SELECT TOP 1 address, city FROM clinics WHERE id = @id`,
+        { id: { type: sql.Int, value: Number(c.alternative_clinic_id) } },
+      );
+      const row = r.recordset[0];
+      if (row) {
+        alternativeAddress = row.address || null;
+        alternativeCity = row.city || null;
+      }
+    } catch (err) {
+      console.error('[ops/notifyAlternative] clinic address lookup', err?.message);
+    }
+  }
   const tpl = patientAlternativeSlot({
     patientName: c.patient_name,
     originalClinicName: c.original_clinic_name,
     originalDate: c.original_slot_date,
     originalTime: c.original_slot_time,
     alternativeClinicName: c.alternative_clinic_name,
+    alternativeAddress,
+    alternativeCity,
     alternativeDate: c.alternative_slot_date,
     alternativeTime: c.alternative_slot_time,
     alternativeReason: c.alternative_reason,
@@ -220,11 +244,17 @@ export async function POST(request, { params }) {
           alternative_slot_date: altDate,
           alternative_slot_time: altTime,
           alternative_reason: reason || 'la clínica no puede atenderte exactamente a esa hora',
+          // Stamp the proposal time so the Ops dashboard can compute the
+          // 24h response window (Aceptada / Rechazada / Sin respuesta /
+          // Expirada). Reset patient_decision in case this is a re-proposal
+          // after a previous expired round.
+          alternative_proposed_at: new Date().toISOString(),
+          patient_decision: null,
           assigned_to: session.username,
         });
         c = await getCase(id);
         await notifyAlternative(c);
-        await appendCallLog(id, `Clínica propone ${altDate} ${altTime}. Email enviado al paciente.`, session.username);
+        await appendCallLog(id, `Clínica propone ${altDate} ${altTime}. Email enviado al paciente. Tiene 24 h para responder.`, session.username);
         break;
       }
       case 'clinic_rejected': {
@@ -237,6 +267,12 @@ export async function POST(request, { params }) {
         if (!altClinicName || !altDate || !altTime) {
           return NextResponse.json({ error: 'altClinicName, altDate, altTime are required' }, { status: 400 });
         }
+        // altClinicId is now required when the operator picked from the
+        // typeahead (which only lists real DB clinics). We tolerate null
+        // for legacy callers but log a warning so it's visible.
+        if (!altClinicId) {
+          console.warn('[ops/action] alternative_clinic_proposed without altClinicId — paciente recibirá nombre sin dirección. Use el typeahead.');
+        }
         await updateCase(id, {
           status: CASE_STATUS.ALTERNATIVE_CLINIC_PROPOSED,
           alternative_clinic_id: altClinicId || null,
@@ -244,11 +280,15 @@ export async function POST(request, { params }) {
           alternative_slot_date: altDate,
           alternative_slot_time: altTime,
           alternative_reason: reason || 'la clínica original no podía atenderte y encontramos esta alternativa',
+          // 24 h response window — see clinic_proposed_alternative for
+          // rationale. Same fields, same UI computation.
+          alternative_proposed_at: new Date().toISOString(),
+          patient_decision: null,
           assigned_to: session.username,
         });
         c = await getCase(id);
         await notifyAlternative(c);
-        await appendCallLog(id, `Alternativa propuesta: ${altClinicName} ${altDate} ${altTime}. Email al paciente.`, session.username);
+        await appendCallLog(id, `Alternativa propuesta: ${altClinicName} ${altDate} ${altTime}. Email al paciente. Tiene 24 h para responder.`, session.username);
         break;
       }
       case 'no_alternative_refund': {

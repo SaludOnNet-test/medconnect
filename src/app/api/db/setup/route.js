@@ -314,6 +314,15 @@ export async function GET(request) {
       IF NOT EXISTS (SELECT * FROM sys.columns WHERE Name = 'slot_source' AND Object_ID = Object_ID('referrals'))
       ALTER TABLE referrals ADD slot_source NVARCHAR(20) NULL;
     `);
+    // alternative_proposed_at on operations_cases: timestamp set when Ops
+    // proposes an alternative slot/clinic. Drives the 24h response window
+    // shown in the Ops dashboard (Aceptada / Rechazada / Sin respuesta /
+    // Expirada). Lazy expiration — the UI computes "expired" from this
+    // timestamp + 24h, no background cron needed.
+    await pool.request().query(`
+      IF NOT EXISTS (SELECT * FROM sys.columns WHERE Name = 'alternative_proposed_at' AND Object_ID = Object_ID('operations_cases'))
+      ALTER TABLE operations_cases ADD alternative_proposed_at DATETIMEOFFSET NULL;
+    `);
     // referral_id on operations_cases: NULL for direct bookings, set to the
     // originating referral id when the case was created from an external
     // lock-in payment. Lets /admin/ops show a "derivación externa" chip and
@@ -473,6 +482,15 @@ export async function GET(request) {
     await pool.request().query(`
       IF NOT EXISTS (SELECT * FROM sys.columns WHERE Name = 'slot_source' AND Object_ID = Object_ID('referrals'))
       ALTER TABLE referrals ADD slot_source NVARCHAR(20) NULL;
+    `);
+    // alternative_proposed_at on operations_cases: timestamp set when Ops
+    // proposes an alternative slot/clinic. Drives the 24h response window
+    // shown in the Ops dashboard (Aceptada / Rechazada / Sin respuesta /
+    // Expirada). Lazy expiration — the UI computes "expired" from this
+    // timestamp + 24h, no background cron needed.
+    await pool.request().query(`
+      IF NOT EXISTS (SELECT * FROM sys.columns WHERE Name = 'alternative_proposed_at' AND Object_ID = Object_ID('operations_cases'))
+      ALTER TABLE operations_cases ADD alternative_proposed_at DATETIMEOFFSET NULL;
     `);
     // referral_id on operations_cases: NULL for direct bookings, set to the
     // originating referral id when the case was created from an external

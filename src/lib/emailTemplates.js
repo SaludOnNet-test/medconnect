@@ -500,11 +500,17 @@ export function operationsBookingAlert({
 // ─────────────────────────────────────────────
 export function patientAlternativeSlot({
   patientName, originalClinicName, originalDate, originalTime,
-  alternativeClinicName, alternativeDate, alternativeTime, alternativeReason,
+  alternativeClinicName, alternativeAddress, alternativeCity,
+  alternativeDate, alternativeTime, alternativeReason,
   acceptUrl, rejectUrl,
 }) {
   const fmtOriginal = originalDate ? new Date(originalDate + 'T00:00:00').toLocaleDateString('es-ES', { weekday: 'long', day: 'numeric', month: 'long' }) : originalDate;
   const fmtAlternative = alternativeDate ? new Date(alternativeDate + 'T00:00:00').toLocaleDateString('es-ES', { weekday: 'long', day: 'numeric', month: 'long' }) : alternativeDate;
+  // Compose the address line from address + city when available. Both
+  // optional — pre-typeahead callers may not pass them. When missing the
+  // email just shows the clinic name as before.
+  const addrParts = [alternativeAddress, alternativeCity].filter(Boolean);
+  const fullAddress = addrParts.length ? addrParts.join(', ') : '';
 
   const html = baseWrapper(bodySection(`
     <h2 style="margin:0 0 12px;font-size:22px;font-weight:800;color:#1a3c5e;">Hola ${patientName || ''} 👋</h2>
@@ -519,7 +525,9 @@ export function patientAlternativeSlot({
     <div style="background:#f0fdf4;border:1px solid #bbf7d0;border-radius:10px;padding:18px;margin-bottom:20px;">
       <p style="margin:0 0 6px;font-size:13px;font-weight:700;color:#15803d;text-transform:uppercase;letter-spacing:0.05em;">Nueva propuesta</p>
       <p style="margin:0;font-size:18px;font-weight:800;color:#14532d;">${alternativeClinicName}</p>
+      ${fullAddress ? `<p style="margin:6px 0 0;font-size:14px;color:#475569;">📍 ${fullAddress}</p>` : ''}
       <p style="margin:4px 0 0;font-size:16px;color:#166534;">${fmtAlternative} · ${alternativeTime}</p>
+      <p style="margin:8px 0 0;font-size:12px;color:#475569;">Tienes 24 horas para confirmar esta nueva cita.</p>
     </div>
 
     <table width="100%" cellpadding="0" cellspacing="0" style="margin-bottom:24px;">
