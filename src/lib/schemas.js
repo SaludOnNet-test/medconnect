@@ -95,6 +95,11 @@ export const referralsCreateSchema = z.object({
   procedureSlug: optionalText(100),
   procedureName: optionalText(255),
   lockInWarningAt: optionalText(64),
+  // 'list' (default) when the pro picked from the generated available-slots
+  // grid; 'manual' when the pro typed an hueco via the internal-derivation
+  // escape hatch. Persisted server-side so we can later audit how often
+  // manual slots get used and whether they convert.
+  slotSource: z.enum(['list', 'manual']).optional(),
   notes: optionalText(2000),
   captchaToken,
 });

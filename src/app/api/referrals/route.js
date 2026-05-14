@@ -103,6 +103,7 @@ export async function POST(request) {
     fee,
     specialty,
     lockInWarningAt,
+    slotSource, // 'list' (default) | 'manual' — see schema for context
   } = body;
 
   if (!id || !patientEmail) {
@@ -214,6 +215,24 @@ export async function POST(request) {
             (@id, @state, @patient_email, @professional_email, @profession_name,
              @provider_id, @provider_name, @slot_date, @slot_time, @fee, @specialty, @lock_in_warning_at)
         `);
+    }
+
+    // Stamp the slot_source column for audit (manual vs list).
+    // Best-effort: pre-migration DB without the column silently no-ops
+    // so the route keeps working. We do this as a follow-up UPDATE
+    // instead of folding into the INSERT so the two INSERT variants
+    // above don't have to grow another column each.
+    if (slotSource) {
+      try {
+        await pool.request()
+          .input('id', sql.NVarChar(50), id)
+          .input('slot_source', sql.NVarChar(20), slotSource)
+          .query(`UPDATE referrals SET slot_source = @slot_source WHERE id = @id`);
+      } catch (slotSrcErr) {
+        if (!String(slotSrcErr?.message || '').includes('Invalid column name')) {
+          console.error('[POST /api/referrals] slot_source stamp failed', slotSrcErr?.message);
+        }
+      }
     }
 
     // Fetch the inserted row to return it

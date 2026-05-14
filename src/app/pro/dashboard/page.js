@@ -65,8 +65,21 @@ export default function ProDashboard() {
 
   const clerkEmail = clerkLoaded ? (clerkUserObj?.primaryEmailAddress?.emailAddress || '') : '';
   const clerkName = clerkLoaded ? (clerkUserObj?.fullName || clerkUserObj?.firstName || '') : '';
-  const professionName = (HAS_CLERK_KEYS && clerkName) ? clerkName : 'Centro Médico San José';
+  // `professionName` is the DOCTOR's display name — used in greetings, NOT
+  // as the clinic name. Historically this used to double-up as the clinic
+  // (with a hardcoded "Centro Médico San José" fallback) which leaked the
+  // wrong name into emails (a Cea Bermúdez user appeared as "San José" in
+  // the lock-in email to patients). Now every email build site below uses
+  // `myClinic?.name` for the clinic field and `professionName` only for
+  // the human name.
+  const professionName = (HAS_CLERK_KEYS && clerkName) ? clerkName : 'Doctor';
   const professionalEmail = (HAS_CLERK_KEYS && clerkEmail) ? clerkEmail : 'info@centromedico.es';
+
+  // Resolve the clinic name from the pro's mapped clinic (admin_users.clinic_id
+  // → clinics.name, fetched via /api/pro/me). Falls back to the doctor's
+  // display name only as a last resort (legacy MVP scenarios where the pro
+  // has no clinic yet); production should always resolve to a real clinic.
+  const clinicNameForEmail = myClinic?.name || professionName;
 
   // Load referrals — API first, localStorage fallback
   useEffect(() => {
@@ -175,6 +188,11 @@ export default function ProDashboard() {
           fee,
           specialty,
           lockInWarningAt,
+          // 'manual' when the pro typed the hueco via ManualSlotPicker
+          // (only available for internal derivation); 'list' otherwise.
+          // Persisted server-side for audit so we can later ask "¿cuántas
+          // derivaciones internas usaron slot manual y luego no aparecieron?".
+          slotSource: slot?.slotSource || 'list',
         }),
       });
       if (res.ok) newReferral = await res.json();
@@ -193,7 +211,7 @@ export default function ProDashboard() {
     const emailData = {
       patientEmail,
       professionalEmail,
-      clinicName: professionName,
+      clinicName: clinicNameForEmail,
       specialty,
       providerName: provider.name,
       slotDate: slot.date,
@@ -224,7 +242,7 @@ export default function ProDashboard() {
     sendEmail('lockInInvitation', {
       patientEmail: patientEmail || referral?.patientEmail,
       professionalEmail,
-      clinicName: professionName,
+      clinicName: clinicNameForEmail,
       specialty: referral?.specialty || 'Consulta médica',
       providerName: referral?.providerName || '',
       slotDate: referral?.slotDate || '',
@@ -240,7 +258,7 @@ export default function ProDashboard() {
     sendEmail('lockInInvitation', {
       patientEmail: newEmailValue.trim(),
       professionalEmail,
-      clinicName: professionName,
+      clinicName: clinicNameForEmail,
       specialty: referral?.specialty || 'Consulta médica',
       providerName: referral?.providerName || '',
       slotDate: referral?.slotDate || '',

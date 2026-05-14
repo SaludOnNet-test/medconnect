@@ -89,12 +89,18 @@ export default function LockInPage() {
 
       if (found) {
         setReferral(found);
-        setForm((prev) => ({
-          ...prev,
+        // Pre-fill the data fields from the referral, but explicitly reset
+        // `acceptTerms` to false. The patient has to consent to the priority
+        // charge every time they land on this page — never inherit a "true"
+        // from a previous form or from browser autofill. Without this reset
+        // we saw cases where the checkbox showed as checked before the user
+        // had read the terms (item 7 from the report).
+        setForm({
           patientName: found.patientName || '',
           patientPhone: found.patientPhone || '',
           patientAddress: found.patientAddress || '',
-        }));
+          acceptTerms: false,
+        });
       } else {
         setIsExpired(true);
       }
@@ -136,6 +142,11 @@ export default function LockInPage() {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+
+    // Guard against double-submission. Without this, a second click while
+    // `isSubmitting` is true would re-trigger the PATCH + router.push and
+    // race against the first submission.
+    if (isSubmitting) return;
 
     if (!form.patientName.trim() || !form.patientPhone.trim() || !form.patientAddress.trim()) {
       alert('Por favor completa todos los campos requeridos');
@@ -304,7 +315,7 @@ export default function LockInPage() {
             </div>
 
             {/* Patient Data Form */}
-            <form className="lock-in-form" onSubmit={handleSubmit}>
+            <form className="lock-in-form" onSubmit={handleSubmit} autoComplete="off">
               <h2>Información del Paciente</h2>
 
               <div className="form-group">
@@ -362,6 +373,7 @@ export default function LockInPage() {
                   checked={form.acceptTerms}
                   onChange={(e) => handleFormChange('acceptTerms', e.target.checked)}
                   required
+                  autoComplete="off"
                 />
                 <label htmlFor="accept-terms">
                   Confirmo que los datos son correctos y autorizo el cobro de {formatEUR(referral.fee)}
