@@ -86,6 +86,7 @@ export default function OpsDashboard() {
         </div>
         <div className="ops-header-right">
           <span className="ops-user">👤 {user.displayName || user.username}</span>
+          <Link href="/admin/ops/internas" className="ops-link-btn" title="Derivaciones internas — visibilidad en caso de incidencia">🔁 Internas</Link>
           <Link href="/admin/clinic-alta" className="ops-link-btn">Altas clínicas</Link>
           <Link href="/admin/pro-verifications" className="ops-link-btn">Verificaciones</Link>
           {user.role === 'admin' && <Link href="/admin/users" className="ops-link-btn">Usuarios</Link>}
