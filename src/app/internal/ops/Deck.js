@@ -326,7 +326,10 @@ function buildSlides({ credentials }) {
                 <li>Guarda la contraseña en tu gestor (1Password, Bitwarden…). No la dejes en post-its.</li>
                 <li>Si te olvidas: avisa a Francisco. Hay un endpoint puntual de recuperación.</li>
                 <li>Cierra sesión al final del día (botón arriba a la derecha) si compartes equipo.</li>
-                <li>No compartas tu cuenta. Para dar acceso a alguien nuevo, créale un usuario desde <code>/admin/users</code>.</li>
+                <li>
+                  <strong>Login concurrente OK:</strong> varios agentes pueden estar logueados a la vez con la misma cuenta
+                  ({credentials.username}). Cada sesión es independiente y dura 12 h. No hay que cerrar una para que otra entre.
+                </li>
               </ul>
             </Card>
           </div>
@@ -552,9 +555,20 @@ function buildSlides({ credentials }) {
           <SlideHeader
             eyebrow="Slide 10 · Otras áreas del admin"
             title="Lo que vas a tocar menos pero te toca"
-            lede="No todo es /admin/ops. Hay cuatro pantallas más que también caen sobre vuestro equipo."
+            lede="No todo es /admin/ops. Hay cinco pantallas más que también caen sobre vuestro equipo."
           />
           <div className="grid-2">
+            <Card label="/admin/ops/internas · derivaciones internas">
+              <p>
+                Cola aparte para derivaciones internas (clínica deriva y atiende). <strong>Normalmente no
+                requieren acción de Ops</strong> — la clínica gestiona el hueco. Pero si surge incidencia
+                (paciente cancela, clínica reclama, etc.) las podes ver aquí y marcarlas como
+                «incidencia» para seguimiento.
+              </p>
+              <p>
+                <a href={`${PROD_BASE}/admin/ops/internas`} target="_blank" rel="noopener noreferrer">{`${PROD_BASE}/admin/ops/internas`}</a>
+              </p>
+            </Card>
             <Card label="/admin/clinic-alta · revisar altas de clínicas">
               <p>
                 Cuando una clínica nueva pide darse de alta en <code>/pro/onboarding</code>
