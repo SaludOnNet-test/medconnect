@@ -879,9 +879,14 @@ function BookContent() {
                       <Icon name="info" size={14} /> Sin seguro pagas dos cosas en una: la <strong>consulta privada</strong> (tarifa oficial de la clínica, según el catálogo SaludOnNet) y la <strong>tarifa de prioridad</strong> por conseguirte el hueco urgente. Ese es el total — no se vuelve a cobrar en la clínica.
                     </p>
                     <p style={{ marginTop: 'var(--space-sm)', fontSize: '0.78rem', color: 'var(--muted)', lineHeight: 1.6 }}>
-                      <Icon name="shield-check" size={14} /> <strong>Cancelación 100% reembolsable:</strong> si la clínica no puede atenderte el día/hora reservados, te devolvemos el importe completo (acto + tarifa).
+                      <Icon name="shield-check" size={14} /> <strong>Cancelación con más de 72 h:</strong> reembolso completo. Dentro de las 72 h o no show: te devolvemos solo el valor del servicio (la prioridad no es reembolsable).
                     </p>
                   </>
+                )}
+                {hasInsurance === true && (
+                  <p style={{ marginTop: 'var(--space-sm)', fontSize: '0.78rem', color: 'var(--muted)', lineHeight: 1.6 }}>
+                    <Icon name="shield-check" size={14} /> <strong>Cancelación con más de 72 h:</strong> reembolso completo de la prioridad. Dentro de las 72 h o no show: la prioridad no es reembolsable.
+                  </p>
                 )}
               </div>
             )}

@@ -120,14 +120,20 @@ export default function ClinicBookingModal({
   const handleBook = () => {
     if (!canBook) return;
     const fee = feeFromSlot(selectedSlot);
-    const totalFee = isSinSeguro ? procedurePrice + fee.amount : fee.amount;
+    // BUG FIX (ítem 1 del reporte): antes pasábamos `totalFee = procedurePrice
+    // + fee.amount` y luego /book volvía a sumar `servicePrice + activeFee`,
+    // duplicando el precio del servicio en el checkout. Ahora `fee` es solo
+    // la prioridad; /book compone el total para sin-seguro como
+    // `servicePrice + priority`. Para asegurado, `total = priority` (la
+    // consulta corre por el seguro).
+    const priorityFee = fee.amount;
 
     const params = new URLSearchParams({
       provider: provider.id,
       providerName: provider.name,
       date: selectedSlot.date,
       time: selectedSlot.time,
-      fee: totalFee,
+      fee: priorityFee,
       feeLabel: fee.label,
       tier: String(fee.tier),
       isSinSeguro: String(isSinSeguro),

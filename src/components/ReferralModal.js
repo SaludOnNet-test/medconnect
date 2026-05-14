@@ -508,9 +508,14 @@ export default function ReferralModal({
                             <div className="procedure-name">{p.name}</div>
                             {p.specialtyName && <div className="procedure-spec">{p.specialtyName}</div>}
                           </div>
-                          {p.price != null && (
-                            <div className="procedure-price">{formatEUR(p.price)}</div>
-                          )}
+                          {/* Deliberately NO `p.price` here — that's the
+                              sin-seguro service price, which is irrelevant
+                              in a derivation flow (lock-in patients pay only
+                              the prioridad). Showing it confused derivadores
+                              into thinking they'd have to charge the patient
+                              the catalogue price. The actual cost to the
+                              patient (priority fee) is shown on the slot
+                              cards in step 3. */}
                         </button>
                       ))}
                     </div>
