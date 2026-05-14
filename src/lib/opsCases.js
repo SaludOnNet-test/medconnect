@@ -139,6 +139,7 @@ export async function listCases({ status, limit = 100 } = {}) {
          c.id, c.booking_id, c.status, c.assigned_to, c.referral_id,
          c.original_clinic_id, c.original_clinic_name, c.original_slot_date, c.original_slot_time,
          c.alternative_clinic_id, c.alternative_clinic_name, c.alternative_slot_date, c.alternative_slot_time,
+         c.alternative_proposed_at, c.patient_decision,
          c.amount_paid, c.payment_to_clinic, c.tier,
          c.created_at, c.updated_at, c.resolved_at,
          b.patient_name, b.patient_email, b.patient_phone, b.has_insurance, b.insurance_company, b.specialty,
@@ -200,11 +201,16 @@ export async function getCase(id) {
          r.professional_email AS derivador_email,
          r.provider_name      AS derivador_provider_name,
          r.specialty          AS referral_specialty,
-         r.fee                AS referral_fee
+         r.fee                AS referral_fee,
+         oc.city              AS original_clinic_city,
+         ac.address           AS alternative_clinic_address,
+         ac.city              AS alternative_clinic_city
        FROM operations_cases c
        LEFT JOIN bookings  b ON b.id = c.booking_id
        LEFT JOIN vouchers  v ON v.booking_id = c.booking_id
        LEFT JOIN referrals r ON r.id = c.referral_id
+       LEFT JOIN clinics   oc ON oc.id = c.original_clinic_id
+       LEFT JOIN clinics   ac ON ac.id = c.alternative_clinic_id
        WHERE c.id = @id`,
       { id: { type: sql.Int, value: Number(id) } }
     );
@@ -256,6 +262,7 @@ export async function updateCase(id, fields) {
     'status', 'assigned_to',
     'alternative_clinic_id', 'alternative_clinic_name',
     'alternative_slot_date', 'alternative_slot_time', 'alternative_reason',
+    'alternative_proposed_at',
     'refund_id', 'refund_amount', 'refund_reason',
     'call_log', 'ops_notes', 'patient_decision',
   ];
@@ -268,6 +275,8 @@ export async function updateCase(id, fields) {
       params[k] = { type: sql.Int, value: v ?? null };
     } else if (['refund_amount'].includes(k)) {
       params[k] = { type: sql.Decimal(10, 2), value: v ?? null };
+    } else if (['alternative_proposed_at'].includes(k)) {
+      params[k] = { type: sql.DateTimeOffset, value: v ? new Date(v) : null };
     } else {
       params[k] = { type: sql.NVarChar(sql.MAX), value: v ?? null };
     }

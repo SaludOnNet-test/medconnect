@@ -1,20 +1,57 @@
 'use client';
 
-import { useEffect, useState, use } from 'react';
+import { useEffect, useState, useMemo, useRef, use } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { adminFetch, getAdminToken } from '@/lib/adminClient';
 import '../ops.css';
 
+// Spain operates on Europe/Madrid (CET in winter, CEST in summer). All
+// our DB timestamps are stored as ISO UTC; rendering them naively shows
+// UTC clock time and Raquel reported the 2 h drift. Centralise the
+// locale + timeZone here so every callsite agrees.
+const MADRID_TZ = 'Europe/Madrid';
+
 function fmtDateTime(d) {
   if (!d) return '—';
-  return new Date(d).toLocaleString('es-ES', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' });
+  return new Date(d).toLocaleString('es-ES', {
+    day: '2-digit', month: 'short', year: 'numeric',
+    hour: '2-digit', minute: '2-digit',
+    timeZone: MADRID_TZ,
+  });
 }
 
 function fmtCitaDate(date, time) {
   if (!date) return '—';
   const d = new Date(date + 'T00:00:00');
   return `${d.toLocaleDateString('es-ES', { weekday: 'long', day: 'numeric', month: 'long' })} · ${time || ''}`;
+}
+
+/**
+ * Re-renders the raw `call_log` string by parsing each line. Lines look
+ * like `[2026-05-14T14:30:00.000Z] author: entry`. We replace the ISO
+ * timestamp with the localised Madrid representation so Raquel sees the
+ * actual time she did the action (item 1 of the latest report).
+ *
+ * Lines that don't match the format pass through unchanged — older logs
+ * persisted in different shapes stay readable.
+ */
+function formatCallLog(raw) {
+  if (!raw) return 'Sin registros aún.';
+  return raw.split('\n').map((line) => {
+    const m = line.match(/^\[([^\]]+)\]\s*(.*)$/);
+    if (!m) return line;
+    const ts = m[1];
+    const rest = m[2];
+    const parsed = new Date(ts);
+    if (Number.isNaN(parsed.getTime())) return line;
+    const formatted = parsed.toLocaleString('es-ES', {
+      day: '2-digit', month: '2-digit', year: 'numeric',
+      hour: '2-digit', minute: '2-digit', second: '2-digit',
+      timeZone: MADRID_TZ,
+    });
+    return `[${formatted}] ${rest}`;
+  }).join('\n');
 }
 
 const TERMINAL = ['confirmed', 'refunded', 'cancelled', 'expired'];
@@ -218,6 +255,7 @@ export default function OpsCaseDetail({ params }) {
       <Link href="/admin/ops" className="ops-back-link">← Volver al listado</Link>
       <h1 style={{ margin: '4px 0 16px', fontSize: 24, color: '#1a3c5e', fontWeight: 800 }}>
         Caso #{c.id} — <span className={`ops-status ops-status-${c.status}`}>{c.status}</span>
+        <PatientResponseBadge caso={c} />
       </h1>
 
       {c.referral_id && (
@@ -428,7 +466,7 @@ export default function OpsCaseDetail({ params }) {
 
           <div className="ops-card">
             <h2>Registro de gestiones</h2>
-            <pre className="ops-call-log">{c.call_log || 'Sin registros aún.'}</pre>
+            <pre className="ops-call-log">{formatCallLog(c.call_log)}</pre>
             {!isTerminal && (
               <div style={{ marginTop: 12 }}>
                 <textarea
@@ -521,8 +559,18 @@ export default function OpsCaseDetail({ params }) {
                     🔁 Encontré una clínica alternativa
                   </summary>
                   <div style={{ marginTop: 8 }}>
-                    <input type="text" placeholder="Nombre de la nueva clínica" value={altClinicName} onChange={(e) => setAltClinicName(e.target.value)} />
-                    <input type="number" placeholder="ID clínica (opcional)" value={altClinicId} onChange={(e) => setAltClinicId(e.target.value)} style={{ marginTop: 6 }} />
+                    <ClinicTypeahead
+                      cityFilter={c.original_clinic_city}
+                      specialtyFilter={c.specialty}
+                      preferClinicName="Centro Médico Cea Bermúdez"
+                      onPick={(clinic) => {
+                        setAltClinicName(clinic.name);
+                        setAltClinicId(String(clinic.id));
+                      }}
+                      selectedId={altClinicId ? Number(altClinicId) : null}
+                      selectedName={altClinicName}
+                      onClear={() => { setAltClinicName(''); setAltClinicId(''); }}
+                    />
                     <div className="ops-form-row" style={{ marginTop: 6 }}>
                       <input type="date" value={altDate} onChange={(e) => setAltDate(e.target.value)} />
                       <input type="time" value={altTime} onChange={(e) => setAltTime(e.target.value)} />
@@ -531,13 +579,13 @@ export default function OpsCaseDetail({ params }) {
                     <button
                       className="ops-action-btn ops-action-warn"
                       style={{ marginTop: 8, width: '100%' }}
-                      disabled={busy || !altClinicName || !altDate || !altTime}
+                      disabled={busy || !altClinicId || !altClinicName || !altDate || !altTime}
                       onClick={() => doAction('alternative_clinic_proposed', {
                         altClinicId: altClinicId ? Number(altClinicId) : null,
                         altClinicName, altDate, altTime, reason: altReason,
                       })}
                     >
-                      Mandar email al paciente con la nueva clínica
+                      {altClinicId ? 'Mandar email al paciente con la nueva clínica' : 'Selecciona una clínica de la lista'}
                     </button>
                   </div>
                 </details>
@@ -598,13 +646,21 @@ function RefundFormSection({ c, busy, doAction, forceVisible }) {
 
   // Calcula si el caso está dentro o fuera de cutoff (sin importar el helper
   // del servidor — esto es solo para guiar al operador).
+  // Same purity treatment as PatientResponseBadge — read `Date.now()` via
+  // a stateful tick so the render stays deterministic for React 19's
+  // linter. The cutoff hint refreshes once a minute.
+  const [nowMsRefund, setNowMsRefund] = useState(() => Date.now());
+  useEffect(() => {
+    const t = setInterval(() => setNowMsRefund(Date.now()), 60_000);
+    return () => clearInterval(t);
+  }, []);
   const slotAt = (() => {
     if (!c.original_slot_date) return null;
     const time = c.original_slot_time && /^\d{2}:\d{2}$/.test(c.original_slot_time) ? c.original_slot_time : '00:00';
     const d = new Date(`${c.original_slot_date}T${time}:00`);
     return Number.isNaN(d.getTime()) ? null : d;
   })();
-  const hoursUntilSlot = slotAt ? (slotAt.getTime() - Date.now()) / 3_600_000 : null;
+  const hoursUntilSlot = slotAt ? (slotAt.getTime() - nowMsRefund) / 3_600_000 : null;
   const withinCutoff = hoursUntilSlot !== null && hoursUntilSlot < 72;
   const hasInsurance = c.has_insurance == null ? null : !!c.has_insurance;
 
@@ -667,5 +723,217 @@ function RefundFormSection({ c, busy, doAction, forceVisible }) {
         </button>
       </div>
     </details>
+  );
+}
+
+// ─── Patient response badge ─────────────────────────────────────────
+//
+// Computes 4 states based on patient_decision + alternative_proposed_at:
+//
+//   - patient_decision === 'accepted'  → Aceptada (verde)
+//   - patient_decision === 'rejected'  → Rechazada (rojo)
+//   - decision NULL + dentro de 24h    → Sin respuesta (ámbar) + timer
+//   - decision NULL + pasadas 24h      → Expirada (gris)
+//
+// Solo se renderiza cuando hay una propuesta alternativa pendiente, es
+// decir cuando alternative_proposed_at no es null. Si el caso aún no
+// llegó al estado de propuesta, el badge queda oculto.
+function PatientResponseBadge({ caso }) {
+  // Tick once a minute so the "queda X" countdown stays fresh without
+  // forcing a full case refetch. Using state-with-interval also keeps
+  // the render pure (Date.now() inside render trips React 19's purity
+  // linter; reading from state is fine).
+  const [nowMs, setNowMs] = useState(() => Date.now());
+  useEffect(() => {
+    const t = setInterval(() => setNowMs(Date.now()), 60_000);
+    return () => clearInterval(t);
+  }, []);
+
+  if (!caso?.alternative_proposed_at) return null;
+  const proposedMs = new Date(caso.alternative_proposed_at).getTime();
+  if (Number.isNaN(proposedMs)) return null;
+  const elapsedH = (nowMs - proposedMs) / 3_600_000;
+  const decision = caso.patient_decision;
+
+  let label, color, bg;
+  if (decision === 'accepted') {
+    label = 'Paciente aceptó'; color = '#15803d'; bg = '#dcfce7';
+  } else if (decision === 'rejected') {
+    label = 'Paciente rechazó'; color = '#b91c1c'; bg = '#fee2e2';
+  } else if (elapsedH >= 24) {
+    label = 'Expirada (24 h sin respuesta)'; color = '#374151'; bg = '#e5e7eb';
+  } else {
+    const remainingH = Math.max(0, 24 - elapsedH);
+    const remainingLabel = remainingH >= 1
+      ? `quedan ${Math.floor(remainingH)} h`
+      : `quedan ${Math.max(1, Math.floor(remainingH * 60))} min`;
+    label = `Sin respuesta · ${remainingLabel}`; color = '#92400e'; bg = '#fef3c7';
+  }
+  return (
+    <span style={{
+      display: 'inline-block', marginLeft: 8, padding: '2px 10px',
+      fontSize: 12, fontWeight: 600,
+      borderRadius: 999, color, background: bg,
+    }}>
+      {label}
+    </span>
+  );
+}
+
+// ─── Clinic typeahead ───────────────────────────────────────────────
+//
+// Autocomplete sobre `clinics` filtrado por ciudad + especialidad del
+// caso original. Buscamos al montar (un solo request, ~100 clínicas
+// como techo) y filtramos client-side con normalización (tildes,
+// mayúsculas, ñ→n) a medida que el operador tipea.
+//
+// Política de orden:
+//   - Si `preferClinicName` (típicamente "Centro Médico Cea Bermúdez")
+//     aparece en los resultados, va primero.
+//   - El resto, alfabético por nombre normalizado.
+//
+// Solo permite seleccionar clínicas de la lista — Ops no puede inventar
+// nombres libres. Eso garantiza que el email al paciente lleva la
+// dirección real de la DB.
+function normalize(str) {
+  return String(str || '')
+    .normalize('NFD')
+    .replace(/[̀-ͯ]/g, '') // strip diacritics
+    .replace(/ñ/gi, 'n')
+    .toLowerCase()
+    .trim();
+}
+function ClinicTypeahead({
+  cityFilter, specialtyFilter, preferClinicName,
+  onPick, onClear, selectedId, selectedName,
+}) {
+  const [allClinics, setAllClinics] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [query, setQuery] = useState('');
+  const [openDropdown, setOpenDropdown] = useState(false);
+  const inputRef = useRef(null);
+
+  // Fetch once on mount. We request a generous limit (100) so the
+  // typeahead can filter purely client-side after — most cities won't
+  // exceed that, and if they do the operator can refine the search.
+  useEffect(() => {
+    let cancelled = false;
+    async function load() {
+      setLoading(true);
+      try {
+        const params = new URLSearchParams({ limit: '100' });
+        if (cityFilter) params.set('city', cityFilter);
+        // The /api/clinics/search endpoint maps free-form specialty
+        // names through SPECIALTY_SLUG_MAP. We pass it as specialtySlug
+        // because the search endpoint normalizes slugs better than
+        // free-form name matching.
+        if (specialtyFilter) params.set('specialtySlug', normalize(specialtyFilter).replace(/\s+/g, '-'));
+        const res = await fetch(`/api/clinics/search?${params.toString()}`);
+        const j = await res.json();
+        if (cancelled) return;
+        const list = Array.isArray(j?.clinics) ? j.clinics : [];
+        setAllClinics(list);
+      } catch (err) {
+        console.error('[ClinicTypeahead] fetch error', err);
+        if (!cancelled) setAllClinics([]);
+      }
+      if (!cancelled) setLoading(false);
+    }
+    load();
+    return () => { cancelled = true; };
+  }, [cityFilter, specialtyFilter]);
+
+  const filtered = useMemo(() => {
+    const q = normalize(query);
+    const list = !q
+      ? allClinics
+      : allClinics.filter((c) => normalize(c.name).includes(q));
+    const preferKey = preferClinicName ? normalize(preferClinicName) : null;
+    return [...list].sort((a, b) => {
+      const an = normalize(a.name);
+      const bn = normalize(b.name);
+      if (preferKey) {
+        const ap = an.includes(preferKey);
+        const bp = bn.includes(preferKey);
+        if (ap && !bp) return -1;
+        if (bp && !ap) return 1;
+      }
+      return an.localeCompare(bn);
+    }).slice(0, 12);
+  }, [allClinics, query, preferClinicName]);
+
+  return (
+    <div style={{ position: 'relative' }}>
+      {selectedId ? (
+        <div style={{
+          padding: '6px 8px', border: '1px solid #10b981', borderRadius: 4,
+          background: '#ecfdf5', display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+        }}>
+          <span style={{ fontSize: 13, color: '#064e3b' }}>
+            ✓ <strong>{selectedName}</strong> <span style={{ opacity: 0.7 }}>· id {selectedId}</span>
+          </span>
+          <button
+            type="button"
+            onClick={onClear}
+            style={{ background: 'none', border: 0, color: '#065f46', cursor: 'pointer', fontSize: 12, textDecoration: 'underline' }}
+          >
+            cambiar
+          </button>
+        </div>
+      ) : (
+        <>
+          <input
+            ref={inputRef}
+            type="text"
+            placeholder={
+              cityFilter
+                ? `Buscar clínica en ${cityFilter}${specialtyFilter ? ` · ${specialtyFilter}` : ''} (escribe el nombre)`
+                : 'Buscar clínica (escribe el nombre)'
+            }
+            value={query}
+            onChange={(e) => { setQuery(e.target.value); setOpenDropdown(true); }}
+            onFocus={() => setOpenDropdown(true)}
+            onBlur={() => setTimeout(() => setOpenDropdown(false), 200)}
+            autoComplete="off"
+            style={{ width: '100%' }}
+          />
+          {openDropdown && (
+            <div style={{
+              position: 'absolute', top: '100%', left: 0, right: 0,
+              maxHeight: 280, overflowY: 'auto',
+              background: '#fff', border: '1px solid #d1d5db', borderRadius: 4,
+              boxShadow: '0 4px 12px rgba(0,0,0,0.12)', zIndex: 10, marginTop: 2,
+            }}>
+              {loading ? (
+                <div style={{ padding: '8px 10px', fontSize: 12, color: '#6b7280' }}>Cargando clínicas…</div>
+              ) : filtered.length === 0 ? (
+                <div style={{ padding: '8px 10px', fontSize: 12, color: '#6b7280' }}>
+                  Sin resultados{cityFilter ? ` en ${cityFilter}` : ''}. Cambia la búsqueda o emite reembolso si no hay alternativa.
+                </div>
+              ) : (
+                filtered.map((cl) => (
+                  <button
+                    key={cl.id}
+                    type="button"
+                    onMouseDown={(e) => e.preventDefault()} // keep input focused
+                    onClick={() => { onPick(cl); setQuery(''); setOpenDropdown(false); }}
+                    style={{
+                      display: 'block', width: '100%', textAlign: 'left',
+                      padding: '6px 10px', background: 'none', border: 0,
+                      borderBottom: '1px solid #f3f4f6', cursor: 'pointer', fontSize: 13,
+                    }}
+                  >
+                    <div style={{ fontWeight: 600 }}>{cl.name}</div>
+                    <div style={{ fontSize: 11, color: '#6b7280' }}>
+                      {cl.city || ''}{cl.address ? ` · ${cl.address}` : ''}
+                    </div>
+                  </button>
+                ))
+              )}
+            </div>
+          )}
+        </>
+      )}
+    </div>
   );
 }
