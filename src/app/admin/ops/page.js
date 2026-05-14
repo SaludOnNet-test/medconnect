@@ -138,6 +138,19 @@ export default function OpsDashboard() {
                   <td>
                     <div>{c.original_clinic_name}</div>
                     <div className="ops-patient-meta">{c.specialty || ''}</div>
+                    {c.referral_id && (
+                      <div
+                        className="ops-patient-meta"
+                        style={{
+                          marginTop: 4, fontSize: 11, fontWeight: 600,
+                          color: '#7c2d12', background: '#fef3c7',
+                          padding: '1px 6px', borderRadius: 4, display: 'inline-block',
+                        }}
+                        title={c.derivador_email ? `Derivado por ${c.derivador_email}` : 'Derivación externa'}
+                      >
+                        🌐 derivación externa
+                      </div>
+                    )}
                   </td>
                   <td>{c.original_slot_date} · {c.original_slot_time}</td>
                   <td>€{Number(c.amount_paid || 0).toFixed(2)} / €{Number(c.payment_to_clinic || 0).toFixed(2)} · T{c.tier || '—'}</td>

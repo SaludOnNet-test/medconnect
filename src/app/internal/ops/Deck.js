@@ -220,15 +220,15 @@ function buildSlides({ credentials }) {
             num="2"
             name="Derivación interna (lock-in) — médico a colega"
             who="Médico A · misma clínica · Paciente"
-            summary="Un médico/clínica deriva al paciente a un colega de la misma clínica. Genera un email lock-in de 60 min al paciente. No pasa por ti salvo incidencia."
+            summary="Un médico/clínica deriva al paciente a un colega de la misma clínica. Genera un email lock-in de 60 min al paciente. No pasa por ti — la misma clínica deriva y atiende, así que ellos gestionan el hueco internamente. Solo entras si surge incidencia."
             href={`${PROD_BASE}/pro/dashboard`}
             anchor="#anexo-flujos"
           />
           <FlowRow
             num="3"
             name="Derivación externa — clínica a otra clínica"
-            who="Clínica A → Marketplace → Clínica B · Paciente"
-            summary="Una clínica deriva al paciente a otra clínica del marketplace y cobra comisión. Tampoco pasa por ti salvo incidencia o disputa."
+            who="Clínica A → Marketplace → Clínica B · TÚ · Paciente"
+            summary="Una clínica deriva al paciente a OTRA clínica del marketplace. Cuando el paciente paga, se crea un caso en tu lista con la chip «derivación externa». Tu trabajo es exactamente el de un caso directo: llamas a la clínica receptora para confirmar el hueco, proponer alternativa, buscar otra clínica o reembolsar. Si la receptora no está dada de alta en Medconnect, al pulsar ✓ Aceptar le llega un email con datos del paciente + enlace de onboarding."
             href={`${PROD_BASE}/pro/dashboard`}
             anchor="#anexo-flujos"
           />
@@ -438,10 +438,11 @@ function buildSlides({ credentials }) {
         <>
           <SlideHeader
             eyebrow="Slide 8 · Escenarios típicos"
-            title="Qué hacer en los 7 casos que verás más"
+            title="Qué hacer en los 8 casos que verás más"
             lede={`No necesitas memorizar: vuelve aquí cuando un caso no encaje. ` +
               `Regla principal del MVP: si la clínica original no puede, primero intentamos ` +
-              `${CEA_NAME} y solo si tampoco puede vamos al marketplace.`}
+              `${CEA_NAME} y solo si tampoco puede vamos al marketplace. ` +
+              `Los casos con chip "derivación externa" se tratan igual que los directos — la única diferencia es que llamas a una clínica que puede no estar dada de alta en Medconnect todavía.`}
           />
           <div className="grid-2">
             <Runbook
@@ -485,6 +486,12 @@ function buildSlides({ credentials }) {
               signal={`Ni clínica original, ni ${CEA_NAME}, ni marketplace tienen hueco viable.`}
               action="Botón 💸 Reembolsar. Anota motivo: «sin disponibilidad»."
               emailHint="Stripe refund + email al paciente explicando que reembolsamos por falta de disponibilidad."
+            />
+            <Runbook
+              scenario="H · Caso por derivación externa"
+              signal="El caso lleva la chip 🌐 «derivación externa» en la lista. El paciente ya pagó la prioridad. La clínica receptora puede no estar dada de alta en Medconnect todavía."
+              action="Mismo flujo que un caso directo: llamas a la clínica receptora con el script normal del caso. Si confirman → ✓ Aceptar. Si proponen otra hora → 🕐. Si dicen que no → fallback Cea → 🔁 o 💸."
+              emailHint="Mismo email al paciente que en la vía directa. AL pulsar ✓ Aceptar, la clínica receptora recibe email con datos del paciente + enlace para darse de alta en Medconnect y cobrar la comisión — si ya estaba dada de alta, el email se lo recuerda; si no, es su captura."
             />
           </div>
         </>
@@ -788,19 +795,27 @@ function buildSlides({ credentials }) {
             <SwimlaneRow
               scenario="Camino feliz"
               steps={[
-                { area: 'Clínica A', text: 'Busca clínica B en marketplace desde /pro/dashboard' },
-                { area: 'Clínica A', text: 'Crea derivación · lock-in 60 min al paciente' },
-                { area: 'Paciente', text: 'Acepta y paga prioridad' },
-                { area: 'Clínica B', text: 'Atiende al paciente' },
-                { area: 'Sistema', text: 'Comisión acumulada para Clínica A' },
+                { area: 'Clínica A', text: 'Busca clínica B y crea derivación · lock-in 60 min al paciente' },
+                { area: 'Paciente', text: 'Acepta el email y paga la prioridad' },
+                { area: 'Sistema', text: 'Crea caso con chip «derivación externa» en /admin/ops' },
+                { area: 'OPS', text: 'Llama a Clínica B · confirma hueco · ✓ Aceptar' },
+                { area: 'Sistema', text: 'Email al paciente + email a Clínica B con onboarding' },
               ]}
             />
             <SwimlaneRow
-              scenario="Clínica B rechaza"
+              scenario="Clínica B rechaza al teléfono"
               steps={[
-                { area: 'Clínica B', text: 'Avisa de que no puede atender' },
-                { area: 'OPS', text: `Caso entra como pending_call · fallback a ${CEA_NAME}` },
-                { area: 'OPS', text: 'Misma cascada que flujo 1' },
+                { area: 'Clínica B', text: 'Te dice por teléfono que no puede atender' },
+                { area: 'OPS', text: `Botón ✕ Rechazar · fallback a ${CEA_NAME}` },
+                { area: 'OPS', text: 'Misma cascada que el flujo 1' },
+              ]}
+            />
+            <SwimlaneRow
+              scenario="Clínica B no está dada de alta en Medconnect"
+              steps={[
+                { area: 'OPS', text: 'Llama igualmente, explica que tiene un paciente pagado' },
+                { area: 'OPS', text: '✓ Aceptar si confirma · el email lleva el onboarding' },
+                { area: 'Clínica B', text: '3 minutos: alta + IBAN · ya cobra la comisión' },
               ]}
             />
           </div>
