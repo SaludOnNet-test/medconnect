@@ -238,15 +238,72 @@ export async function POST(request) {
       }
     }
 
-    // Open an operations case for this booking (best-effort, do not break booking creation)
+    // Open an operations case for this booking, with two carve-outs:
+    //   1. Internal lock-in (referral.is_internal = 1): no case. The
+    //      deriving clinic is also the destination clinic, so they handle
+    //      the appointment themselves — Ops adds zero value.
+    //   2. External lock-in (referral.is_internal = 0/NULL): create case
+    //      AND tag it with referral_id + a starter call-log entry naming
+    //      the derivador. From Ops's perspective the case behaves exactly
+    //      like a direct booking (call destination clinic, confirm slot or
+    //      find alternative, refund if nothing fits) — the chip and banner
+    //      just give Raquel context for the call.
+    //   3. Direct booking (no referralId): case created as today.
+    //
+    // Best-effort throughout: a missed lookup, a pre-migration column, or
+    // a referrals row that doesn't exist all degrade to "create the case
+    // anyway" rather than dropping a paid booking from the Ops queue.
     let opsCase = null;
-    try {
-      opsCase = await createCaseForBooking({
-        id, providerId, providerName, slotDate, slotTime, amount,
-        platformFee: platformFee != null ? Number(platformFee) : null,
-      });
-    } catch (caseErr) {
-      console.error('[POST /api/bookings] case creation failed', caseErr);
+    let skipCase = false;
+    let referralContext = null;
+    if (referralId) {
+      try {
+        const r = await pool.request()
+          .input('rid', sql.NVarChar(50), referralId)
+          .query(`SELECT TOP 1 is_internal, professional_email, provider_name
+                  FROM referrals WHERE id = @rid`);
+        const row = r.recordset[0];
+        if (row?.is_internal === 1) {
+          skipCase = true;
+        } else if (row) {
+          // Resolve derivador clinic name via admin_users.clinic_id → clinics.name.
+          let derivadorClinicName = null;
+          try {
+            const c = await pool.request()
+              .input('email', sql.NVarChar(255), row.professional_email)
+              .query(`SELECT TOP 1 cl.name
+                      FROM admin_users a
+                      LEFT JOIN clinics cl ON cl.id = a.clinic_id
+                      WHERE LOWER(a.username) = LOWER(@email)`);
+            derivadorClinicName = c.recordset[0]?.name || null;
+          } catch (clErr) {
+            if (!String(clErr?.message || '').includes('Invalid column name')) {
+              console.error('[POST /api/bookings] derivador clinic lookup', clErr.message);
+            }
+          }
+          referralContext = {
+            derivadorEmail: row.professional_email,
+            derivadorClinicName,
+            isInternal: false,
+          };
+        }
+      } catch (refErr) {
+        if (!String(refErr?.message || '').includes('Invalid column name')) {
+          console.error('[POST /api/bookings] referral lookup', refErr.message);
+        }
+      }
+    }
+    if (!skipCase) {
+      try {
+        opsCase = await createCaseForBooking({
+          id, providerId, providerName, slotDate, slotTime, amount,
+          platformFee: platformFee != null ? Number(platformFee) : null,
+          referralId: referralId || null,
+          referralContext,
+        });
+      } catch (caseErr) {
+        console.error('[POST /api/bookings] case creation failed', caseErr);
+      }
     }
 
     const result = await pool.request()

@@ -215,6 +215,28 @@ export default function OpsCaseDetail({ params }) {
         Caso #{c.id} — <span className={`ops-status ops-status-${c.status}`}>{c.status}</span>
       </h1>
 
+      {c.referral_id && (
+        <div
+          style={{
+            background: '#fef3c7',
+            border: '1px solid #fde68a',
+            borderRadius: 8,
+            padding: '12px 16px',
+            marginBottom: 16,
+            color: '#78350f',
+          }}
+        >
+          <strong>🌐 Caso por derivación externa.</strong>{' '}
+          {c.derivador_provider_name || c.derivador_email
+            ? <>Derivado por <strong>{c.derivador_provider_name || c.derivador_email}</strong>.</>
+            : 'Derivado por una clínica del marketplace.'}{' '}
+          Tu trabajo es el mismo que en una compra directa: <strong>llama a la clínica receptora</strong>{' '}
+          ({c.original_clinic_name || 'ver Cita original'}) para confirmar el hueco. Si no están dados de alta
+          en Medconnect, el botón ✓ Aceptar les envía un email con los datos del paciente y un enlace de
+          onboarding para que cobren la comisión.
+        </div>
+      )}
+
       <div className="ops-detail-grid">
         {/* LEFT — main info */}
         <div>

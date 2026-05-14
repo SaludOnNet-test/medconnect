@@ -541,6 +541,12 @@ function buildSlides({ credentials }) {
               &laquo;Le he buscado hueco en clínica X para mañana. Le ha llegado un email para confirmar y pagar la prioridad.
               Si lo acepta en 1 hora, el hueco es suyo.&raquo;
             </Step>
+            <Step n="6" title="Tú aquí terminas · Operaciones / Atención al Cliente se encarga del resto">
+              Cuando el paciente pague, nuestro equipo de Operaciones / Atención al Cliente recibe el caso
+              automáticamente en su panel y llama a la clínica receptora para confirmarle el hueco.
+              Si la receptora todavía no está dada de alta en Medconnect, Operaciones aprovecha esa
+              llamada para hacerle el onboarding. Tú no tienes que coordinar nada después del paso 5.
+            </Step>
           </ol>
           <Note>
             <strong>Importante:</strong> esto NO es enviar al paciente a la competencia. Es <em>colaborar</em>:

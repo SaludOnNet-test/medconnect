@@ -305,6 +305,20 @@ export async function GET(request) {
       IF NOT EXISTS (SELECT * FROM sys.columns WHERE Name = 'is_internal' AND Object_ID = Object_ID('referrals'))
       ALTER TABLE referrals ADD is_internal BIT NULL;
     `);
+    // referral_id on operations_cases: NULL for direct bookings, set to the
+    // originating referral id when the case was created from an external
+    // lock-in payment. Lets /admin/ops show a "derivación externa" chip and
+    // surface the derivador context (clinic + email) on the case detail.
+    // Internal lock-ins don't create cases at all (the deriving clinic is
+    // the receiving clinic — self-managed).
+    await pool.request().query(`
+      IF NOT EXISTS (SELECT * FROM sys.columns WHERE Name = 'referral_id' AND Object_ID = Object_ID('operations_cases'))
+      ALTER TABLE operations_cases ADD referral_id NVARCHAR(50) NULL;
+    `);
+    await pool.request().query(`
+      IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE name = 'IX_operations_cases_referral_id' AND object_id = OBJECT_ID('operations_cases'))
+      CREATE INDEX IX_operations_cases_referral_id ON operations_cases(referral_id) WHERE referral_id IS NOT NULL;
+    `);
     // Backfill is_internal for existing referrals — idempotent because the
     // WHERE clause limits to rows that are still NULL. Mirrors the logic
     // in scripts/migrate_referrals_is_internal.js so calling /api/db/setup
@@ -441,6 +455,20 @@ export async function GET(request) {
     await pool.request().query(`
       IF NOT EXISTS (SELECT * FROM sys.columns WHERE Name = 'is_internal' AND Object_ID = Object_ID('referrals'))
       ALTER TABLE referrals ADD is_internal BIT NULL;
+    `);
+    // referral_id on operations_cases: NULL for direct bookings, set to the
+    // originating referral id when the case was created from an external
+    // lock-in payment. Lets /admin/ops show a "derivación externa" chip and
+    // surface the derivador context (clinic + email) on the case detail.
+    // Internal lock-ins don't create cases at all (the deriving clinic is
+    // the receiving clinic — self-managed).
+    await pool.request().query(`
+      IF NOT EXISTS (SELECT * FROM sys.columns WHERE Name = 'referral_id' AND Object_ID = Object_ID('operations_cases'))
+      ALTER TABLE operations_cases ADD referral_id NVARCHAR(50) NULL;
+    `);
+    await pool.request().query(`
+      IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE name = 'IX_operations_cases_referral_id' AND object_id = OBJECT_ID('operations_cases'))
+      CREATE INDEX IX_operations_cases_referral_id ON operations_cases(referral_id) WHERE referral_id IS NOT NULL;
     `);
     // Backfill is_internal for existing referrals — idempotent because the
     // WHERE clause limits to rows that are still NULL. Mirrors the logic
