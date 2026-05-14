@@ -554,6 +554,21 @@ export default function ReferralModal({
                   })}
                 </div>
               )}
+
+              {/* Manual slot — only for internal derivation.
+                  The deriving clinic knows its real agenda; sometimes there
+                  are huecos that don't show up in the list (DB schedules are
+                  approximate, last-minute cancellations, telephone bookings
+                  the clinic moved around). For internal derivations the pro
+                  can enter a custom date+time. NOT available for external —
+                  the deriving pro can't know the destination clinic's real
+                  calendar. */}
+              {derivationType === 'interna' && myClinic && (
+                <ManualSlotPicker
+                  onPick={(slot) => handleSlotSelect(slot)}
+                  selectedSlot={selectedSlot}
+                />
+              )}
             </div>
           )}
 
@@ -667,6 +682,128 @@ export default function ReferralModal({
           )}
         </div>
       </div>
+    </div>
+  );
+}
+
+/**
+ * ManualSlotPicker — internal-derivation-only escape hatch for when the
+ * generated slots list doesn't reflect a hueco the deriving clinic
+ * knows is actually free. The pro types a date + time within sensible
+ * bounds (≤ 45 days future, working hours 08:00–21:00, no Sundays) and
+ * we pass a synthetic slot upstream marked with `slotSource: 'manual'`
+ * so analytics and Ops can audit how often the manual path is used.
+ *
+ * Deliberately NOT rendered for external derivation: the deriving pro
+ * has no visibility into the receiving clinic's calendar; allowing
+ * manual entries there would produce phantom slots that Ops has to
+ * recolocate at confirm time.
+ */
+function ManualSlotPicker({ onPick, selectedSlot }) {
+  const [showManual, setShowManual] = useState(false);
+  const [manualDate, setManualDate] = useState('');
+  const [manualTime, setManualTime] = useState('');
+  const [error, setError] = useState('');
+
+  const todayStr = new Date().toISOString().slice(0, 10);
+  const maxDateObj = new Date();
+  maxDateObj.setDate(maxDateObj.getDate() + 45);
+  const maxDateStr = maxDateObj.toISOString().slice(0, 10);
+
+  const isManualSelected = selectedSlot?.slotSource === 'manual';
+
+  function handleUseManual() {
+    setError('');
+    if (!manualDate || !manualTime) {
+      setError('Indica fecha y hora.');
+      return;
+    }
+    // Basic validation. The backend keeps its own ≤ 30 days guard
+    // (POST /api/referrals); we mirror it loosely here so the pro gets
+    // immediate feedback before going to step 4.
+    const slotDateObj = new Date(`${manualDate}T${manualTime}:00`);
+    if (Number.isNaN(slotDateObj.getTime())) {
+      setError('Fecha u hora inválida.');
+      return;
+    }
+    if (slotDateObj < new Date()) {
+      setError('La fecha no puede estar en el pasado.');
+      return;
+    }
+    const dow = slotDateObj.getDay();
+    if (dow === 0) {
+      setError('Los domingos no están disponibles.');
+      return;
+    }
+    const [hh, mm] = manualTime.split(':').map(Number);
+    if (hh < 8 || hh > 21 || (hh === 21 && mm > 0)) {
+      setError('La hora debe estar entre 08:00 y 21:00.');
+      return;
+    }
+    onPick({
+      date: manualDate,
+      time: manualTime,
+      available: true,
+      // Manual slots don't have a tier — they default to tier 4 pricing
+      // (the gentlest), which the upstream caller can override based on
+      // the procedure. Keeping a price avoids "fee: NaN" downstream.
+      tier: 4,
+      tierName: 'manual',
+      tierLabel: 'Hueco manual',
+      price: 5,
+      paymentToClinic: 2,
+      period: hh < 14 ? 'morning' : 'afternoon',
+      slotSource: 'manual',
+    });
+  }
+
+  return (
+    <div style={{ marginTop: 16, padding: 12, border: '1px dashed #d1d5db', borderRadius: 8, background: '#fafafa' }}>
+      <button
+        type="button"
+        onClick={() => setShowManual((v) => !v)}
+        style={{ background: 'none', border: 'none', color: '#1a3c5e', fontWeight: 600, fontSize: 13, cursor: 'pointer', padding: 0 }}
+      >
+        {showManual ? '▾' : '▸'} Veo un hueco real que no aparece en la lista
+      </button>
+      {showManual && (
+        <div style={{ marginTop: 10 }}>
+          <p style={{ margin: '0 0 10px', fontSize: 12, color: '#6b7280', lineHeight: 1.4 }}>
+            Solo en derivación interna. Pon la fecha y hora exactas que conoces de tu agenda. Queda registrado
+            como hueco manual para auditoría.
+          </p>
+          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+            <input
+              type="date"
+              value={manualDate}
+              min={todayStr}
+              max={maxDateStr}
+              onChange={(e) => setManualDate(e.target.value)}
+              style={{ padding: '6px 8px', border: '1px solid #d1d5db', borderRadius: 4, fontSize: 13 }}
+            />
+            <input
+              type="time"
+              value={manualTime}
+              onChange={(e) => setManualTime(e.target.value)}
+              style={{ padding: '6px 8px', border: '1px solid #d1d5db', borderRadius: 4, fontSize: 13 }}
+            />
+            <button
+              type="button"
+              onClick={handleUseManual}
+              disabled={!manualDate || !manualTime}
+              style={{
+                padding: '6px 12px',
+                background: isManualSelected ? '#10b981' : '#1a3c5e',
+                color: '#ffffff', border: 'none', borderRadius: 4, fontSize: 13, fontWeight: 600,
+                cursor: manualDate && manualTime ? 'pointer' : 'not-allowed',
+              }}
+            >
+              {isManualSelected ? '✓ Usando este hueco' : 'Usar este hueco'}
+            </button>
+          </div>
+          {error && <p style={{ margin: '6px 0 0', color: '#dc2626', fontSize: 12 }}>{error}</p>}
+        </div>
+      )}
     </div>
   );
 }

@@ -305,6 +305,15 @@ export async function GET(request) {
       IF NOT EXISTS (SELECT * FROM sys.columns WHERE Name = 'is_internal' AND Object_ID = Object_ID('referrals'))
       ALTER TABLE referrals ADD is_internal BIT NULL;
     `);
+    // slot_source on referrals: 'list' when the pro picked from the
+    // generated available-slots grid, 'manual' when they used the
+    // internal-derivation escape hatch in ReferralModal (typed a date+time
+    // directly). Persisted for audit so we can later ask "¿cuántas
+    // derivaciones internas usaron slot manual y luego no convirtieron?".
+    await pool.request().query(`
+      IF NOT EXISTS (SELECT * FROM sys.columns WHERE Name = 'slot_source' AND Object_ID = Object_ID('referrals'))
+      ALTER TABLE referrals ADD slot_source NVARCHAR(20) NULL;
+    `);
     // referral_id on operations_cases: NULL for direct bookings, set to the
     // originating referral id when the case was created from an external
     // lock-in payment. Lets /admin/ops show a "derivación externa" chip and
@@ -455,6 +464,15 @@ export async function GET(request) {
     await pool.request().query(`
       IF NOT EXISTS (SELECT * FROM sys.columns WHERE Name = 'is_internal' AND Object_ID = Object_ID('referrals'))
       ALTER TABLE referrals ADD is_internal BIT NULL;
+    `);
+    // slot_source on referrals: 'list' when the pro picked from the
+    // generated available-slots grid, 'manual' when they used the
+    // internal-derivation escape hatch in ReferralModal (typed a date+time
+    // directly). Persisted for audit so we can later ask "¿cuántas
+    // derivaciones internas usaron slot manual y luego no convirtieron?".
+    await pool.request().query(`
+      IF NOT EXISTS (SELECT * FROM sys.columns WHERE Name = 'slot_source' AND Object_ID = Object_ID('referrals'))
+      ALTER TABLE referrals ADD slot_source NVARCHAR(20) NULL;
     `);
     // referral_id on operations_cases: NULL for direct bookings, set to the
     // originating referral id when the case was created from an external
