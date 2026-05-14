@@ -20,7 +20,8 @@ export async function GET(request) {
   }
 
   const schedulesByClinic = {};
-  ids.forEach((id) => { schedulesByClinic[id] = []; });
+  const cityByClinic = {};
+  ids.forEach((id) => { schedulesByClinic[id] = []; cityByClinic[id] = null; });
 
   if (DB_AVAILABLE) {
     try {
@@ -36,6 +37,16 @@ export async function GET(request) {
         if (!schedulesByClinic[row.clinic_id]) schedulesByClinic[row.clinic_id] = [];
         schedulesByClinic[row.clinic_id].push(row);
       }
+      // Single query for the cities of every clinic in this batch so the
+      // slot generator can exclude city-specific holidays (Madrid municipio
+      // San Isidro / Almudena, etc.). Best-effort: if it fails we fall
+      // back to the national-only list and lose city precision.
+      const cityResult = await pool.request().query(
+        `SELECT id, city FROM clinics WHERE id IN (${idList})`
+      );
+      for (const row of cityResult.recordset) {
+        cityByClinic[row.id] = row.city || null;
+      }
     } catch (err) {
       console.error('[batch-slots] DB error:', err);
     }
@@ -43,7 +54,7 @@ export async function GET(request) {
 
   const result = {};
   for (const id of ids) {
-    const { slots } = generateSlotsForClinic(id, schedulesByClinic[id]);
+    const { slots } = generateSlotsForClinic(id, schedulesByClinic[id], { city: cityByClinic[id] });
     // For preview, return only the cheapest 4 slots (1 per tier when present)
     if (preview) {
       const byTier = {};

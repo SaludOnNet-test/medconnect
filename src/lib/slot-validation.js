@@ -2,13 +2,13 @@
 // 8 slots per clinic (2 per tier x 4 tiers), with pricing.
 // See docs/SLOT_GENERATION_RULES.md for full specification.
 
-export const SPANISH_HOLIDAYS = [
-  '2026-04-02', '2026-04-03', '2026-04-06',
-  '2026-05-01', '2026-08-15',
-  '2026-10-12', '2026-11-01',
-  '2026-12-06', '2026-12-08', '2026-12-25',
-  '2027-01-01', '2027-01-06',
-];
+import { getHolidaysForCity } from './holidays/madrid';
+
+// Legacy alias — kept for any external import. Use getHolidaysForCity(city)
+// for new code. This list is just the national subset; CCAA + municipio
+// holidays come from the per-city list returned by getHolidaysForCity.
+import { SPAIN_NATIONAL as SPANISH_HOLIDAYS_LIST } from './holidays/madrid';
+export const SPANISH_HOLIDAYS = SPANISH_HOLIDAYS_LIST;
 
 export const PRICING_TIERS = [
   // Tier prices rounded to integers in 2026-05 after Jesús's review —
@@ -34,7 +34,17 @@ export const SLOT_RULES = {
 
 // ----- helpers ----------------------------------------------------------------
 
-export function isHoliday(dateStr) {
+/**
+ * True when `dateStr` (YYYY-MM-DD) is a holiday in the given city. Falls
+ * back to the national list when no city is provided — historical
+ * callers without city-awareness keep working. New callers (the slot
+ * generator below, the slot routes) pass the clinic's city so CCAA +
+ * municipio holidays are also excluded.
+ */
+export function isHoliday(dateStr, city) {
+  if (city) {
+    return getHolidaysForCity(city).includes(dateStr);
+  }
   return SPANISH_HOLIDAYS.includes(dateStr);
 }
 
@@ -59,10 +69,10 @@ export function jsDayToDbDay(jsDay) {
   return jsDay - 1;           // Mon..Fri → 0..4
 }
 
-export function isBusinessDay(date) {
+export function isBusinessDay(date, city) {
   const dow = date.getDay();
   if (dow === 0 || dow === 6) return false;
-  if (isHoliday(formatDate(date))) return false;
+  if (isHoliday(formatDate(date), city)) return false;
   return true;
 }
 
@@ -80,12 +90,12 @@ function startOfDay(date) {
 
 // Adds `hours` business hours (Mon-Fri 9:00-18:00, no holidays) to fromDate.
 // Returns a Date object.
-export function applyBusinessHourBuffer(fromDate, hours = SLOT_RULES.BUFFER_BUSINESS_HOURS) {
+export function applyBusinessHourBuffer(fromDate, hours = SLOT_RULES.BUFFER_BUSINESS_HOURS, city) {
   let cursor = new Date(fromDate);
   let remaining = hours * 60; // minutes
 
   while (remaining > 0) {
-    if (!isBusinessDay(cursor)) {
+    if (!isBusinessDay(cursor, city)) {
       // jump to next business day at 09:00
       cursor = addDaysUTC(startOfDay(cursor), 1);
       cursor.setHours(SLOT_RULES.BUSINESS_DAY_START, 0, 0, 0);
@@ -124,13 +134,13 @@ export function applyBusinessHourBuffer(fromDate, hours = SLOT_RULES.BUFFER_BUSI
 }
 
 // Returns array of business-day Date objects between startDate and endDate (inclusive).
-function listBusinessDays(startDate, endDate) {
+function listBusinessDays(startDate, endDate, city) {
   const days = [];
   const cursor = startOfDay(startDate);
   const end = startOfDay(endDate);
 
   while (cursor <= end) {
-    if (isBusinessDay(cursor)) days.push(new Date(cursor));
+    if (isBusinessDay(cursor, city)) days.push(new Date(cursor));
     cursor.setDate(cursor.getDate() + 1);
   }
   return days;
@@ -183,13 +193,13 @@ function pickTimeFromSchedules(clinicId, tier, salt, schedules, dbDay, period) {
 // ----- main -------------------------------------------------------------------
 
 // Picks up to 2 slots (1 morning + 1 afternoon) for a tier.
-function pickSlotsForTier(clinicId, schedules, tier, earliestSellable, hasDoctoralia) {
+function pickSlotsForTier(clinicId, schedules, tier, earliestSellable, hasDoctoralia, city) {
   const now = earliestSellable; // already buffered
   const tierStart = startOfDay(addDaysUTC(now, tier.dayMin));
   const tierStartUsable = tierStart < earliestSellable ? startOfDay(earliestSellable) : tierStart;
   const tierEnd = startOfDay(addDaysUTC(now, tier.dayMax));
 
-  const businessDays = listBusinessDays(tierStartUsable, tierEnd);
+  const businessDays = listBusinessDays(tierStartUsable, tierEnd, city);
   if (businessDays.length === 0) return [];
 
   const slots = [];
@@ -262,14 +272,21 @@ function pickSlotsForTier(clinicId, schedules, tier, earliestSellable, hasDoctor
 }
 
 // Main entry: 8 slots per clinic (2 per tier x 4 tiers).
+//
+// `options.city` (e.g. 'Madrid') determines which CCAA + municipal
+// holidays to exclude. When omitted, only the national list applies —
+// useful for legacy callers, but every production caller should pass the
+// clinic's city so the slot generator skips local holidays like San Isidro
+// (15-may in Madrid) and Almudena (9-nov in Madrid).
 export function generateSlotsForClinic(clinicId, schedules, options = {}) {
   const now = options.now || new Date();
-  const earliestSellable = applyBusinessHourBuffer(now, SLOT_RULES.BUFFER_BUSINESS_HOURS);
+  const city = options.city || null;
+  const earliestSellable = applyBusinessHourBuffer(now, SLOT_RULES.BUFFER_BUSINESS_HOURS, city);
   const hasDoctoralia = Array.isArray(schedules) && schedules.length > 0;
 
   const allSlots = [];
   for (const tier of PRICING_TIERS) {
-    const tierSlots = pickSlotsForTier(clinicId, schedules || [], tier, earliestSellable, hasDoctoralia);
+    const tierSlots = pickSlotsForTier(clinicId, schedules || [], tier, earliestSellable, hasDoctoralia, city);
     allSlots.push(...tierSlots);
   }
 
@@ -285,8 +302,8 @@ export function generateSlotsForClinic(clinicId, schedules, options = {}) {
 }
 
 // Backwards-compatible single-slot validator
-export function isSlotValidForDoctoralia(date, time, schedules, toleranceMinutes = SLOT_RULES.TOLERANCE_MINUTES) {
-  if (!isBusinessDay(date)) return false;
+export function isSlotValidForDoctoralia(date, time, schedules, toleranceMinutes = SLOT_RULES.TOLERANCE_MINUTES, city) {
+  if (!isBusinessDay(date, city)) return false;
   const dbDay = jsDayToDbDay(date.getDay());
   if (dbDay < 0 || dbDay > 4) return false;
   const daySchedules = schedules.filter((s) => s.day_of_week === dbDay && s.is_available !== false);

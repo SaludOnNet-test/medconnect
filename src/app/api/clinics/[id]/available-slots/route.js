@@ -10,6 +10,7 @@ export async function GET(request, { params }) {
   }
 
   let schedules = [];
+  let city = null;
   if (DB_AVAILABLE) {
     try {
       const result = await query(
@@ -23,9 +24,24 @@ export async function GET(request, { params }) {
     } catch (err) {
       console.error('available-slots db error:', err);
     }
+    // Best-effort: also look up the clinic's city so the slot generator
+    // can apply the right local-holiday list (Madrid CCAA + municipio,
+    // future cities). If the lookup fails the generator falls back to
+    // the national list only — slots open on local holidays in that
+    // degraded mode, accepted as a no-data-default rather than blocking
+    // every slot.
+    try {
+      const cityResult = await query(
+        `SELECT TOP 1 city FROM clinics WHERE id = @clinicId`,
+        { clinicId: { type: sql.Int, value: clinicId } }
+      );
+      city = cityResult.recordset[0]?.city || null;
+    } catch (err) {
+      console.error('available-slots city lookup error:', err);
+    }
   }
 
-  const { slots, rule, earliestSellable } = generateSlotsForClinic(clinicId, schedules);
+  const { slots, rule, earliestSellable } = generateSlotsForClinic(clinicId, schedules, { city });
 
   return NextResponse.json({
     slots,
