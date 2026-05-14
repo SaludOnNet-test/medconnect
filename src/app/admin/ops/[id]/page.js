@@ -18,6 +18,11 @@ function fmtCitaDate(date, time) {
 }
 
 const TERMINAL = ['confirmed', 'refunded', 'cancelled', 'expired'];
+// Estados donde el refund manual sigue siendo emitible (el resto de
+// acciones — aceptar, rechazar, proponer alternativa — desaparecen al
+// llegar a un estado terminal, pero el reembolso sí debe permitirse en
+// 'confirmed' por si la clínica cancela después o el paciente reclama).
+const REFUND_BLOCKED = ['refunded', 'cancelled', 'expired'];
 
 export default function OpsCaseDetail({ params }) {
   const { id } = use(params);
@@ -455,9 +460,7 @@ export default function OpsCaseDetail({ params }) {
         <div>
           <div className="ops-card" style={{ position: 'sticky', top: 16 }}>
             <h2>Acciones</h2>
-            {isTerminal ? (
-              <p style={{ color: '#6b7280', fontSize: 13 }}>Este caso ya está cerrado. No hay acciones disponibles.</p>
-            ) : (
+            {!isTerminal && (
               <div className="ops-actions">
                 <label style={{ display: 'block', fontSize: 12, fontWeight: 600, color: '#374151', marginBottom: 4 }}>
                   Email de la clínica (opcional, para enviar la confirmación + onboarding)
@@ -552,29 +555,117 @@ export default function OpsCaseDetail({ params }) {
                   <span style={{ fontSize: 11, fontWeight: 500, opacity: 0.85 }}>Devuelve €{Number(c.amount_paid || 0).toFixed(2)} y notifica</span>
                 </button>
 
-                <details className="ops-form">
-                  <summary style={{ cursor: 'pointer', fontWeight: 700, fontSize: 13, color: '#7f1d1d' }}>
-                    Reembolso manual
-                  </summary>
-                  <div style={{ marginTop: 8 }}>
-                    <input type="text" placeholder="Motivo del reembolso" value={altReason} onChange={(e) => setAltReason(e.target.value)} />
-                    <button
-                      className="ops-action-btn ops-action-danger"
-                      style={{ marginTop: 8, width: '100%' }}
-                      disabled={busy}
-                      onClick={() => {
-                        if (confirm('¿Emitir reembolso ahora?')) doAction('refund', { reason: altReason });
-                      }}
-                    >
-                      Emitir reembolso
-                    </button>
-                  </div>
-                </details>
+                <RefundFormSection c={c} busy={busy} doAction={doAction} />
               </div>
+            )}
+            {/* Caso confirmado: el resto de acciones desaparecen pero el
+                refund sigue siendo necesario por si la clínica cancela
+                después o el paciente reclama post-confirmación. */}
+            {isTerminal && !REFUND_BLOCKED.includes(c.status) && (
+              <div style={{ marginTop: 12 }}>
+                <p style={{ color: '#6b7280', fontSize: 13, marginBottom: 8 }}>
+                  Caso ya en estado <strong>{c.status}</strong>. Sigue disponible el reembolso por si surge incidencia.
+                </p>
+                <RefundFormSection c={c} busy={busy} doAction={doAction} forceVisible />
+              </div>
+            )}
+            {REFUND_BLOCKED.includes(c.status) && (
+              <p style={{ color: '#6b7280', fontSize: 13 }}>
+                Este caso ya está cerrado en estado <strong>{c.status}</strong>. No hay acciones disponibles.
+              </p>
             )}
           </div>
         </div>
       </div>
     </div>
+  );
+}
+
+/**
+ * Refund manual form — extraída para reusar entre la sección de acciones
+ * (cuando el caso aún no llegó a un estado terminal) y la sección de caso
+ * confirmado (donde solo queda esta acción disponible).
+ *
+ * Forza un motivo de >= 3 caracteres en el cliente (la API también lo
+ * valida con 400, este gate es UX). Cuando la política de refund
+ * (slot − 72 h) indica que el caso está fuera de cutoff, ofrece un
+ * checkbox "Forzar reembolso completo aún fuera de cutoff" para que Ops
+ * tenga que reconocer expresamente el override.
+ */
+function RefundFormSection({ c, busy, doAction, forceVisible }) {
+  const [refundReason, setRefundReason] = useState('');
+  const [overrideCutoff, setOverrideCutoff] = useState(false);
+
+  // Calcula si el caso está dentro o fuera de cutoff (sin importar el helper
+  // del servidor — esto es solo para guiar al operador).
+  const slotAt = (() => {
+    if (!c.original_slot_date) return null;
+    const time = c.original_slot_time && /^\d{2}:\d{2}$/.test(c.original_slot_time) ? c.original_slot_time : '00:00';
+    const d = new Date(`${c.original_slot_date}T${time}:00`);
+    return Number.isNaN(d.getTime()) ? null : d;
+  })();
+  const hoursUntilSlot = slotAt ? (slotAt.getTime() - Date.now()) / 3_600_000 : null;
+  const withinCutoff = hoursUntilSlot !== null && hoursUntilSlot < 72;
+  const hasInsurance = c.has_insurance == null ? null : !!c.has_insurance;
+
+  const policyHint = (() => {
+    if (slotAt === null) return 'Sin fecha de cita registrada — refund por defecto completo.';
+    if (!withinCutoff) {
+      return `Cita en ${hoursUntilSlot.toFixed(1)} h (>72 h). Dentro de cutoff: refund completo automático.`;
+    }
+    if (hasInsurance === false) {
+      return `Cita en ${hoursUntilSlot.toFixed(1)} h (<72 h) y paciente sin seguro. La política reembolsa solo el valor del servicio. Marca el override para devolver todo.`;
+    }
+    return `Cita en ${hoursUntilSlot.toFixed(1)} h (<72 h) y paciente con seguro. La política NO reembolsa nada. Marca el override para forzar reembolso.`;
+  })();
+
+  const reasonOk = refundReason.trim().length >= 3;
+
+  return (
+    <details className="ops-form" open={forceVisible}>
+      <summary style={{ cursor: 'pointer', fontWeight: 700, fontSize: 13, color: '#7f1d1d' }}>
+        💸 Emitir reembolso
+      </summary>
+      <div style={{ marginTop: 8 }}>
+        <p style={{
+          fontSize: 11, color: withinCutoff ? '#7f1d1d' : '#065f46',
+          background: withinCutoff ? '#fef2f2' : '#ecfdf5',
+          padding: '6px 8px', borderRadius: 4, margin: '0 0 8px',
+        }}>
+          {policyHint}
+        </p>
+        <input
+          type="text"
+          placeholder="Motivo del reembolso (obligatorio, mín. 3 caracteres)"
+          value={refundReason}
+          onChange={(e) => setRefundReason(e.target.value)}
+          required
+          style={{ width: '100%' }}
+        />
+        {withinCutoff && (
+          <label style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 6, fontSize: 12, color: '#374151' }}>
+            <input
+              type="checkbox"
+              checked={overrideCutoff}
+              onChange={(e) => setOverrideCutoff(e.target.checked)}
+            />
+            Forzar reembolso total fuera de cutoff (queda registrado en el log)
+          </label>
+        )}
+        <button
+          className="ops-action-btn ops-action-danger"
+          style={{ marginTop: 8, width: '100%' }}
+          disabled={busy || !reasonOk}
+          onClick={() => {
+            if (!reasonOk) return;
+            if (confirm('¿Emitir reembolso ahora?')) {
+              doAction('refund', { reason: refundReason.trim(), overrideCutoff });
+            }
+          }}
+        >
+          {reasonOk ? 'Emitir reembolso' : 'Escribe un motivo para continuar'}
+        </button>
+      </div>
+    </details>
   );
 }

@@ -4,6 +4,7 @@ import { getCase, updateCase, appendCallLog, CASE_STATUS } from '@/lib/opsCases'
 import { requireRole } from '@/lib/adminAuth';
 import { sendEmail } from '@/lib/email';
 import { query, sql } from '@/lib/db';
+import { isRefundable, refundAmountFor } from '@/lib/refundPolicy';
 import {
   patientFinalConfirmation,
   patientAlternativeSlot,
@@ -102,20 +103,44 @@ async function notifyAlternative(c) {
   await sendEmail({ to: c.patient_email, subject: tpl.subject, html: tpl.html });
 }
 
-async function issueRefund(c, reason) {
-  // Stripe refund (best-effort; if stripe not configured, mark as refunded but log)
+async function issueRefund(c, reason, opts = {}) {
+  // Consult the refund policy. By default Ops follows it (cutoff = slot − 72 h,
+  // sin-seguro fuera de cutoff recupera servicio, asegurado fuera de cutoff
+  // no recupera nada). Ops PUEDE forzar un refund total fuera de cutoff
+  // pasando opts.override = true — queda registrado en el call_log con
+  // un flag explícito para auditoría.
+  const policy = isRefundable(c.original_slot_date, c.original_slot_time, {
+    hasInsurance: c.has_insurance == null ? null : !!c.has_insurance,
+  });
+  const totalPaid = Number(c.amount_paid || 0);
+  const servicePrice = Number(c.service_price || 0);
+  const policyAmount = refundAmountFor(policy, { amount: totalPaid, servicePrice });
+  const policyAllowed = policy.allowed;
+  const forced = opts.override === true;
+
+  // The actual amount to refund: policy says X. If the operator forces an
+  // override, we refund the full amount paid. Otherwise we cap at the
+  // policy amount.
+  const targetAmount = forced ? totalPaid : policyAmount;
+
   let refundId = null;
-  let refundAmount = Number(c.amount_paid || 0);
+  let refundAmount = targetAmount;
   const stripeKey = process.env.STRIPE_SECRET_KEY;
   const piId = c.payment_intent_id || c.booking_id;
-  if (stripeKey && piId) {
+  if (stripeKey && piId && targetAmount > 0) {
     try {
       const stripe = new Stripe(stripeKey, { apiVersion: '2024-04-10' });
+      const refundParams = {
+        payment_intent: piId,
+        reason: 'requested_by_customer',
+      };
+      // Stripe refunds in cents. If the target is < total paid, pass
+      // the explicit amount; otherwise omit and Stripe defaults to full.
+      if (targetAmount < totalPaid) {
+        refundParams.amount = Math.round(targetAmount * 100);
+      }
       const refund = await stripe.refunds.create(
-        {
-          payment_intent: piId,
-          reason: 'requested_by_customer',
-        },
+        refundParams,
         { idempotencyKey: `ops_action_refund_${c.id}` },
       );
       refundId = refund.id;
@@ -124,11 +149,21 @@ async function issueRefund(c, reason) {
       console.error('[ops/refund] stripe error:', err.message);
     }
   }
+
+  // Compose reason with policy context so the call log has full provenance.
+  const fullReason = (() => {
+    const parts = [reason || 'Reembolso emitido por el operador'];
+    parts.push(`política: ${policy.refundableAmount}${policyAllowed ? ' (dentro de cutoff)' : ' (fuera de cutoff)'}`);
+    if (forced && !policyAllowed) parts.push('ANULACIÓN OPS · refund total forzado fuera de cutoff');
+    if (forced && policy.refundableAmount === 'service_only') parts.push('ANULACIÓN OPS · refund total forzado (política decía service_only)');
+    return parts.join(' · ');
+  })();
+
   await updateCase(c.id, {
     status: CASE_STATUS.REFUNDED,
     refund_id: refundId,
     refund_amount: refundAmount,
-    refund_reason: reason || null,
+    refund_reason: fullReason,
   });
   if (c.patient_email) {
     const tpl = patientRefunded({
@@ -141,7 +176,7 @@ async function issueRefund(c, reason) {
     });
     await sendEmail({ to: c.patient_email, subject: tpl.subject, html: tpl.html });
   }
-  return { refundId, refundAmount };
+  return { refundId, refundAmount, policy, forced };
 }
 
 export async function POST(request, { params }) {
@@ -217,15 +252,44 @@ export async function POST(request, { params }) {
         break;
       }
       case 'no_alternative_refund': {
+        // El motivo es obligatorio en TODOS los refunds — incluido este
+        // que la mayoría de las veces es un valor por defecto. Ops debe
+        // explicitar (clínica no contesta, paciente pidió alta…) para que
+        // el log del caso refleje la decisión.
+        const reasonRaw = String(body.reason || '').trim();
+        if (reasonRaw.length < 3) {
+          return NextResponse.json(
+            { error: 'reason is required (mínimo 3 caracteres) — explica por qué reembolsas' },
+            { status: 400 },
+          );
+        }
         await updateCase(id, { status: CASE_STATUS.NO_ALTERNATIVE_REFUNDING, assigned_to: session.username });
         c = await getCase(id);
-        const r = await issueRefund(c, body.reason || 'No encontramos clínica alternativa que te encaje');
-        await appendCallLog(id, `Sin alternativa. Reembolso ${r.refundId || 'manual'} de €${r.refundAmount}.`, session.username);
+        const r = await issueRefund(c, reasonRaw, { override: body.overrideCutoff === true });
+        const tail = r.forced ? ' (override fuera de cutoff)' : '';
+        await appendCallLog(
+          id,
+          `Sin alternativa. Reembolso ${r.refundId || 'manual'} de €${r.refundAmount}${tail}. Motivo: ${reasonRaw}`,
+          session.username,
+        );
         break;
       }
       case 'refund': {
-        const r = await issueRefund(c, body.reason || 'Reembolso emitido por el operador');
-        await appendCallLog(id, `Reembolso manual ${r.refundId || '(stripe pending)'} de €${r.refundAmount}.`, session.username);
+        // Mismo gate: el motivo es obligatorio.
+        const reasonRaw = String(body.reason || '').trim();
+        if (reasonRaw.length < 3) {
+          return NextResponse.json(
+            { error: 'reason is required (mínimo 3 caracteres) — explica por qué reembolsas' },
+            { status: 400 },
+          );
+        }
+        const r = await issueRefund(c, reasonRaw, { override: body.overrideCutoff === true });
+        const tail = r.forced ? ' (override fuera de cutoff)' : '';
+        await appendCallLog(
+          id,
+          `Reembolso manual ${r.refundId || '(stripe pending)'} de €${r.refundAmount}${tail}. Motivo: ${reasonRaw}`,
+          session.username,
+        );
         break;
       }
       case 'cancel': {

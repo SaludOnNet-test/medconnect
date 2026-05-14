@@ -5,6 +5,7 @@ import { sendEmail } from '@/lib/email';
 import { patientRefunded } from '@/lib/emailTemplates';
 import { bookingByTokenCancelSchema, formatZodError } from '@/lib/schemas';
 import { clientError } from '@/lib/errors';
+import { isRefundable, refundAmountFor } from '@/lib/refundPolicy';
 
 export const dynamic = 'force-dynamic';
 
@@ -49,6 +50,7 @@ export async function POST(request, { params }) {
     .query(`
       SELECT id, patient_name, patient_email, provider_name, slot_date,
              slot_time, amount, status, payment_intent_id,
+             has_insurance, service_price,
              self_service_token_expires_at
       FROM bookings WHERE self_service_token = @token
     `);
@@ -78,22 +80,53 @@ export async function POST(request, { params }) {
     }
   }
 
-  // Best-effort Stripe refund. Mirrors the pattern in /api/ops/cases/[id]/action.
+  // Consult the refund policy. Política (decidida 2026-05-14):
+  //   > 72h antes de la cita → reembolso completo
+  //   <= 72h asegurado        → 0 €  (la consulta corre por su seguro)
+  //   <= 72h sin-seguro       → service_price (la prioridad no es reembolsable)
+  //
+  // El paciente solo tiene self-service; si quiere forzar reembolso
+  // fuera de cutoff debe escribir a Ops (mensaje al final si aplica).
+  const policy = isRefundable(booking.slot_date, booking.slot_time, {
+    hasInsurance: booking.has_insurance == null ? null : !!booking.has_insurance,
+  });
+  const totalPaid = Number(booking.amount || 0);
+  const servicePrice = Number(booking.service_price || 0);
+  const allowedRefund = refundAmountFor(policy, { amount: totalPaid, servicePrice });
+
+  if (!policy.allowed && allowedRefund === 0) {
+    // Pasado el cutoff y sin servicio que devolver: rechazamos la
+    // cancelación con un 200 + ok:false. Ops puede aún forzarla.
+    return NextResponse.json({
+      ok: false,
+      reason: 'outside_cutoff',
+      message: 'La cita es en menos de 72 h. La prioridad no es reembolsable. Escribe a operaciones@medconnect.es si crees que aplica una excepción.',
+      policy,
+    }, { status: 409 });
+  }
+
+  // Best-effort Stripe refund por el importe que la política permite.
   let refundId = null;
-  let refundAmount = Number(booking.amount || 0);
+  let refundAmount = allowedRefund;
   const stripeKey = process.env.STRIPE_SECRET_KEY;
   const piId = booking.payment_intent_id || booking.id;
-  if (stripeKey && piId && piId.startsWith('pi_')) {
+  if (stripeKey && piId && piId.startsWith('pi_') && allowedRefund > 0) {
     try {
       const stripe = new Stripe(stripeKey, { apiVersion: '2024-04-10' });
       // Idempotency-Key bound to the booking id makes a double-clicking
       // patient — or a Vercel retry on a crashed Lambda — safe: Stripe
       // returns the same refund object instead of creating a second one.
+      const refundParams = {
+        payment_intent: piId,
+        reason: 'requested_by_customer',
+      };
+      // Refund partial when the policy is service_only — pasamos amount
+      // en cents para que Stripe no devuelva el total.
+      if (allowedRefund < totalPaid) {
+        refundParams.amount = Math.round(allowedRefund * 100);
+      }
       const refund = await stripe.refunds.create(
-        {
-          payment_intent: piId,
-          reason: 'requested_by_customer',
-        },
+        refundParams,
         { idempotencyKey: `refund_${booking.id}` },
       );
       refundId = refund.id;
