@@ -57,7 +57,15 @@ export default function LockInPage() {
               lockInWarningAt: new Date(Date.now() + 60 * 60 * 1000).toISOString(),
               state: 'PENDING',
             };
-            // Best-effort: save to DB for future requests
+            // Best-effort: save to DB for future requests. The route now
+            // accepts unauth POSTs (verified_derivador=false) so the
+            // patient can upsert their own row when /book's original
+            // POST never reached the DB. Before that change, this call
+            // silently 401'd and the row stayed missing — which is what
+            // left REF-VRHK7OOD6 stuck on /book on 2026-05-18. The
+            // .then(...).catch(...) chain now logs both failure modes
+            // (non-2xx response and network errors) so a future
+            // regression is at least visible in browser DevTools.
             fetch('/api/referrals', {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
@@ -72,7 +80,15 @@ export default function LockInPage() {
                 specialty: found.specialty,
                 lockInWarningAt: found.lockInWarningAt,
               }),
-            }).catch(() => {});
+            })
+              .then((r) => {
+                if (!r.ok) {
+                  console.error('[/lock-in recovery POST]', r.status, r.statusText, lockInId);
+                }
+              })
+              .catch((err) => {
+                console.error('[/lock-in recovery POST] network', err?.message, lockInId);
+              });
           } catch (e) {
             console.error('Error decoding referral from URL:', e);
           }

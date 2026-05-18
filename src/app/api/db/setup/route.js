@@ -314,6 +314,17 @@ export async function GET(request) {
       IF NOT EXISTS (SELECT * FROM sys.columns WHERE Name = 'slot_source' AND Object_ID = Object_ID('referrals'))
       ALTER TABLE referrals ADD slot_source NVARCHAR(20) NULL;
     `);
+    // verified_derivador on referrals:
+    //   NULL  → legacy / no professionalEmail provided at create
+    //   1     → Clerk session matched the professionalEmail in the body
+    //           (canonical /pro/dashboard ReferralModal path)
+    //   0     → anon POST (legitimate /book external derivar OR patient
+    //           recovery upsert from /lock-in/[id]).
+    // Ops uses this to triage referrals when a complaint of fraud comes in.
+    await pool.request().query(`
+      IF NOT EXISTS (SELECT * FROM sys.columns WHERE Name = 'verified_derivador' AND Object_ID = Object_ID('referrals'))
+      ALTER TABLE referrals ADD verified_derivador BIT NULL;
+    `);
     // alternative_proposed_at on operations_cases: timestamp set when Ops
     // proposes an alternative slot/clinic. Drives the 24h response window
     // shown in the Ops dashboard (Aceptada / Rechazada / Sin respuesta /
@@ -482,6 +493,17 @@ export async function GET(request) {
     await pool.request().query(`
       IF NOT EXISTS (SELECT * FROM sys.columns WHERE Name = 'slot_source' AND Object_ID = Object_ID('referrals'))
       ALTER TABLE referrals ADD slot_source NVARCHAR(20) NULL;
+    `);
+    // verified_derivador on referrals:
+    //   NULL  → legacy / no professionalEmail provided at create
+    //   1     → Clerk session matched the professionalEmail in the body
+    //           (canonical /pro/dashboard ReferralModal path)
+    //   0     → anon POST (legitimate /book external derivar OR patient
+    //           recovery upsert from /lock-in/[id]).
+    // Ops uses this to triage referrals when a complaint of fraud comes in.
+    await pool.request().query(`
+      IF NOT EXISTS (SELECT * FROM sys.columns WHERE Name = 'verified_derivador' AND Object_ID = Object_ID('referrals'))
+      ALTER TABLE referrals ADD verified_derivador BIT NULL;
     `);
     // alternative_proposed_at on operations_cases: timestamp set when Ops
     // proposes an alternative slot/clinic. Drives the 24h response window

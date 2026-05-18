@@ -110,15 +110,43 @@ export async function POST(request) {
     return NextResponse.json({ error: 'id and patientEmail are required' }, { status: 400 });
   }
 
-  // Auth: when a `professionalEmail` is supplied (the normal path from
-  // /pro/dashboard's ReferralModal), it must match the signed-in Clerk
-  // user. Without this anyone could create referrals attributed to any
-  // other pro — fraud + commission attribution abuse. We accept missing
-  // professionalEmail (legacy callers) but in that case we still require
-  // a signed-in pro and stamp their email on the row.
+  // Auth — three valid cases:
+  //
+  //   1. No `professionalEmail` provided + signed-in pro → use their email.
+  //      (legacy path, kept for compat with older callers.)
+  //   2. `professionalEmail` provided + matches signed-in Clerk user →
+  //      verified=true. This is the canonical /pro/dashboard path.
+  //   3. `professionalEmail` provided + NO Clerk session →
+  //      verified=false, accept anyway. Used by the /book external
+  //      "Soy un profesional" derivar flow, where the derivador is a
+  //      random doctor who isn't (yet) a Clerk-authed Med Connect Pro,
+  //      AND by the patient-side recovery POST in /lock-in/[id]
+  //      `loadReferral` when the original DB write was lost.
+  //
+  // Mismatch (Clerk session whose verified emails do NOT include
+  // `professionalEmail`) is still rejected — that's identity-theft
+  // territory, not a legitimate anon caller. The rate limit (10/h/IP
+  // above) caps the cost of unauth spam.
+  //
+  // Before this change, every patient-side recovery POST 401'd silently
+  // (the .catch(() => {}) in /lock-in/[id]/loadReferral swallowed it),
+  // which is why REF-VRHK7OOD6 was never persisted to the DB on
+  // 2026-05-18 and the patient got stuck on /book.
+  let verifiedDerivador = null;
   if (professionalEmail) {
     const auth = await requireProEmail(request, professionalEmail);
-    if (!auth.ok) return auth.response;
+    if (auth.ok) {
+      verifiedDerivador = true;
+    } else {
+      const status = auth.response?.status;
+      if (status === 401) {
+        // No session — anon caller. Accept the POST without verification.
+        verifiedDerivador = false;
+      } else {
+        // 403 (mismatch) or 400 (bad email) — reject.
+        return auth.response;
+      }
+    }
   }
 
   // Referrals are capped at 30 days out — anything further is a regular
@@ -215,6 +243,26 @@ export async function POST(request) {
             (@id, @state, @patient_email, @professional_email, @profession_name,
              @provider_id, @provider_name, @slot_date, @slot_time, @fee, @specialty, @lock_in_warning_at)
         `);
+    }
+
+    // Stamp the verified_derivador flag. Same graceful-fallback pattern
+    // as slot_source below — column may not exist in pre-migration DBs.
+    // null = no professionalEmail in body (legacy); true = Clerk match;
+    // false = anon POST (external derivar at /book or recovery from
+    // /lock-in). Ops uses this to flag potentially fraudulent referrals
+    // for review (only matters if a row passes the rate limit AND looks
+    // suspicious — the legitimate volume of anon POSTs is real).
+    if (verifiedDerivador !== null) {
+      try {
+        await pool.request()
+          .input('id', sql.NVarChar(50), id)
+          .input('verified_derivador', sql.Bit, verifiedDerivador ? 1 : 0)
+          .query(`UPDATE referrals SET verified_derivador = @verified_derivador WHERE id = @id`);
+      } catch (vErr) {
+        if (!String(vErr?.message || '').includes('Invalid column name')) {
+          console.error('[POST /api/referrals] verified_derivador stamp failed', vErr?.message);
+        }
+      }
     }
 
     // Stamp the slot_source column for audit (manual vs list).
