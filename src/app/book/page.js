@@ -111,12 +111,29 @@ function BookContent() {
     });
   }, []);
 
-  // Handle lock-in redirect: auto-jump to payment step
+  // Handle lock-in redirect: auto-jump to payment step.
+  //
+  // The lock-in page redirects here after the patient confirms their data.
+  // We try (in order):
+  //   1. The DB via /api/referrals/[id] — works in the normal case.
+  //   2. localStorage — same-browser fallback for legacy testing flows.
+  //   3. The URL params themselves — works when (1) and (2) both miss,
+  //      which happens when the referral row was never persisted to the
+  //      DB (POST silently failed at creation time, fire-and-forget chain
+  //      in /lock-in/[id] swallowed the error, etc.).
+  //
+  // Before this third path existed, a missing row left `lockInData` null
+  // forever and the page hung on the "Cargando los datos de tu reserva…"
+  // skeleton with no escape — a paying patient got stuck on production
+  // (REF-VRHK7OOD6, 2026-05-18). The redirect from /lock-in/[id] now
+  // forwards slotDate, slotTime, providerName, fee, specialty,
+  // professionalEmail and patientPhone as URL params so this fallback has
+  // everything it needs to render the page and charge the card.
   useEffect(() => {
     if (stepParam !== 'payment' || !lockInId) return;
 
     async function loadLockIn() {
-      // Try API first
+      // 1. Try API first.
       try {
         const res = await fetch(`/api/referrals/${lockInId}`);
         if (res.ok) {
@@ -125,9 +142,10 @@ function BookContent() {
           setStep('payment');
           return;
         }
+        // res.ok === false (404, 500, etc.) — fall through to fallbacks.
       } catch {}
 
-      // Fallback: localStorage
+      // 2. Same-browser localStorage fallback.
       try {
         const stored = localStorage.getItem('referrals');
         const referrals = stored ? JSON.parse(stored) : [];
@@ -135,12 +153,52 @@ function BookContent() {
         if (referral) {
           setLockInData(referral);
           setStep('payment');
+          return;
         }
       } catch {}
+
+      // 3. Synthesize from URL params. This is the "DB row never existed"
+      //    recovery path. We need at minimum slotDate + slotTime +
+      //    providerName + patientEmail to render the page meaningfully;
+      //    without them we can't even build the calendar URL or Stripe
+      //    metadata after payment, so we bail to a friendly error.
+      const urlSlotDate = searchParams.get('slotDate');
+      const urlSlotTime = searchParams.get('slotTime');
+      const urlProviderName = searchParams.get('providerName');
+      const urlPatientEmail = searchParams.get('patientEmail');
+      const urlPatientName = searchParams.get('patientName');
+      const urlFee = searchParams.get('fee');
+
+      if (urlSlotDate && urlSlotTime && urlProviderName && urlPatientEmail) {
+        setLockInData({
+          id: lockInId,
+          patientEmail: urlPatientEmail,
+          patientName: urlPatientName || '',
+          patientPhone: searchParams.get('patientPhone') || null,
+          providerName: urlProviderName,
+          providerId: Number(searchParams.get('providerId')) || null,
+          slotDate: urlSlotDate,
+          slotTime: urlSlotTime,
+          fee: urlFee ? Number(urlFee) : null,
+          specialty: searchParams.get('specialty') || null,
+          professionalEmail: searchParams.get('professionalEmail') || null,
+          state: 'PENDING',
+          _recoveredFromUrl: true, // marker for debugging in DevTools
+        });
+        setStep('payment');
+        return;
+      }
+
+      // 4. We tried everything. Surface a clear error state instead of
+      //    leaving the skeleton on forever. The patient gets an actionable
+      //    message + a contact email. The page sets lockInData to a
+      //    sentinel object so `lockInLoading` becomes false and the error
+      //    branch (below) renders.
+      setLockInData({ _loadFailed: true });
     }
 
     loadLockIn();
-  }, [stepParam, lockInId]);
+  }, [stepParam, lockInId, searchParams]);
   const [selectedInsurance, setSelectedInsurance] = useState(insuranceParam || '');
 
   // Referral states. Initial value comes from ?asProfessional=true (the
@@ -478,6 +536,49 @@ function BookContent() {
                 style={{ textAlign: 'center', padding: 'var(--space-7)', color: 'var(--fg-muted)' }}
               >
                 Cargando los datos de tu reserva…
+              </div>
+            </div>
+          </main>
+          <Footer />
+        </>
+      );
+    }
+
+    // Load failed: the API 404'd, localStorage was empty, AND the URL
+    // didn't carry the slot data (legacy email links from before the
+    // hotfix that added forward-carry). Show an actionable error instead
+    // of leaving the skeleton up — the previous behaviour was the page
+    // hanging on "Cargando…" forever and the patient assuming the site
+    // was broken (REF-VRHK7OOD6 incident, 2026-05-18).
+    if (lockInData?._loadFailed) {
+      return (
+        <>
+          <Header />
+          <main className="book-page">
+            <div className="book-container">
+              <div className="book-header">
+                <p className="book-step-label">Paso 2 de 2</p>
+                <h1 className="book-title">No pudimos cargar tu reserva</h1>
+              </div>
+              <div
+                className="book-summary-card"
+                style={{ padding: 'var(--space-7)', color: 'var(--fg-muted)', lineHeight: 1.6 }}
+              >
+                <p style={{ marginBottom: '1rem' }}>
+                  Hemos tenido un problema recuperando los datos de tu reserva. Tu hueco
+                  sigue reservado — no te hemos cobrado nada todavía.
+                </p>
+                <p style={{ marginBottom: '1rem' }}>
+                  Por favor escríbenos a{' '}
+                  <a href="mailto:info@medconnect.es" style={{ color: 'var(--gold)', textDecoration: 'underline' }}>
+                    info@medconnect.es
+                  </a>{' '}
+                  o llámanos al <strong>91 197 70 52</strong> y te ayudamos a completar
+                  el pago en menos de un minuto. Indícales el código:
+                </p>
+                <p style={{ fontFamily: 'monospace', fontSize: '0.95rem', background: '#f3f4f6', padding: '0.6rem 0.9rem', borderRadius: '6px', display: 'inline-block' }}>
+                  {lockInId}
+                </p>
               </div>
             </div>
           </main>

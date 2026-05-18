@@ -221,11 +221,31 @@ export default function LockInPage() {
     // insurance toggle inline above the Stripe form. Don't shortcut this
     // without re-checking /book — bypassing the toggle broke the lock-in
     // payment in production (caught 2026-05-18).
-    router.push(
-      `/book?lockInId=${lockInId}&patientName=${encodeURIComponent(
-        form.patientName
-      )}&patientEmail=${encodeURIComponent(referral?.patientEmail)}&step=payment`
-    );
+    //
+    // 2026-05-18 #2 — we ALSO carry the slot data (date/time/provider/fee)
+    // forward in the URL as a recovery channel. The /book page primarily
+    // re-fetches the referral row from /api/referrals/[id], but if that
+    // row was never inserted (DB downtime at creation, or a fire-and-forget
+    // POST that silently failed) the GET 404s and the page used to hang
+    // forever on the "Cargando los datos de tu reserva…" skeleton — a
+    // paying patient ended up frozen on production (REF-VRHK7OOD6). With
+    // these params, /book can synthesize lockInData from the URL and let
+    // the patient pay without the DB row.
+    const redirectParams = new URLSearchParams({
+      lockInId,
+      patientName: form.patientName,
+      patientEmail: referral?.patientEmail || '',
+      step: 'payment',
+    });
+    if (referral?.slotDate) redirectParams.set('slotDate', referral.slotDate);
+    if (referral?.slotTime) redirectParams.set('slotTime', referral.slotTime);
+    if (referral?.providerName) redirectParams.set('providerName', referral.providerName);
+    if (referral?.providerId) redirectParams.set('providerId', String(referral.providerId));
+    if (referral?.fee != null) redirectParams.set('fee', String(referral.fee));
+    if (referral?.specialty) redirectParams.set('specialty', referral.specialty);
+    if (referral?.professionalEmail) redirectParams.set('professionalEmail', referral.professionalEmail);
+    if (form.patientPhone) redirectParams.set('patientPhone', form.patientPhone);
+    router.push(`/book?${redirectParams.toString()}`);
 
     setIsSubmitting(false);
   };
