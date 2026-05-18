@@ -211,7 +211,16 @@ export default function LockInPage() {
       }),
     }).catch(() => {});
 
-    // Redirect to payment page
+    // Redirect to payment page.
+    //
+    // We deliberately do NOT pass `insurance` or `isSinSeguro` in this URL —
+    // the derivador (whether internal Cea Bermúdez or an external doctor)
+    // doesn't know the patient's coverage situation for this specialty, and
+    // we don't want to guess on their behalf. /book detects this (hasInsurance
+    // stays null on mount when the lock-in URL is used) and shows the
+    // insurance toggle inline above the Stripe form. Don't shortcut this
+    // without re-checking /book — bypassing the toggle broke the lock-in
+    // payment in production (caught 2026-05-18).
     router.push(
       `/book?lockInId=${lockInId}&patientName=${encodeURIComponent(
         form.patientName

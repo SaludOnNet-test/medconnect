@@ -511,20 +511,146 @@ function BookContent() {
                   {lockInData.patientPhone ? ` · ${lockInData.patientPhone}` : ''}
                 </div>
                 <div style={{ marginTop: 8, fontFamily: 'var(--font-body)', fontSize: 'var(--text-xs)', color: 'var(--fg-subtle)' }}>
-                  Datos confirmados desde tu enlace de reserva — solo te queda pagar.
+                  Datos confirmados desde tu enlace de reserva — solo te queda confirmar el seguro y pagar.
                 </div>
               </div>
             )}
-            <PaymentForm
-              totalPrice={totalPrice}
-              providerName={clinicName}
-              slotDate={slotDateToUse}
-              slotTime={slotTimeToUse}
-              patientName={patientName}
-              patientEmail={patientEmailForPayment}
-              onPaymentSuccess={handlePaymentSuccess}
-              onBack={() => setStep('form')}
-            />
+
+            {/*
+              Lock-in flow: the patient arrives at step=payment without ever
+              having chosen insurance type (the lock-in URL doesn't carry
+              `insurance` or `isSinSeguro`). Without this block, `hasInsurance`
+              stayed null, `totalPrice` resolved to 0, and the Stripe form
+              looked broken (showed "Confirmar reserva gratuita" with no card
+              inputs of real value). Render the toggle here and gate the
+              PaymentForm until the patient picks. The direct flow is
+              untouched — there `hasInsurance` is already set from the URL
+              params when /book mounts, so this block is bypassed.
+            */}
+            {hasInsurance === null && (
+              <div className="book-form" style={{ marginBottom: 'var(--space-md)' }}>
+                <div style={{
+                  background: '#f0f9ff',
+                  border: '1px solid #bae6fd',
+                  borderRadius: '10px',
+                  padding: '0.75rem 1rem',
+                  marginBottom: 'var(--space-md)',
+                  fontSize: '0.85rem',
+                  color: '#0c4a6e',
+                  lineHeight: 1.6,
+                }}>
+                  <strong>Un último paso antes del pago:</strong> el acto médico lo paga tu seguro a la clínica. A nosotros solo nos pagas la <strong>tarifa de prioridad</strong> por gestionarte la reserva prioritaria.
+                </div>
+                <label className="form-label">¿Tienes seguro médico privado para esta consulta?</label>
+                <div className="book-insurance-toggle">
+                  <div
+                    className={`book-insurance-option ${hasInsurance === true ? 'active' : ''}`}
+                    onClick={() => setHasInsurance(true)}
+                  >
+                    <strong>Sí, tengo seguro</strong>
+                    <span style={{ display: 'block', fontSize: '0.78rem', color: 'var(--muted)', marginTop: '4px', fontWeight: 400 }}>
+                      Pagas solo la tarifa de prioridad. La consulta va por tu póliza.
+                    </span>
+                  </div>
+                  <div
+                    className={`book-insurance-option ${hasInsurance === false ? 'active' : ''}`}
+                    onClick={() => setHasInsurance(false)}
+                  >
+                    <strong>No tengo seguro</strong>
+                    <span style={{ display: 'block', fontSize: '0.78rem', color: 'var(--muted)', marginTop: '4px', fontWeight: 400 }}>
+                      Pagas la consulta privada + la tarifa de prioridad. Total visible antes del pago.
+                    </span>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Insurer dropdown — required when "Sí, tengo seguro" was just
+                picked here (the direct flow already filled this from the
+                URL param so the dropdown shows pre-selected). */}
+            {hasInsurance === true && (
+              <div className="book-form" style={{ marginBottom: 'var(--space-md)' }}>
+                <div className="form-group">
+                  <label className="form-label" htmlFor="insurance-company-payment">¿Cuál es la aseguradora?</label>
+                  <select
+                    id="insurance-company-payment"
+                    className="form-select"
+                    value={selectedInsurance}
+                    onChange={(e) => setSelectedInsurance(e.target.value)}
+                    required
+                  >
+                    <option value="">Seleccionar aseguradora</option>
+                    {insuranceCompanies.map((ins) => (
+                      <option key={ins} value={ins}>{ins}</option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+            )}
+
+            {/* Price breakdown — only after the patient picks insurance.
+                Mirrors the breakdown in step=form so the patient sees the
+                same totals before Stripe loads. */}
+            {hasInsurance !== null && (
+              <div className="book-price-breakdown animate-fade-in" style={{ marginBottom: 'var(--space-md)' }}>
+                <p className="book-step-label" style={{ marginBottom: 'var(--space-md)' }}>Resumen del pago</p>
+
+                {serviceLabel && (
+                  <div className="book-price-row">
+                    <span className="book-price-label"><Icon name="stethoscope" size={14} /> {serviceLabel}</span>
+                    <span className="book-price-amount">
+                      {hasInsurance === true
+                        ? <span style={{ color: '#00805a', fontWeight: 600 }}>A cubrir por tu seguro</span>
+                        : formatEUR(servicePrice)}
+                    </span>
+                  </div>
+                )}
+
+                <div className="book-price-row">
+                  <span className="book-price-label">
+                    🎫 Tarifa de prioridad{feeLabel ? ` (${feeLabel.toLowerCase()})` : ''}
+                  </span>
+                  <span className="book-price-amount">
+                    {activeFee > 0 ? formatEUR(activeFee) : '0 €'}
+                  </span>
+                </div>
+
+                <div className="book-price-row total">
+                  <span>Total que pagas hoy</span>
+                  <span className="book-price-amount">
+                    {totalPrice > 0 ? formatEUR(totalPrice) : 'Gratis'}
+                  </span>
+                </div>
+              </div>
+            )}
+
+            {/* PaymentForm — only mounts once hasInsurance is resolved.
+                Until then the patient sees the toggle above. Without this
+                gate the Stripe form would mount with totalPrice=0 and look
+                broken to the user. */}
+            {hasInsurance !== null && (
+              <PaymentForm
+                totalPrice={totalPrice}
+                providerName={clinicName}
+                slotDate={slotDateToUse}
+                slotTime={slotTimeToUse}
+                patientName={patientName}
+                patientEmail={patientEmailForPayment}
+                onPaymentSuccess={handlePaymentSuccess}
+                onBack={() => {
+                  // For lock-in patients there is no /form to go back to —
+                  // their data is locked in upstream. Reset to the insurance
+                  // picker instead. Direct-flow patients (no lockInData) keep
+                  // the original behavior of returning to the patient form.
+                  if (lockInData) {
+                    setHasInsurance(null);
+                    setSelectedInsurance('');
+                  } else {
+                    setStep('form');
+                  }
+                }}
+              />
+            )}
           </div>
         </main>
         <Footer />
