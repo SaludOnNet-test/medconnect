@@ -141,8 +141,15 @@ function PaymentFormContent({ totalPrice, providerName, slotDate, slotTime, pati
 
       if (data.success) {
         const reference = data.id || 'MC-STRIPE-' + Date.now().toString(36).toUpperCase();
+        // Previous middle fallback was `cardElement._lastValue.brand`, which
+        // (a) is a private Stripe Elements internal that's `undefined` on
+        // recent stripe.js builds (broke the live-mode first charge on
+        // 2026-05-18), and (b) confused brand with last4 anyway. The server
+        // already populates `last4` from `paymentIntent.payment_method_details.card.last4`
+        // (see /api/payments/route.js:99), so `data.last4` is the canonical
+        // source and we fall back to the placeholder when it's missing.
         onPaymentSuccess({
-          last4: data.last4 || cardElement._lastValue.brand || 'xxxx',
+          last4: data.last4 || 'xxxx',
           reference,
           stripeId: data.id,
           isMock: false,
