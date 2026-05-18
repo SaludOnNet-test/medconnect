@@ -50,7 +50,14 @@ export default async function SignUpPage({ searchParams }) {
         path="/sign-up"
         signInUrl="/sign-in"
         appearance={brandClerkAppearance}
-        forceRedirectUrl={acceptCookies ? '/accept-cookies' : '/'}
+        // After sign-up, route patients to /mi-cuenta so they see the
+        // bookings the webhook just linked to their account (the "Crear
+        // mi cuenta" CTA on /book's success screen brings them here
+        // specifically to see their booking history). The accept-cookies
+        // detour still wins when present — it's a one-shot consent screen
+        // that redirects onward to /mi-cuenta after the user clicks
+        // accept.
+        forceRedirectUrl={acceptCookies ? '/accept-cookies?next=/mi-cuenta' : '/mi-cuenta'}
       />
       {/* No explicit `<div id="clerk-captcha" />` here. Adding the anchor
           while bot-sign-up protection is OFF in the Clerk dashboard

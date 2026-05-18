@@ -41,9 +41,43 @@ function toBooking(row) {
     servicePrice: row.service_price != null ? Number(row.service_price) : null,
     platformFee: row.platform_fee != null ? Number(row.platform_fee) : null,
     notes: row.notes,
+    clerkUserId: row.clerk_user_id || null,
+    linkedAt: row.linked_at || null,
+    selfServiceToken: row.self_service_token || null,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
   };
+}
+
+// Best-effort: if the request carries a Clerk session AND the session's
+// verified emails include the booking's patient_email, return the Clerk
+// userId so we can stamp it on the inserted row. Returns null in every
+// other case — anonymous bookings keep the existing behavior of no
+// account linkage at insert time (the Clerk webhook backfill picks them
+// up later when the patient signs up with that email).
+async function resolveClerkUserIdForEmail(patientEmail) {
+  if (!process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY || !process.env.CLERK_SECRET_KEY) {
+    return null;
+  }
+  if (!patientEmail) return null;
+  try {
+    const { auth, clerkClient } = await import('@clerk/nextjs/server');
+    const { userId } = await auth();
+    if (!userId) return null;
+    const client = await clerkClient();
+    const user = await client.users.getUser(userId);
+    const emails = (user?.emailAddresses || [])
+      .map((e) => String(e?.emailAddress || '').toLowerCase())
+      .filter(Boolean);
+    if (emails.includes(String(patientEmail).toLowerCase())) {
+      return userId;
+    }
+  } catch (err) {
+    // Don't block booking creation on a Clerk hiccup — the backfill path
+    // via webhook will catch missed links when the patient signs up.
+    console.error('[bookings] Clerk session lookup failed', err?.message);
+  }
+  return null;
 }
 
 // ---------------------------------------------------------------------------
@@ -182,6 +216,12 @@ export async function POST(request) {
     Date.now() + SELF_SERVICE_TOKEN_TTL_DAYS * 24 * 60 * 60 * 1000,
   );
 
+  // Best-effort opportunistic Clerk linkage. Logged-in patients who book
+  // for their own email get an immediate clerk_user_id stamp so /mi-cuenta
+  // shows the booking in the same session. Anonymous bookings stay NULL
+  // and rely on the webhook backfill at sign-up time.
+  const clerkUserIdAtInsert = await resolveClerkUserIdForEmail(patientEmail);
+
   try {
     const pool = await getPool();
     await pool.request()
@@ -222,6 +262,23 @@ export async function POST(request) {
            @procedure_slug, @procedure_name, @service_price, @platform_fee,
            @self_service_token, @self_service_token_expires_at)
       `);
+
+    // Stamp clerk_user_id on the inserted row when we resolved one. Same
+    // graceful-fallback pattern as verified_derivador / slot_source — a
+    // pre-migration DB without the column silently no-ops so the booking
+    // still goes through.
+    if (clerkUserIdAtInsert) {
+      try {
+        await pool.request()
+          .input('id', sql.NVarChar(50), id)
+          .input('clerk_user_id', sql.NVarChar(255), clerkUserIdAtInsert)
+          .query(`UPDATE bookings SET clerk_user_id = @clerk_user_id WHERE id = @id`);
+      } catch (linkErr) {
+        if (!String(linkErr?.message || '').includes('Invalid column name')) {
+          console.error('[POST /api/bookings] clerk_user_id stamp failed', linkErr?.message);
+        }
+      }
+    }
 
     // For sin-seguro bookings, open a voucher row in awaiting_voucher state so
     // ops can pick it up from the dashboard.
