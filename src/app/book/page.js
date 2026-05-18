@@ -259,7 +259,7 @@ function BookContent() {
     }).catch(() => {});
   };
 
-  const handlePay = (e) => {
+  const handlePay = async (e) => {
     e.preventDefault();
 
     // If it's a professional referral, create referral and redirect to lock-in page
@@ -278,7 +278,46 @@ function BookContent() {
         fee: convenienceFee.amount,
       });
 
-      // Store referral in localStorage
+      // Persist to DB via /api/referrals so the patient can recover the
+      // row when they open the email link in a different browser. The POST
+      // used to be missing entirely here, which meant the external derivar
+      // path only created localStorage entries — patients on a different
+      // device hit a 404 on the /book lock-in loader and got stuck on the
+      // skeleton (REF-VRHK7OOD6 incident, 2026-05-18). The POST is async
+      // and best-effort: we still fall back to localStorage + URL ?data=
+      // recovery if the DB is unreachable. The route accepts unauth POSTs
+      // and tags them with verified_derivador=false; the rate limit
+      // (10/h/IP) caps the cost of spam.
+      try {
+        await fetch('/api/referrals', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            id: referral.id,
+            patientEmail: form.email,
+            professionalEmail: proData.email,
+            professionName: proData.clinicName,
+            providerId: Number(providerId),
+            providerName,
+            slotDate: date,
+            slotTime: time,
+            fee: convenienceFee.amount,
+            specialty: service?.name || 'Consulta médica',
+            lockInWarningAt: referral.lockInWarningAt,
+          }),
+        }).then((r) => {
+          if (!r.ok) {
+            // Log so we have visibility when this fails — the previous
+            // silent catch is what hid the REF-VRHK7OOD6 bug for hours.
+            console.error('[/book referral POST]', r.status, r.statusText);
+          }
+        });
+      } catch (err) {
+        console.error('[/book referral POST] network error', err?.message);
+      }
+
+      // Also store in localStorage as a same-browser fallback. /lock-in/[id]
+      // and /book both check the DB first; this is just a backup channel.
       const stored = localStorage.getItem('referrals');
       const referrals = stored ? JSON.parse(stored) : [];
       referrals.push(referral);
