@@ -117,6 +117,59 @@ export async function GET(request) {
       ALTER TABLE bookings ADD payment_intent_id NVARCHAR(80);
     `);
 
+    // ── Migration: clerk_user_id + linked_at on bookings ───────────────
+    //
+    // Link a paid booking to the patient's Clerk account when we know it.
+    // Two write paths fill this in:
+    //
+    //   1. POST /api/bookings — if the booker is signed in to Clerk and the
+    //      patient_email matches one of their verified emails, we stamp
+    //      clerk_user_id immediately. Same-session: "you booked while
+    //      logged in, you see it in /mi-cuenta right away".
+    //   2. Clerk webhook user.created (patient signup branch) — when a new
+    //      account is created whose verified email matches one or more
+    //      `bookings.patient_email` rows with NULL clerk_user_id, we UPDATE
+    //      them in place. Covers the common case where a patient buys
+    //      logged out, then clicks "Crear mi cuenta" on the success screen.
+    //
+    // linked_at records WHICH path stamped the row (NULL → stamped at
+    // insert; non-NULL → backfilled by the webhook). Useful for the
+    // marketing funnel question "what % of post-purchase signups
+    // converted into linked accounts?".
+    await pool.request().query(`
+      IF NOT EXISTS (
+        SELECT * FROM sys.columns
+        WHERE Name = 'clerk_user_id' AND Object_ID = Object_ID('bookings')
+      )
+      ALTER TABLE bookings ADD clerk_user_id NVARCHAR(255) NULL;
+    `);
+    await pool.request().query(`
+      IF NOT EXISTS (
+        SELECT * FROM sys.columns
+        WHERE Name = 'linked_at' AND Object_ID = Object_ID('bookings')
+      )
+      ALTER TABLE bookings ADD linked_at DATETIMEOFFSET NULL;
+    `);
+    // Index for the webhook backfill query (UPDATE…WHERE LOWER(patient_email))
+    // and for /api/bookings/mine. Azure SQL's default collation is
+    // case-insensitive, so a plain index on the column is enough.
+    await pool.request().query(`
+      IF NOT EXISTS (
+        SELECT * FROM sys.indexes
+        WHERE name = 'IX_bookings_patient_email'
+          AND object_id = OBJECT_ID('bookings')
+      )
+      CREATE INDEX IX_bookings_patient_email ON bookings(patient_email);
+    `);
+    await pool.request().query(`
+      IF NOT EXISTS (
+        SELECT * FROM sys.indexes
+        WHERE name = 'IX_bookings_clerk_user_id'
+          AND object_id = OBJECT_ID('bookings')
+      )
+      CREATE INDEX IX_bookings_clerk_user_id ON bookings(clerk_user_id) WHERE clerk_user_id IS NOT NULL;
+    `);
+
     // ── Migration: self_service_token on bookings (F2) ─────────────────
     // Lets the patient cancel or request a reschedule from a link in the
     // confirmation email without having to authenticate. Token is a 32-char

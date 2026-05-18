@@ -61,11 +61,62 @@ export async function POST(request) {
 
   const data = event.data || {};
   const isProSignup = data?.unsafe_metadata?.signupSource === 'pro';
+
+  // Common: lift userId + all verified emails out of the payload so both
+  // the patient and pro branches can use them without rewalking the data.
+  const userId = data?.id;
+  const verifiedEmails = (data?.email_addresses || [])
+    .filter((e) => e?.verification?.status === 'verified')
+    .map((e) => String(e?.email_address || '').toLowerCase())
+    .filter(Boolean);
+
+  // ── Patient signup branch ─────────────────────────────────────────
+  // The /book success screen's "Crear mi cuenta" CTA brings a patient
+  // here. We backfill any existing bookings with matching verified emails
+  // so the patient's first /mi-cuenta visit already shows their history.
+  //
+  // Idempotent: only updates rows where clerk_user_id IS NULL — re-running
+  // the webhook (Svix retries on transient failures) doesn't reassign
+  // bookings to a different account.
   if (!isProSignup) {
-    return NextResponse.json({ ok: true, type: 'patient' });
+    if (!userId || !verifiedEmails.length || !DB_AVAILABLE) {
+      return NextResponse.json({ ok: true, type: 'patient', linked: 0 });
+    }
+    try {
+      const pool = await getPool();
+      const req = pool.request().input('userId', sql.NVarChar(255), userId);
+      const emailParams = verifiedEmails.map((e, i) => {
+        const name = `e${i}`;
+        req.input(name, sql.NVarChar(255), e);
+        return `@${name}`;
+      });
+      const result = await req.query(`
+        UPDATE bookings
+        SET clerk_user_id = @userId,
+            linked_at = SYSDATETIMEOFFSET()
+        WHERE clerk_user_id IS NULL
+          AND LOWER(patient_email) IN (${emailParams.join(', ')});
+        SELECT @@ROWCOUNT AS linked;
+      `);
+      const linked = result.recordset?.[0]?.linked ?? 0;
+      return NextResponse.json({ ok: true, type: 'patient', linked });
+    } catch (err) {
+      // Pre-migration DB without clerk_user_id column — silently ack so
+      // Svix doesn't keep retrying. The /api/bookings/mine endpoint has
+      // a graceful fallback for that case.
+      if (String(err?.message || '').includes('Invalid column name')) {
+        return NextResponse.json({ ok: true, type: 'patient', linked: 0, _fallback: 'pre-migration' });
+      }
+      console.error('[clerk webhook] patient backfill failed', err);
+      return NextResponse.json({ ok: true, type: 'patient', linked: 0, error: err.message });
+    }
   }
 
-  const userId = data?.id;
+  // ── Pro signup branch (`isProSignup === true`) ─────────────────────
+  // `userId` was lifted out of the payload above for the patient branch;
+  // reuse it here for the pro path. Same with `verifiedEmails` — but the
+  // legacy pro flow uses the primary email specifically, so pull that
+  // out too.
   const email =
     data?.email_addresses?.find?.((e) => e.id === data.primary_email_address_id)?.email_address
     || data?.email_addresses?.[0]?.email_address
