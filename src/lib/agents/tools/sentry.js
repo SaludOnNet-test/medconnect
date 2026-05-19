@@ -129,10 +129,22 @@ function compactEvent(e) {
 
 export async function querySentryIssue({ issueId } = {}) {
   if (!issueId) return { error: 'issueId required' };
-  const issue = await sentryGet(`/issues/${encodeURIComponent(issueId)}/`);
+  const o = org();
+  if (!o) return { error: 'SENTRY_ORG not configured' };
+  // Use the org-scoped endpoint. Sentry's global /issues/{id}/ form returns
+  // 401 against integration tokens in some org configurations even when
+  // /organizations/{org}/ succeeds (we hit this during a real
+  // investigation: /health was green, /issues/{id}/ was 401 with
+  // "Invalid token"). The org-scoped variant is the canonical form per
+  // the Sentry API docs and works against Internal Integration tokens.
+  const issue = await sentryGet(
+    `/organizations/${encodeURIComponent(o)}/issues/${encodeURIComponent(issueId)}/`
+  );
   if (issue?.error) return issue;
   // Latest event = the freshest example we can show the model.
-  const latest = await sentryGet(`/issues/${encodeURIComponent(issueId)}/events/latest/`);
+  const latest = await sentryGet(
+    `/organizations/${encodeURIComponent(o)}/issues/${encodeURIComponent(issueId)}/events/latest/`
+  );
   return {
     issue: compactIssue(issue),
     latestEvent: latest?.error ? null : compactEvent(latest),
@@ -199,9 +211,15 @@ export const LIST_RECENT_ISSUES_SCHEMA = {
 
 export async function getIssueRegressionInfo({ issueId, regressionWindowDays = 30 } = {}) {
   if (!issueId) return { error: 'issueId required' };
-  const issue = await sentryGet(`/issues/${encodeURIComponent(issueId)}/`);
+  const o = org();
+  if (!o) return { error: 'SENTRY_ORG not configured' };
+  const issue = await sentryGet(
+    `/organizations/${encodeURIComponent(o)}/issues/${encodeURIComponent(issueId)}/`
+  );
   if (issue?.error) return issue;
-  const activity = await sentryGet(`/issues/${encodeURIComponent(issueId)}/activity/`);
+  const activity = await sentryGet(
+    `/organizations/${encodeURIComponent(o)}/issues/${encodeURIComponent(issueId)}/activity/`
+  );
   const cutoff = Date.now() - regressionWindowDays * 86400_000;
 
   let priorResolutionAt = null;
