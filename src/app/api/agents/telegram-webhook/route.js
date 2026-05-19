@@ -50,6 +50,7 @@ import {
   buildClaudeUrl,
 } from '@/lib/agents/marketing/claudePrompt';
 import { signActionId } from '@/lib/agents/telegram';
+import { runHealthCheck, formatHealthReportMarkdown } from '@/lib/agents/health';
 import { runSecurityAgent } from '@/lib/agents/security/run';
 import { rollbackVercel } from '@/lib/agents/tools/vercel';
 import { proposeHotfixPr } from '@/lib/agents/tools/github';
@@ -112,6 +113,8 @@ async function handleMessage(message) {
       return sendHelp(chatId);
     case '/status':
       return sendStatus(chatId);
+    case '/health':
+      return sendHealth(chatId);
     case '/marketing':
       return handleMarketingCommand(chatId, rest);
     case '/security':
@@ -143,6 +146,7 @@ async function sendHelp(chatId) {
     '',
     '*General*',
     '`/status` — pendientes, aceptadas listas, guardadas para después.',
+    '`/health` — chequeo de conectividad a todos los servicios.',
     '`/agents` — esta ayuda.',
   ].join('\n');
   await sendMessage({ chatId, text: help });
@@ -190,6 +194,26 @@ async function sendStatus(chatId) {
 
   await sendMessage({ chatId, text: parts.join('\n\n') });
   return NextResponse.json({ ok: true });
+}
+
+async function sendHealth(chatId) {
+  // Defer the run because runHealthCheck can take 5-6 s and we want to ack
+  // the Telegram POST quickly. The operator sees the spinner go away
+  // immediately and the result arrives as a second message.
+  await sendMessage({ chatId, text: '🔄 _Comprobando conectividad…_' });
+  after(async () => {
+    try {
+      const results = await runHealthCheck();
+      const text = formatHealthReportMarkdown(results);
+      await sendMessage({ chatId, text });
+    } catch (err) {
+      await sendMessage({
+        chatId,
+        text: `*[/health] error*: \`${String(err?.message || err).slice(0, 200)}\``,
+      }).catch(() => {});
+    }
+  });
+  return NextResponse.json({ ok: true, deferred: true });
 }
 
 async function handleMarketingCommand(chatId, parts) {
