@@ -21,7 +21,11 @@ import { acquireLock, getConfig } from '@/lib/agents/state';
 import { shouldProcessSentryEvent } from '@/lib/agents/guardrails';
 
 export const dynamic = 'force-dynamic';
-export const maxDuration = 60;
+// The security agent run can chain 8-10 Anthropic calls plus tool fetches;
+// 60 s was getting tight in real investigations and the function would be
+// killed silently mid-loop. 90 s is the Vercel Pro hard ceiling for regular
+// functions and gives a generous margin.
+export const maxDuration = 90;
 
 export async function POST(request) {
   // 1. Read raw body for signature verification.
