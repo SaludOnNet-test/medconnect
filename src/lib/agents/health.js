@@ -85,22 +85,46 @@ async function checkSentry() {
       latencyMs: nowMs() - start,
     });
   }
+  // Two probes: the org endpoint validates Organization:Read, the issues
+  // endpoint validates Issue & Event:Read. We need BOTH for the security
+  // agent to actually function — passing only the org probe led us to a
+  // false-green /health while real investigations 401'd. The headers
+  // option object is reused to keep the probes identical apart from URL.
+  const headers = { Authorization: `Bearer ${token}` };
   try {
-    const res = await fetchWithTimeout(`https://sentry.io/api/0/organizations/${encodeURIComponent(org)}/`, {
-      headers: { Authorization: `Bearer ${token}` },
-      timeoutMs: 5000,
-    });
+    const orgRes = await fetchWithTimeout(
+      `https://sentry.io/api/0/organizations/${encodeURIComponent(org)}/`,
+      { headers, timeoutMs: 5000 }
+    );
+    if (!orgRes.ok) {
+      const latencyMs = nowMs() - start;
+      let hint;
+      if (orgRes.status === 401) {
+        hint = 'Token inválido. Asegúrate de pegar el TOKEN de la pestaña "Tokens" de la Internal Integration (NO el Client Secret).';
+      } else if (orgRes.status === 404) {
+        hint = `Org slug '${org}' no encontrado. Verifica SENTRY_ORG (slug, no nombre).`;
+      } else {
+        hint = `Sentry respondió ${orgRes.status} en /organizations/.`;
+      }
+      return result('Sentry', { configured: true, reachable: false, latencyMs, hint });
+    }
+    // Second probe: validate Issue & Event scope explicitly.
+    const issuesRes = await fetchWithTimeout(
+      `https://sentry.io/api/0/organizations/${encodeURIComponent(org)}/issues/?limit=1`,
+      { headers, timeoutMs: 5000 }
+    );
     const latencyMs = nowMs() - start;
-    if (res.ok) {
+    if (issuesRes.ok) {
       return result('Sentry', { configured: true, reachable: true, latencyMs });
     }
+    // Org-level works but issue-level doesn't — almost always a missing
+    // scope on the Internal Integration. This is the case we *missed* with
+    // the previous single-probe version.
     let hint;
-    if (res.status === 401) {
-      hint = 'Token inválido. Asegúrate de pegar el TOKEN de la pestaña "Tokens" de la Internal Integration (NO el Client Secret). Scopes: Issue & Event: Read + Organization: Read.';
-    } else if (res.status === 404) {
-      hint = `Org slug '${org}' no encontrado. Verifica SENTRY_ORG (slug, no nombre).`;
+    if (issuesRes.status === 401 || issuesRes.status === 403) {
+      hint = 'Token llega a /organizations/ pero NO a /issues/. Añade el scope "Issue & Event: Read" en Sentry → Custom Integrations → MedConnect Agents → Permissions, y regenera el token.';
     } else {
-      hint = `Sentry respondió ${res.status}.`;
+      hint = `Sentry respondió ${issuesRes.status} en /organizations/{org}/issues/. Revisa permisos y plan.`;
     }
     return result('Sentry', { configured: true, reachable: false, latencyMs, hint });
   } catch (err) {
