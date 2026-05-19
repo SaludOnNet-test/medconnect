@@ -56,6 +56,11 @@ import { rollbackVercel } from '@/lib/agents/tools/vercel';
 import { proposeHotfixPr } from '@/lib/agents/tools/github';
 
 export const dynamic = 'force-dynamic';
+// `after()` dispatches `runMarketingAgent` / `runSecurityAgent` here, both of
+// which can chain 8-10 Anthropic calls. Without this the default Vercel cap
+// of ~10 s would kill long investigations after the 200 OK and the operator
+// would see the initial ack but no final summary.
+export const maxDuration = 90;
 
 export async function POST(request) {
   // 1. Trust the wrapping bytes only after the secret-token header passes.

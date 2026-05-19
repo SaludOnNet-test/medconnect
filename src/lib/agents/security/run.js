@@ -45,7 +45,11 @@ import {
 } from '@/lib/agents/tools/github';
 import { proposeAction } from '@/lib/agents/tools/proposeAction';
 
-const MAX_ITERATIONS = 14;
+// Hard cap on Anthropic round-trips per run. 10 is enough for the realistic
+// investigation flow (fetch issue → fetch event → fetch file → maybe propose)
+// and leaves headroom under the 60-90 s Vercel function ceiling. Going wider
+// risks the function getting reaped mid-loop without a Telegram message.
+const MAX_ITERATIONS = 10;
 
 // `request_approval` is just `propose_action` under a different name, scoped
 // to the security agent and with security-relevant defaults.
@@ -400,13 +404,29 @@ export async function runSecurityAgent({ trigger = 'manual', issueId, deployment
       costUsd: Math.round(cost * 10000) / 10000,
     });
 
-    if (!silent && (approvalsRequested > 0 || autoActionsExecuted > 0)) {
+    // Always close the loop on Telegram. Pre-fix, when the agent decided
+    // "no action needed" (a perfectly valid outcome) we sent nothing back
+    // and the operator was stuck staring at "🔍 Investigando issue X…".
+    // We always emit a final message; the framing changes with the outcome.
+    if (!silent) {
+      let headline;
+      if (approvalsRequested > 0 || autoActionsExecuted > 0) {
+        headline = '*[SEC] Run completado*';
+      } else if (trigger === 'manual') {
+        // Manual asks always get a response. "Nothing to do" IS the answer.
+        headline = `🟢 *[SEC] Investigación completada — sin acción necesaria*`;
+      } else {
+        // Webhook triggers (Sentry/Vercel) that decided to ignore: send a
+        // terse note so the operator knows the agent looked and decided.
+        // Saves them having to check /status later.
+        headline = `ℹ️ *[SEC] Issue revisado, sin acción*`;
+      }
       const lines = [
-        `*[SEC] Run completado*`,
+        headline,
         '',
-        summary,
+        summary || '_(sin resumen narrativo del modelo)_',
         '',
-        `_${approvalsRequested} aprobaciones pedidas · ${autoActionsExecuted} auto-acciones · $${cost.toFixed(4)}_`,
+        `_${approvalsRequested} aprobaciones · ${autoActionsExecuted} auto-acciones · ${totalIn + cacheRead + cacheWrite} tok in · $${cost.toFixed(4)}_`,
       ];
       await sendMessage({ text: lines.join('\n') });
     }

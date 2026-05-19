@@ -11,7 +11,8 @@ import { internalError, clientError } from '@/lib/errors';
 import { runSecurityAgent } from '@/lib/agents/security/run';
 
 export const dynamic = 'force-dynamic';
-export const maxDuration = 60;
+// See sentry-webhook: 90 s gives the multi-turn investigation enough room.
+export const maxDuration = 90;
 
 function authorised(request) {
   const secret = process.env.CRON_SECRET;
