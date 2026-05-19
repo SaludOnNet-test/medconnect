@@ -27,8 +27,30 @@ function authHeader() {
     'X-GitHub-Api-Version': '2022-11-28',
   };
 }
-function repo()       { return process.env.GITHUB_REPO || ''; }
-function baseBranch() { return process.env.GITHUB_BASE_BRANCH || 'main'; }
+// `GITHUB_REPO` defaults to the known repo so a missing env var no longer
+// blocks the agent. The token is still required and has no default — there's
+// no safe value for a secret.
+export function repo()       { return process.env.GITHUB_REPO || 'SaludOnNet-test/medconnect'; }
+export function baseBranch() { return process.env.GITHUB_BASE_BRANCH || 'main'; }
+
+// Maps an HTTP status to a hint that points the operator at the most
+// likely fix. Kept narrow on purpose — only stable, well-known cases. The
+// raw response body still gets included in the error message for the
+// long-tail. Hints are surfaced both in tool results (agent reads them and
+// degrades gracefully) and in /health output (operator reads them).
+const STATUS_HINTS = {
+  401: 'GITHUB_TOKEN inválido. PAT fine-grained: scopes contents:write + pull_requests:write + actions:read. Classic PAT: repo + workflow.',
+  403: 'GITHUB_TOKEN sin permiso para esta operación (probable rate limit o branch protection). Comprueba scopes y permisos del repo.',
+  404: 'Recurso no encontrado. Verifica GITHUB_REPO con forma owner/repo y que el token tenga acceso a ese repo.',
+  422: 'GitHub rechazó la petición por validación (rama existente, ref inválido, etc.). Revisa el body de error abajo.',
+};
+
+function formatGhError(status, body) {
+  const trimmed = String(body || '').slice(0, 300);
+  const hint = STATUS_HINTS[status];
+  const msg = `github ${status}: ${trimmed}`;
+  return hint ? `${msg} — hint: ${hint}` : msg;
+}
 
 async function ghJson(method, path, body) {
   const res = await fetchWithTimeout(GH_BASE + path, {
@@ -39,7 +61,7 @@ async function ghJson(method, path, body) {
   });
   if (!res.ok) {
     const errText = await res.text().catch(() => '');
-    return { __error: `github ${res.status}: ${errText.slice(0, 300)}` };
+    return { __error: formatGhError(res.status, errText) };
   }
   // Some endpoints (DELETE, MERGE) return 204 with no body.
   const ct = res.headers.get('content-type') || '';
@@ -53,6 +75,8 @@ async function ghJson(method, path, body) {
 
 export async function getFileFromGithub({ path, ref } = {}) {
   if (!path) return { error: 'path required' };
+  // repo() always returns something thanks to the default; this check
+  // remains as a guard against future regressions.
   if (!repo()) return { error: 'GITHUB_REPO not configured' };
   const refQ = ref ? `?ref=${encodeURIComponent(ref)}` : '';
   const r = await ghJson(

@@ -256,14 +256,42 @@ From your Telegram chat with the bot:
 
 - `/agents` — help
 - `/status` — open pending proposals across both agents
-- `/marketing analizar 7d` — trigger marketing analysis on demand (Phase 1+)
-- `/security investigar <issue_id>` — investigate a Sentry issue (Phase 2+)
+- `/health` — connectivity check to Anthropic, Azure SQL, Sentry, Vercel,
+  GitHub, Telegram, and Upstash. Shows configured + reachable + latency +
+  a hint for every red.
+- `/marketing analizar 7d` — trigger marketing analysis on demand
+- `/security investigar <issue_id>` — investigate a Sentry issue
 - `/marketing config max_proposals_per_run=3` — tune marketing live
-- `/security config auto_rollback_enabled=true` — enable auto-rollback (Phase 3)
+- `/security config auto_rollback_enabled=true` — enable auto-rollback
 
 When a proposal arrives, you'll see inline buttons (`Aceptar`/`Rechazar`/
 `Detalle`). Pressing them is the only way to action a proposal — the
 chat conversation does not execute commands.
+
+### Health probe / debugging
+
+`/health` from Telegram (or
+`curl -X POST https://www.medconnect.es/api/agents/health -H "x-setup-secret: $DB_SETUP_SECRET"`)
+runs every dependency check in parallel and returns a per-service report
+with ✅ / ⚠️ / ❌, latency, and an actionable hint when something fails.
+Common hints already wired in:
+
+| Service | Failure mode | Hint surfaced |
+|---|---|---|
+| Anthropic | env var missing | "Falta `ANTHROPIC_API_KEY` en Vercel Production." |
+| Sentry | 401 | "Pega el **Token** de la pestaña 'Tokens' de la Internal Integration — NO el Client Secret. Scopes: Issue & Event: Read + Organization: Read." |
+| Sentry | 404 | "Verifica `SENTRY_ORG` y `SENTRY_PROJECT` (slugs, no nombres)." |
+| Vercel | 401/403 | "Re-crea `VERCEL_TOKEN` (write-once) en Account Settings → Tokens." |
+| Vercel | 404 | "Revisa `VERCEL_PROJECT_ID` y `VERCEL_TEAM_ID`." |
+| GitHub | 401 | "PAT inválido o caducado. Scopes: contents:write + pull_requests:write + actions:read." |
+| GitHub | 404 | "`GITHUB_REPO` o acceso del PAT al repo. Default si está ausente: `SaludOnNet-test/medconnect`." |
+| Telegram | non-200 | "`TELEGRAM_BOT_TOKEN` revocado o inválido." |
+| Upstash | non-200 | "Token expirado o URL distinta." |
+
+`GITHUB_REPO` tiene un default de `SaludOnNet-test/medconnect` hardcodeado
+en `src/lib/agents/tools/github.js`, así que aunque la env var desaparezca,
+los tools de GitHub siguen sabiendo dónde apuntar. El token sigue siendo
+obligatorio (no se puede defaultear un secreto).
 
 ---
 
@@ -309,9 +337,12 @@ If any check fails, the action degrades to a Telegram approval prompt.
 | `src/lib/agents/tools/github.js` | GitHub REST API client (read files, propose PR, auto-merge gated) |
 | `src/lib/agents/security/systemPrompt.js` | Stable cached system prompt for the security agent |
 | `src/lib/agents/security/run.js` | Security orchestrator with guardrail-gated auto-actions |
+| `src/lib/agents/health.js` | `runHealthCheck()` — pings every external dependency in parallel + Markdown formatter |
 | `src/app/api/agents/telegram-webhook/route.js` | Single webhook entry point, command + callback router |
 | `src/app/api/agents/marketing/run/route.js` | Cron + manual trigger endpoint for the marketing agent |
 | `src/app/api/agents/sentry-webhook/route.js` | Sentry → security agent dispatcher (HMAC + filter + dedupe) |
 | `src/app/api/agents/vercel-webhook/route.js` | Vercel deploy events → opens 10-min post-deploy guard window |
 | `src/app/api/agents/security/run/route.js` | Manual trigger for security agent (with optional issueId) |
-| `scripts/migrate_agents_schema.js` | Idempotent schema migration (run once after deploy) |
+| `src/app/api/agents/health/route.js` | `/health` HTTP endpoint with `x-setup-secret` auth |
+| `src/app/api/agents/migrate/route.js` | One-shot HTTP migration endpoint (alternative to running the CLI script) |
+| `scripts/migrate_agents_schema.js` | Idempotent schema migration (CLI form) |

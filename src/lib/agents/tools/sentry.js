@@ -21,8 +21,25 @@ function authHeader() {
   return { Authorization: `Bearer ${token}` };
 }
 
-function org() { return process.env.SENTRY_ORG || ''; }
-function project() { return process.env.SENTRY_PROJECT || ''; }
+export function org() { return process.env.SENTRY_ORG || ''; }
+export function project() { return process.env.SENTRY_PROJECT || ''; }
+
+// Status → hint. The 401 was the trap we hit on launch day: the operator
+// pasted the integration's Client Secret instead of the Token from the
+// "Tokens" tab. Surface that explicitly.
+const STATUS_HINTS = {
+  401: 'SENTRY_AUTH_TOKEN inválido. Asegúrate de pegar el TOKEN de la pestaña "Tokens" de la Internal Integration (no el Client Secret). Scopes: Issue & Event: Read + Organization: Read.',
+  403: 'Token sin permisos para esta operación. Verifica los scopes de la Internal Integration.',
+  404: 'Recurso no encontrado. Verifica SENTRY_ORG y SENTRY_PROJECT (deben ser slugs, no nombres con espacios).',
+  429: 'Rate limit de Sentry. Re-intenta tras unos segundos.',
+};
+
+function formatSentryError(status, body) {
+  const trimmed = String(body || '').slice(0, 300);
+  const hint = STATUS_HINTS[status];
+  const msg = `sentry ${status}: ${trimmed}`;
+  return hint ? `${msg} — hint: ${hint}` : msg;
+}
 
 async function sentryGet(path, query = {}) {
   const url = new URL(SENTRY_BASE + path);
@@ -35,7 +52,7 @@ async function sentryGet(path, query = {}) {
   });
   if (!res.ok) {
     const body = await res.text().catch(() => '');
-    return { error: `sentry ${res.status}: ${body.slice(0, 300)}` };
+    return { error: formatSentryError(res.status, body) };
   }
   return res.json();
 }

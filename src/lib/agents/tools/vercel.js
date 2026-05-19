@@ -27,6 +27,20 @@ function teamQuery() {
   return team ? `?teamId=${encodeURIComponent(team)}` : '';
 }
 
+// Status → operator-actionable hint.
+const STATUS_HINTS = {
+  401: 'VERCEL_TOKEN inválido. Crea uno nuevo en Vercel → Account Settings → Tokens (los tokens son write-once). Scope: Read+Write sobre Deployments, restringido al team saludonnet-tests-projects.',
+  403: 'Token sin permiso. Probable que el scope no incluya el team o el proyecto medconnect.',
+  404: 'Recurso no encontrado. Verifica VERCEL_PROJECT_ID (Settings → General → "Project ID") y VERCEL_TEAM_ID.',
+};
+
+function formatVercelError(status, body) {
+  const trimmed = String(body || '').slice(0, 300);
+  const hint = STATUS_HINTS[status];
+  const msg = `vercel ${status}: ${trimmed}`;
+  return hint ? `${msg} — hint: ${hint}` : msg;
+}
+
 /**
  * List recent production deployments. Returns an array of:
  *   { uid, name, url, state, target, createdAt, meta:{ githubCommitSha, githubCommitMessage } }
@@ -45,7 +59,7 @@ export async function listRecentDeployments({ limit = 10 } = {}) {
   });
   if (!res.ok) {
     const body = await res.text().catch(() => '');
-    return { error: `vercel ${res.status}: ${body.slice(0, 300)}` };
+    return { error: formatVercelError(res.status, body) };
   }
   const json = await res.json();
   const deployments = (json.deployments || []).map((d) => ({

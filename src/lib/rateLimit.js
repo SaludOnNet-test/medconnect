@@ -173,4 +173,7 @@ export const limits = {
   proVerification: rateLimit({ key: 'pro:verification', windowMs: 60 * 60_000, max: 5 }),
   clinicSearch:    rateLimit({ key: 'clinics:search',   windowMs: 60_000, max: 60 }),
   contact:         rateLimit({ key: 'contact:post',     windowMs: 60_000, max: 5 }),
+  // /api/agents/health is protected by DB_SETUP_SECRET, but we still cap
+  // it to avoid a script accidentally hammering Sentry/Vercel/GitHub.
+  agentsHealth:    rateLimit({ key: 'agents:health',    windowMs: 60_000, max: 10 }),
 };
