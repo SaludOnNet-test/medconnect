@@ -26,7 +26,7 @@ export default function PrivacidadPage() {
         <p className="legal-sub">Última actualización: abril 2026.</p>
 
         <Section title="1. Responsable del tratamiento">
-          <p><strong>Med Connect</strong> (en adelante, «la Plataforma»), operada por <strong>Saludonnet Spain SL</strong>, con domicilio en España. Contacto de privacidad: <a href="mailto:privacidad@medconnect.es">privacidad@medconnect.es</a></p>
+          <p><strong>Med Connect</strong> (en adelante, «la Plataforma»), operada por <strong>Saludonnet Spain SL</strong>, con domicilio en España. Contacto de privacidad: <a href="mailto:info@medconnect.es">info@medconnect.es</a></p>
         </Section>
 
         <Section title="2. Datos que recogemos">
@@ -76,7 +76,7 @@ export default function PrivacidadPage() {
         </Section>
 
         <Section title="6. Tus derechos">
-          <p>Puedes ejercer en cualquier momento los derechos de <strong>acceso, rectificación, supresión, oposición, limitación y portabilidad</strong> escribiendo a <a href="mailto:privacidad@medconnect.es">privacidad@medconnect.es</a> con copia de tu DNI. También puedes reclamar ante la <a href="https://www.aepd.es" target="_blank" rel="noopener noreferrer">Agencia Española de Protección de Datos (AEPD)</a>.</p>
+          <p>Puedes ejercer en cualquier momento los derechos de <strong>acceso, rectificación, supresión, oposición, limitación y portabilidad</strong> escribiendo a <a href="mailto:info@medconnect.es">info@medconnect.es</a> con copia de tu DNI. También puedes reclamar ante la <a href="https://www.aepd.es" target="_blank" rel="noopener noreferrer">Agencia Española de Protección de Datos (AEPD)</a>.</p>
         </Section>
 
         <Section title="7. Seguridad">
