@@ -75,7 +75,7 @@ export default function CookiesPage() {
         <Section title="Más información">
           <p>
             Consulta nuestra <a href="/privacidad">Política de Privacidad</a> para más detalles sobre el tratamiento de datos personales.
-            Contacto: <a href="mailto:privacidad@medconnect.es">privacidad@medconnect.es</a>
+            Contacto: <a href="mailto:info@medconnect.es">info@medconnect.es</a>
           </p>
         </Section>
       </main>
