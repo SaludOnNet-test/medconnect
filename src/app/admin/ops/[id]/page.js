@@ -803,31 +803,105 @@ function normalize(str) {
     .toLowerCase()
     .trim();
 }
+// Picker UX: a button that opens a modal containing a search box + the
+// filtered clinic list. Replaces the previous inline typeahead — the
+// operator reported it looked too much like a free-text field, and worse
+// the `fetch` calls weren't sending the admin Bearer token (the admin
+// auth lives in localStorage, not cookies), so /api/admin/clinics
+// returned 401 silently and the dropdown stayed empty.
+//
+// Two fixes in one component swap:
+//   1. Use `adminFetch` so the admin token is attached → search works.
+//   2. Modal UI makes it visually obvious this is a list picker. The
+//      operator can NEVER submit a clinic name that isn't in the DB
+//      because the modal is the only entry point — the `selectedId`
+//      stays null until they click a real row.
 function ClinicTypeahead({
   cityFilter, specialtyFilter, preferClinicName,
   onPick, onClear, selectedId, selectedName,
 }) {
-  // Server-driven search against /api/admin/clinics, which applies
-  // Latin1_General_CI_AI collation (case + accent insensitive) and
-  // tokenises the query so "cea berm" matches "Centro Médico Cea Bermúdez".
-  // The previous implementation pre-loaded 100 clinics filtered by
-  // /api/clinics/search?city=... and then filtered them client-side, which
-  // missed any clinic whose city field had a different accent/spelling from
-  // the one in operations_cases.original_clinic_city — the 2026-05 ops
-  // report ("sigue sin funcionar el dropdown inteligente") was caused by
-  // that mismatch.
-  const [results, setResults] = useState([]);
-  const [loading, setLoading] = useState(false);
+  const [open, setOpen] = useState(false);
+  const summary = [cityFilter, specialtyFilter].filter(Boolean).join(' · ');
+
+  return (
+    <>
+      {selectedId ? (
+        <div style={{
+          padding: '6px 8px', border: '1px solid #10b981', borderRadius: 4,
+          background: '#ecfdf5', display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+        }}>
+          <span style={{ fontSize: 13, color: '#064e3b' }}>
+            ✓ <strong>{selectedName}</strong> <span style={{ opacity: 0.7 }}>· id {selectedId}</span>
+          </span>
+          <button
+            type="button"
+            onClick={onClear}
+            style={{ background: 'none', border: 0, color: '#065f46', cursor: 'pointer', fontSize: 12, textDecoration: 'underline' }}
+          >
+            cambiar
+          </button>
+        </div>
+      ) : (
+        <button
+          type="button"
+          onClick={() => setOpen(true)}
+          style={{
+            display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+            width: '100%', padding: '8px 12px', border: '1.5px dashed #94a3b8',
+            borderRadius: 6, background: '#f8fafc', cursor: 'pointer',
+            fontSize: 13, fontFamily: 'inherit', color: '#1e293b',
+          }}
+        >
+          <span style={{ fontWeight: 600 }}>
+            📋 Elegir clínica de la lista
+            {summary ? <span style={{ fontWeight: 400, color: '#64748b' }}> · {summary}</span> : null}
+          </span>
+          <span style={{ color: '#64748b', fontSize: 16 }}>›</span>
+        </button>
+      )}
+      {open && (
+        <ClinicPickerModal
+          cityFilter={cityFilter}
+          specialtyFilter={specialtyFilter}
+          preferClinicName={preferClinicName}
+          onClose={() => setOpen(false)}
+          onPick={(cl) => { onPick(cl); setOpen(false); }}
+        />
+      )}
+    </>
+  );
+}
+
+// Modal dialog: searchbox + scrollable clinic list. Backed by the same
+// /api/admin/clinics endpoint as before, but called through `adminFetch`
+// so the Bearer token from localStorage is attached. Without that header
+// the endpoint returns 401 and the picker stays empty (was the root cause
+// of the 2026-05 "dropdown no funciona" report).
+function ClinicPickerModal({
+  cityFilter, specialtyFilter, preferClinicName, onClose, onPick,
+}) {
   const [query, setQuery] = useState('');
-  const [openDropdown, setOpenDropdown] = useState(false);
+  const [results, setResults] = useState([]);
+  const [loading, setLoading] = useState(true);
   const [fuzzyHint, setFuzzyHint] = useState(false);
   const inputRef = useRef(null);
   const reqIdRef = useRef(0);
 
-  // Build the q string. We always seed with the case's city so the
-  // operator sees a city-scoped list when the input is empty, and as they
-  // type each token is AND-ed with the city (and with the specialty if
-  // available) so the result set narrows naturally.
+  // Auto-focus the searchbox when the modal opens and trap Esc to close.
+  useEffect(() => {
+    inputRef.current?.focus();
+    const onKey = (e) => { if (e.key === 'Escape') onClose(); };
+    window.addEventListener('keydown', onKey);
+    document.body.style.overflow = 'hidden';
+    return () => {
+      window.removeEventListener('keydown', onKey);
+      document.body.style.overflow = '';
+    };
+  }, [onClose]);
+
+  // Always seed the q with the case's city + specialty so the operator
+  // sees a city-scoped list as soon as the modal opens; typed tokens are
+  // appended and AND-ed server-side (Latin1_General_CI_AI collation).
   const baseTokens = useMemo(() => {
     const out = [];
     if (cityFilter) out.push(String(cityFilter).trim());
@@ -835,9 +909,7 @@ function ClinicTypeahead({
     return out.filter(Boolean);
   }, [cityFilter, specialtyFilter]);
 
-  // Debounced server search. 250 ms feels responsive without hammering
-  // Azure SQL on every keystroke. Each in-flight request carries an
-  // incrementing id so a slow response can't clobber a newer one.
+  // Debounced server search. 250 ms responsive without hammering DB.
   useEffect(() => {
     const handle = setTimeout(async () => {
       const tokens = [...baseTokens];
@@ -848,18 +920,18 @@ function ClinicTypeahead({
       setLoading(true);
       setFuzzyHint(false);
       try {
-        // First try: full query (verbatim tokens, accent-insensitive).
-        let res = await fetch(`/api/admin/clinics?q=${encodeURIComponent(q)}&limit=50`);
+        // adminFetch attaches the Bearer token from localStorage and 401s
+        // are routed to /admin/login. The previous plain fetch() never
+        // sent the token, so the endpoint always returned 401.
+        let res = await adminFetch(`/api/admin/clinics?q=${encodeURIComponent(q)}&limit=50`);
         let j = await res.json();
         let list = Array.isArray(j?.clinics) ? j.clinics : [];
-        // Typo fallback — when the typed token is at least 5 chars and the
-        // full query returned nothing, retry with the typed token shortened
-        // by one character. Catches "Bermudz" → match "Bermúdez" and
-        // similar single-character typos at the end of a word without a
-        // full Levenshtein library.
+        // Typo fallback — when the full query returned nothing AND the
+        // typed token is ≥ 5 chars, retry with the typed token chopped by
+        // one character. Catches "Bermudz" → "Bermud" → "Bermúdez".
         if (myId === reqIdRef.current && list.length === 0 && typed.length >= 5) {
           const shortened = [...baseTokens, typed.slice(0, -1)].join(' ');
-          res = await fetch(`/api/admin/clinics?q=${encodeURIComponent(shortened)}&limit=50`);
+          res = await adminFetch(`/api/admin/clinics?q=${encodeURIComponent(shortened)}&limit=50`);
           j = await res.json();
           list = Array.isArray(j?.clinics) ? j.clinics : [];
           if (list.length > 0) setFuzzyHint(true);
@@ -867,7 +939,7 @@ function ClinicTypeahead({
         if (myId === reqIdRef.current) setResults(list);
       } catch (err) {
         if (myId === reqIdRef.current) {
-          console.error('[ClinicTypeahead] fetch error', err);
+          console.error('[ClinicPickerModal] fetch error', err);
           setResults([]);
         }
       } finally {
@@ -889,88 +961,122 @@ function ClinicTypeahead({
         if (bp && !ap) return 1;
       }
       return an.localeCompare(bn);
-    }).slice(0, 12);
+    }).slice(0, 50);
   }, [results, preferClinicName]);
 
   return (
-    <div style={{ position: 'relative' }}>
-      {selectedId ? (
-        <div style={{
-          padding: '6px 8px', border: '1px solid #10b981', borderRadius: 4,
-          background: '#ecfdf5', display: 'flex', justifyContent: 'space-between', alignItems: 'center',
-        }}>
-          <span style={{ fontSize: 13, color: '#064e3b' }}>
-            ✓ <strong>{selectedName}</strong> <span style={{ opacity: 0.7 }}>· id {selectedId}</span>
-          </span>
-          <button
-            type="button"
-            onClick={onClear}
-            style={{ background: 'none', border: 0, color: '#065f46', cursor: 'pointer', fontSize: 12, textDecoration: 'underline' }}
-          >
-            cambiar
-          </button>
-        </div>
-      ) : (
-        <>
+    <div
+      role="dialog"
+      aria-modal="true"
+      aria-label="Elegir clínica alternativa"
+      onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}
+      style={{
+        position: 'fixed', inset: 0, background: 'rgba(15, 23, 42, 0.45)',
+        zIndex: 1000, display: 'flex', alignItems: 'flex-start',
+        justifyContent: 'center', padding: '40px 16px',
+      }}
+    >
+      <div style={{
+        width: '100%', maxWidth: 560, background: '#fff',
+        borderRadius: 12, boxShadow: '0 24px 48px rgba(0,0,0,0.2)',
+        display: 'flex', flexDirection: 'column', maxHeight: 'calc(100vh - 80px)',
+        overflow: 'hidden',
+      }}>
+        <div style={{ padding: '16px 20px 12px', borderBottom: '1px solid #e2e8f0' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+            <div>
+              <h3 style={{ margin: 0, fontSize: 16, fontWeight: 700, color: '#0f172a' }}>
+                Elegir clínica alternativa
+              </h3>
+              <p style={{ margin: '4px 0 0', fontSize: 12, color: '#64748b' }}>
+                Solo puedes seleccionar clínicas de esta lista. Si la clínica que buscas no aparece, emite reembolso.
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={onClose}
+              aria-label="Cerrar"
+              style={{
+                background: '#f1f5f9', border: 0, borderRadius: '50%',
+                width: 28, height: 28, cursor: 'pointer', fontSize: 16,
+                color: '#475569', display: 'flex', alignItems: 'center', justifyContent: 'center',
+                flexShrink: 0,
+              }}
+            >
+              ×
+            </button>
+          </div>
           <input
             ref={inputRef}
             type="text"
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
             placeholder={
               cityFilter
-                ? `Buscar clínica en ${cityFilter}${specialtyFilter ? ` · ${specialtyFilter}` : ''} (escribe el nombre)`
-                : 'Buscar clínica (escribe el nombre)'
+                ? `Buscar en ${cityFilter}${specialtyFilter ? ` · ${specialtyFilter}` : ''}…`
+                : 'Buscar por nombre, ciudad, provincia o dirección…'
             }
-            value={query}
-            onChange={(e) => { setQuery(e.target.value); setOpenDropdown(true); }}
-            onFocus={() => setOpenDropdown(true)}
-            onBlur={() => setTimeout(() => setOpenDropdown(false), 200)}
             autoComplete="off"
-            style={{ width: '100%' }}
+            style={{
+              width: '100%', marginTop: 12, padding: '10px 12px',
+              border: '1.5px solid #cbd5e1', borderRadius: 6,
+              fontSize: 14, fontFamily: 'inherit', outline: 'none',
+            }}
+            onFocus={(e) => { e.target.style.borderColor = '#1a3c5e'; }}
+            onBlur={(e) => { e.target.style.borderColor = '#cbd5e1'; }}
           />
-          {openDropdown && (
-            <div style={{
-              position: 'absolute', top: '100%', left: 0, right: 0,
-              maxHeight: 280, overflowY: 'auto',
-              background: '#fff', border: '1px solid #d1d5db', borderRadius: 4,
-              boxShadow: '0 4px 12px rgba(0,0,0,0.12)', zIndex: 10, marginTop: 2,
-            }}>
-              {loading ? (
-                <div style={{ padding: '8px 10px', fontSize: 12, color: '#6b7280' }}>Buscando…</div>
-              ) : filtered.length === 0 ? (
-                <div style={{ padding: '8px 10px', fontSize: 12, color: '#6b7280' }}>
-                  Sin resultados{cityFilter ? ` en ${cityFilter}` : ''}. Cambia la búsqueda o emite reembolso si no hay alternativa.
-                </div>
-              ) : (
-                <>
-                {fuzzyHint && (
-                  <div style={{ padding: '6px 10px', fontSize: 11, color: '#92400e', background: '#fef3c7', borderBottom: '1px solid #f3f4f6' }}>
-                    Mostrando coincidencias aproximadas (posible typo).
-                  </div>
-                )}
-                {filtered.map((cl) => (
-                  <button
-                    key={cl.id}
-                    type="button"
-                    onMouseDown={(e) => e.preventDefault()} // keep input focused
-                    onClick={() => { onPick(cl); setQuery(''); setOpenDropdown(false); }}
-                    style={{
-                      display: 'block', width: '100%', textAlign: 'left',
-                      padding: '6px 10px', background: 'none', border: 0,
-                      borderBottom: '1px solid #f3f4f6', cursor: 'pointer', fontSize: 13,
-                    }}
-                  >
-                    <div style={{ fontWeight: 600 }}>{cl.name}</div>
-                    <div style={{ fontSize: 11, color: '#6b7280' }}>
-                      {cl.city || ''}{cl.address ? ` · ${cl.address}` : ''}
-                    </div>
-                  </button>
-                ))}
-                </>
-              )}
+        </div>
+        <div style={{ flex: 1, overflowY: 'auto', minHeight: 100 }}>
+          {loading ? (
+            <div style={{ padding: '24px 20px', fontSize: 13, color: '#64748b', textAlign: 'center' }}>
+              Buscando…
             </div>
+          ) : filtered.length === 0 ? (
+            <div style={{ padding: '24px 20px', fontSize: 13, color: '#64748b', textAlign: 'center' }}>
+              Sin resultados{cityFilter ? ` en ${cityFilter}` : ''}.
+              <br />Prueba a buscar por otro nombre o emite reembolso si no hay alternativa.
+            </div>
+          ) : (
+            <>
+              {fuzzyHint && (
+                <div style={{
+                  padding: '8px 20px', fontSize: 12, color: '#92400e',
+                  background: '#fef3c7', borderBottom: '1px solid #fde68a',
+                }}>
+                  Mostrando coincidencias aproximadas (posible typo en la búsqueda).
+                </div>
+              )}
+              {filtered.map((cl) => (
+                <button
+                  key={cl.id}
+                  type="button"
+                  onClick={() => onPick(cl)}
+                  style={{
+                    display: 'block', width: '100%', textAlign: 'left',
+                    padding: '12px 20px', background: 'none', border: 0,
+                    borderBottom: '1px solid #f1f5f9', cursor: 'pointer',
+                    fontFamily: 'inherit',
+                  }}
+                  onMouseEnter={(e) => { e.currentTarget.style.background = '#f8fafc'; }}
+                  onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent'; }}
+                >
+                  <div style={{ fontWeight: 600, fontSize: 14, color: '#0f172a' }}>{cl.name}</div>
+                  <div style={{ fontSize: 12, color: '#64748b', marginTop: 2 }}>
+                    {cl.city || ''}{cl.address ? ` · ${cl.address}` : ''}
+                  </div>
+                </button>
+              ))}
+            </>
           )}
-        </>
-      )}
+        </div>
+        <div style={{
+          padding: '10px 20px', borderTop: '1px solid #e2e8f0',
+          fontSize: 11, color: '#94a3b8', background: '#f8fafc',
+        }}>
+          {filtered.length > 0 ? `${filtered.length} resultado${filtered.length === 1 ? '' : 's'} · ` : ''}
+          Pulsa <kbd style={{ background: '#fff', border: '1px solid #cbd5e1', borderRadius: 3, padding: '0 4px', fontSize: 10 }}>Esc</kbd> para cerrar
+        </div>
+      </div>
     </div>
   );
 }
