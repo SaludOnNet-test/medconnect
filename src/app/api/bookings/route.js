@@ -161,6 +161,8 @@ export async function POST(request) {
     patientEmail,
     patientPhone,
     patientAddress,
+    patientDateOfBirth,
+    patientNationalId,
     providerId,
     providerName,
     specialty,
@@ -265,6 +267,27 @@ export async function POST(request) {
            @procedure_slug, @procedure_name, @service_price, @platform_fee,
            @self_service_token, @self_service_token_expires_at)
       `);
+
+    // 2026-05 — stamp patient_date_of_birth + patient_national_id in a
+    // separate UPDATE so a pre-migration DB (columns not yet added via
+    // /api/db/setup) still accepts the booking. Same graceful pattern as
+    // clerk_user_id below.
+    if (patientDateOfBirth || patientNationalId) {
+      try {
+        await pool.request()
+          .input('id', sql.NVarChar(50), id)
+          .input('dob', sql.NVarChar(20), patientDateOfBirth || null)
+          .input('nid', sql.NVarChar(20), patientNationalId || null)
+          .query(`UPDATE bookings
+                  SET patient_date_of_birth = @dob,
+                      patient_national_id   = @nid
+                  WHERE id = @id`);
+      } catch (idErr) {
+        if (!String(idErr?.message || '').includes('Invalid column name')) {
+          console.error('[POST /api/bookings] dob/nid stamp failed', idErr?.message);
+        }
+      }
+    }
 
     // Stamp clerk_user_id on the inserted row when we resolved one. Same
     // graceful-fallback pattern as verified_derivador / slot_source — a

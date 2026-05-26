@@ -42,6 +42,12 @@ export const bookingsCreateSchema = z.object({
   patientEmail: emailSchema,
   patientPhone: optionalText(50),
   patientAddress: optionalText(500),
+  // 2026-05 — booking-form additions. Kept optional in the schema so a
+  // lock-in flow (which collects these in /lock-in/[id] rather than on
+  // /book) doesn't break, but the patient-facing /book form makes them
+  // required client-side.
+  patientDateOfBirth: optionalText(20),       // YYYY-MM-DD
+  patientNationalId: optionalText(20),        // DNI / NIE / Pasaporte
   providerId: z.coerce.number().int().nullable().optional(),
   providerName: optionalText(255),
   specialty: optionalText(100),

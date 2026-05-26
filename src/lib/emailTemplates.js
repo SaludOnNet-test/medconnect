@@ -366,6 +366,7 @@ export function lockInReminder({ patientEmail, professionalEmail, clinicName, sp
 // ─────────────────────────────────────────────
 export function operationsBookingAlert({
   bookingId, caseId, clinicId, clinicPhone, patientName, patientEmail, patientPhone,
+  patientDateOfBirth, patientNationalId,
   providerName, slotDate, slotTime, amount, tier, paymentToClinic, specialty,
   hasInsurance, insuranceCompany, dashboardUrl,
   procedureSlug, procedureName, servicePrice, platformFee,
@@ -458,6 +459,8 @@ export function operationsBookingAlert({
       ${infoRow('Paciente', patientName || '—')}
       ${infoRow('Email paciente', patientEmail || '—')}
       ${infoRow('Tel. paciente', patientPhone || '—')}
+      ${infoRow('Fecha de nacimiento', patientDateOfBirth || '—')}
+      ${infoRow('DNI/NIE/Pasaporte', patientNationalId || '—')}
       ${infoRow('Aseguradora', insuranceCompany || (hasInsurance ? 'Sí' : 'Sin seguro'))}
       ${infoRow('Especialidad', specialty || '—')}
       ${infoRow('Acto médico', procedureName || procedureSlug || '—')}
