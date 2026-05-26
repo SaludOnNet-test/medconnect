@@ -11,6 +11,7 @@ import {
   resolveActiveClinicForBooking,
   CANCELLATION_REASON_LABELS,
 } from '@/lib/clinicNotifications';
+import { notifyInternalWatcher } from '@/lib/internalWatcher';
 
 export const dynamic = 'force-dynamic';
 
@@ -196,6 +197,31 @@ export async function POST(request, { params }) {
       await sendEmail({ to: cfg.email, subject: tpl.subject, html: tpl.html });
     })
     .catch((e) => console.error('[bookings/cancel] clinic notification failed', e?.message));
+
+  // Internal watcher mirror — Francisco sees every patient self-service cancel.
+  notifyInternalWatcher({
+    kind: 'cancelled',
+    summary: `${booking.provider_name || 'clínica'} · ${booking.patient_name || 'paciente'}${booking.slot_date ? ' · ' + booking.slot_date : ''}`,
+    booking: {
+      id: booking.id,
+      patientName: booking.patient_name,
+      patientEmail: booking.patient_email,
+      providerName: booking.provider_name,
+      slotDate: booking.slot_date,
+      slotTime: booking.slot_time,
+      amount: booking.amount,
+      status: 'cancelled_by_patient',
+      hasInsurance: booking.has_insurance,
+      paymentIntentId: booking.payment_intent_id,
+    },
+    extra: {
+      Origen: 'Self-service del paciente (link del email)',
+      Motivo: reason,
+      'Refund €': refundAmount != null ? refundAmount : null,
+      'Refund Stripe ID': refundId,
+      'Política': policy?.refundableAmount,
+    },
+  });
 
   return NextResponse.json({ ok: true, refundId, refundAmount });
 }

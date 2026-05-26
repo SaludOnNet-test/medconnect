@@ -8,6 +8,7 @@ import { bookingsCreateSchema, formatZodError } from '@/lib/schemas';
 import { getClinicNotificationConfig, CHANNEL_LABELS } from '@/lib/clinicNotifications';
 import { sendEmail } from '@/lib/email';
 import { clinicSaleNotification } from '@/lib/emailTemplates';
+import { notifyInternalWatcher } from '@/lib/internalWatcher';
 
 // Hard cap so a misbehaving admin UI can't pull every row at once. Combined
 // with mandatory ops auth this also bounds the data exposure if a token leaks.
@@ -443,6 +444,35 @@ export async function POST(request) {
         })
         .catch((e) => console.error('[POST /api/bookings] clinic config lookup failed', e?.message));
     }
+
+    // ── Internal watcher: mirror every sale to Francisco ─────────────────
+    // Fires regardless of clinic notification config — this is the global
+    // "ops mirror" channel, separate from the per-clinic recipient.
+    notifyInternalWatcher({
+      kind: 'sale',
+      summary: `${providerName || 'clínica desconocida'} · ${patientName || 'paciente'}${slotDate ? ' · ' + slotDate : ''}${slotTime ? ' ' + slotTime : ''}`,
+      booking: {
+        id, patientName, patientEmail, patientPhone,
+        providerName, specialty, procedureName,
+        slotDate, slotTime,
+        amount, servicePrice, platformFee,
+        status: finalStatus,
+        hasInsurance, insuranceCompany,
+        referralId: referralId || null,
+        paymentIntentId: paymentIntentId || null,
+      },
+      extra: {
+        Canal: !referralId
+          ? CHANNEL_LABELS.directo
+          : (referralContext && referralContext.isInternal === false)
+            ? CHANNEL_LABELS.derivacion_externa
+            : skipCase
+              ? CHANNEL_LABELS.derivacion_interna
+              : CHANNEL_LABELS.derivacion_externa,
+        Derivador: referralContext?.derivadorEmail || null,
+        'Clínica derivadora': referralContext?.derivadorClinicName || null,
+      },
+    });
 
     const result = await pool.request()
       .input('id', sql.NVarChar(50), id)
