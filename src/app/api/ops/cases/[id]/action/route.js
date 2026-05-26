@@ -10,7 +10,13 @@ import {
   patientAlternativeSlot,
   patientRefunded,
   clinicConfirmationWithOnboarding,
+  clinicSaleCancellation,
 } from '@/lib/emailTemplates';
+import {
+  getClinicNotificationConfig,
+  resolveActiveClinicForBooking,
+  CANCELLATION_REASON_LABELS,
+} from '@/lib/clinicNotifications';
 
 const BASE_URL = process.env.NEXT_PUBLIC_BASE_URL || 'https://medconnect-bay.vercel.app';
 
@@ -125,6 +131,37 @@ async function notifyAlternative(c) {
     rejectUrl: `${BASE_URL}/booking/respond?token=${c.patient_response_token}&decision=reject`,
   });
   await sendEmail({ to: c.patient_email, subject: tpl.subject, html: tpl.html });
+}
+
+// Best-effort cancellation/refund notification to the destination clinic
+// (the one currently expecting the patient — may be original or, if the
+// patient previously accepted an alternative, the alternative). Resolves
+// the active clinic via the shared helper. Fire-and-forget so a Resend
+// hiccup doesn't break the ops action.
+async function notifyClinicOfOpsCancellation(c, { reasonLabel, reason, refundAmount }) {
+  try {
+    const activeClinicId = await resolveActiveClinicForBooking(c.booking_id);
+    if (!activeClinicId) return;
+    const cfg = await getClinicNotificationConfig(activeClinicId);
+    if (!cfg || !cfg.enabled || !cfg.email) return;
+    // Slot info: prefer the alternative when one was confirmed.
+    const slotDate = c.alternative_slot_date || c.original_slot_date;
+    const slotTime = c.alternative_slot_time || c.original_slot_time;
+    const tpl = clinicSaleCancellation({
+      clinicName: cfg.clinicName,
+      bookingId: c.booking_id,
+      patientName: c.patient_name,
+      patientEmail: c.patient_email,
+      slotDate,
+      slotTime,
+      reason,
+      reasonLabel,
+      refundAmount,
+    });
+    await sendEmail({ to: cfg.email, subject: tpl.subject, html: tpl.html });
+  } catch (err) {
+    console.error('[ops/cases/action] clinic cancellation notification failed', err?.message);
+  }
 }
 
 async function issueRefund(c, reason, opts = {}) {
@@ -312,6 +349,11 @@ export async function POST(request, { params }) {
           `Sin alternativa. Reembolso ${r.refundId || 'manual'} de €${r.refundAmount}${tail}. Motivo: ${reasonRaw}`,
           session.username,
         );
+        notifyClinicOfOpsCancellation(c, {
+          reasonLabel: CANCELLATION_REASON_LABELS.ops_refund,
+          reason: `Sin alternativa disponible — reembolso emitido. ${reasonRaw}`,
+          refundAmount: r.refundAmount,
+        }).catch(() => {});
         break;
       }
       case 'refund': {
@@ -330,11 +372,20 @@ export async function POST(request, { params }) {
           `Reembolso manual ${r.refundId || '(stripe pending)'} de €${r.refundAmount}${tail}. Motivo: ${reasonRaw}`,
           session.username,
         );
+        notifyClinicOfOpsCancellation(c, {
+          reasonLabel: CANCELLATION_REASON_LABELS.ops_refund,
+          reason: `Reembolso manual de Operaciones. ${reasonRaw}`,
+          refundAmount: r.refundAmount,
+        }).catch(() => {});
         break;
       }
       case 'cancel': {
         await updateCase(id, { status: CASE_STATUS.CANCELLED, ops_notes: body.reason || null });
         await appendCallLog(id, `Caso cancelado: ${body.reason || 'sin motivo'}.`, session.username);
+        notifyClinicOfOpsCancellation(c, {
+          reasonLabel: CANCELLATION_REASON_LABELS.ops_cancel,
+          reason: body.reason || 'El caso fue cancelado por el equipo de Operaciones.',
+        }).catch(() => {});
         break;
       }
       default:

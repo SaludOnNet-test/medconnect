@@ -5,6 +5,9 @@ import { createCaseForBooking } from '@/lib/opsCases';
 import { requireRole } from '@/lib/adminAuth';
 import { internalError, clientError } from '@/lib/errors';
 import { bookingsCreateSchema, formatZodError } from '@/lib/schemas';
+import { getClinicNotificationConfig, CHANNEL_LABELS } from '@/lib/clinicNotifications';
+import { sendEmail } from '@/lib/email';
+import { clinicSaleNotification } from '@/lib/emailTemplates';
 
 // Hard cap so a misbehaving admin UI can't pull every row at once. Combined
 // with mandatory ops auth this also bounds the data exposure if a token leaks.
@@ -361,6 +364,61 @@ export async function POST(request) {
       } catch (caseErr) {
         console.error('[POST /api/bookings] case creation failed', caseErr);
       }
+    }
+
+    // ── Clinic notification: paths 1-3 (direct / internal / external) ────
+    // Fire-and-forget the "new sale derived to your clinic" email when the
+    // destination clinic has notification_email configured AND notifications
+    // are enabled. Channel classification:
+    //   - direct booking (no referralId): "directo"
+    //   - internal referral (is_internal=1): "derivacion_interna"
+    //   - external referral (is_internal=0 or NULL): "derivacion_externa"
+    //   (path 4 — alternative proposed by ops — fires from /api/ops/respond
+    //    when the patient accepts the alternative.)
+    //
+    // We deliberately fire here, including for sin-seguro at awaiting_voucher,
+    // so the clinic gerente sees the sale immediately and can plan agenda
+    // without waiting for ops to upload the SON voucher (decision 2026-05-26).
+    if (providerId) {
+      const channel = !referralId
+        ? 'directo'
+        : (referralContext && referralContext.isInternal === false)
+          ? 'derivacion_externa'
+          : skipCase
+            ? 'derivacion_interna'
+            : 'derivacion_externa';
+      getClinicNotificationConfig(providerId)
+        .then(async (cfg) => {
+          if (!cfg || !cfg.enabled || !cfg.email) return;
+          try {
+            const tpl = clinicSaleNotification({
+              clinicName: cfg.clinicName || providerName,
+              bookingId: id,
+              referralId: referralId || null,
+              channel,
+              channelLabel: CHANNEL_LABELS[channel] || channel,
+              patientName,
+              patientEmail,
+              patientPhone,
+              specialty,
+              procedureName,
+              slotDate,
+              slotTime,
+              status: finalStatus,
+              amountPaid: amount,
+              servicePrice: servicePrice != null ? Number(servicePrice) : null,
+              platformFee: platformFee != null ? Number(platformFee) : null,
+              hasInsurance: hasInsurance == null ? null : !!hasInsurance,
+              insuranceCompany,
+              derivadorEmail: referralContext?.derivadorEmail || null,
+              derivadorClinicName: referralContext?.derivadorClinicName || null,
+            });
+            await sendEmail({ to: cfg.email, subject: tpl.subject, html: tpl.html });
+          } catch (e) {
+            console.error('[POST /api/bookings] clinic notification send failed', e?.message);
+          }
+        })
+        .catch((e) => console.error('[POST /api/bookings] clinic config lookup failed', e?.message));
     }
 
     const result = await pool.request()

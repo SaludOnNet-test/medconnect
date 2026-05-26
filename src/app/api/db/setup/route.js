@@ -724,6 +724,97 @@ export async function GET(request) {
       ALTER TABLE bookings ADD review_request_sent_at DATETIMEOFFSET NULL;
     `);
 
+    // ── Migration: per-clinic notification config (CEA Bermúdez pilot) ───
+    // Lets the gerente/recepción of a destination clinic receive an email
+    // every time a sale ends in their clinic (any of the 4 channels:
+    // search-v2 direct, internal referral, external referral, ops-proposed
+    // alternative) and every time one of those sales is cancelled/refunded.
+    //
+    //   notification_email     — single recipient. NULL → notifications off.
+    //   notifications_enabled  — pause toggle that preserves the saved email
+    //                            so we don't lose configuration on a pause.
+    //
+    // Both columns are nullable / defaulted so existing rows keep working.
+    // The trigger code reads both via getClinicNotificationConfig() and
+    // fires only when (enabled && email). Safe to call before the migration
+    // runs in any environment — the helper swallows "Invalid column name".
+    await pool.request().query(`
+      IF NOT EXISTS (SELECT * FROM sys.columns WHERE Name = 'notification_email' AND Object_ID = Object_ID('clinics'))
+      ALTER TABLE clinics ADD notification_email NVARCHAR(255) NULL;
+    `);
+    await pool.request().query(`
+      IF NOT EXISTS (SELECT * FROM sys.columns WHERE Name = 'notifications_enabled' AND Object_ID = Object_ID('clinics'))
+      ALTER TABLE clinics ADD notifications_enabled BIT NOT NULL DEFAULT 1;
+    `);
+
+    // ── EXEC: clinic_outreach — proactive sales pipeline ───────────────────
+    // Separate from clinic_alta_requests (inbound: pros asking to be listed).
+    // This table tracks OUTBOUND outreach: clinics we want to onboard but
+    // haven't talked to yet, are talking to, or that already accepted/refused.
+    // Auto-seeded once from the 1,840 clinics in CLINICS_AUDIT_REPORT.md that
+    // are flagged PublicadoMarketplace=SI in the SON Excel but missing from
+    // our catálogo. Linked_clinic_id stays NULL until they accept and we
+    // create the catalog row.
+    await pool.request().query(`
+      IF NOT EXISTS (SELECT * FROM sys.tables WHERE name = 'clinic_outreach')
+      CREATE TABLE clinic_outreach (
+        id                  INT             IDENTITY PRIMARY KEY,
+        clinic_name         NVARCHAR(255)   NOT NULL,
+        linked_clinic_id    INT             NULL,
+        city                NVARCHAR(120)   NULL,
+        province            NVARCHAR(120)   NULL,
+        specialties         NVARCHAR(500)   NULL,
+        contact_name        NVARCHAR(255)   NULL,
+        contact_phone       NVARCHAR(50)    NULL,
+        contact_email       NVARCHAR(255)   NULL,
+        source              NVARCHAR(50)    NULL,
+        priority            NVARCHAR(20)    NOT NULL DEFAULT 'medium',
+        status              NVARCHAR(50)    NOT NULL DEFAULT 'not_contacted',
+        rejection_reason    NVARCHAR(500)   NULL,
+        last_contacted_at   DATETIMEOFFSET  NULL,
+        next_followup_at    DATETIMEOFFSET  NULL,
+        accepted_at         DATETIMEOFFSET  NULL,
+        notes               NVARCHAR(MAX)   NULL,
+        assigned_to         NVARCHAR(255)   NULL,
+        created_at          DATETIMEOFFSET  NOT NULL DEFAULT SYSDATETIMEOFFSET(),
+        updated_at          DATETIMEOFFSET  NOT NULL DEFAULT SYSDATETIMEOFFSET()
+      );
+    `);
+    await pool.request().query(`
+      IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE name = 'IX_clinic_outreach_status' AND object_id = OBJECT_ID('clinic_outreach'))
+      CREATE INDEX IX_clinic_outreach_status ON clinic_outreach(status, updated_at DESC);
+    `);
+    await pool.request().query(`
+      IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE name = 'IX_clinic_outreach_followup' AND object_id = OBJECT_ID('clinic_outreach'))
+      CREATE INDEX IX_clinic_outreach_followup ON clinic_outreach(next_followup_at) WHERE next_followup_at IS NOT NULL;
+    `);
+    await pool.request().query(`
+      IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE name = 'IX_clinic_outreach_priority' AND object_id = OBJECT_ID('clinic_outreach'))
+      CREATE INDEX IX_clinic_outreach_priority ON clinic_outreach(priority, status);
+    `);
+
+    // ── EXEC: email_sends ledger — for Resend quota tracking ───────────────
+    // Resend free tier doesn't expose monthly usage via API. We keep our own
+    // ledger (one row per send) so /api/exec/quotas can compute the real
+    // consumption against the 3,000/month cap. The lib/email.js dispatcher
+    // best-effort INSERTs here on every send — failures don't block emails.
+    await pool.request().query(`
+      IF NOT EXISTS (SELECT * FROM sys.tables WHERE name = 'email_sends')
+      CREATE TABLE email_sends (
+        id          INT             IDENTITY PRIMARY KEY,
+        recipient   NVARCHAR(255)   NOT NULL,
+        subject     NVARCHAR(500)   NULL,
+        category    NVARCHAR(80)    NULL,
+        provider    NVARCHAR(40)    NOT NULL DEFAULT 'resend',
+        ok          BIT             NOT NULL DEFAULT 1,
+        sent_at     DATETIMEOFFSET  NOT NULL DEFAULT SYSDATETIMEOFFSET()
+      );
+    `);
+    await pool.request().query(`
+      IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE name = 'IX_email_sends_sent_at' AND object_id = OBJECT_ID('email_sends'))
+      CREATE INDEX IX_email_sends_sent_at ON email_sends(sent_at DESC);
+    `);
+
     return NextResponse.json({ success: true, message: 'Schema ready (tables + migrations applied)' });
   } catch (err) {
     console.error('[db/setup]', err);
