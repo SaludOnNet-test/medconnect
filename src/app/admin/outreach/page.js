@@ -8,6 +8,7 @@ import { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { adminFetch, getAdminToken, getAdminUser } from '@/lib/adminClient';
+import { ClinicSelector } from '@/components/admin/ClinicPicker';
 import '../ops/ops.css';
 
 const STATUS_LABEL = {
@@ -501,15 +502,17 @@ function btnStyle(color) {
 }
 
 function AddOutreachModal({ onClose, onCreated }) {
+  // Selected clinic from the catalog picker. Until this is non-null the
+  // submit button stays disabled — outreach rows must point to a real
+  // catalog entry, otherwise we'd be tracking ghost clinics that can never
+  // get a `linked_clinic_id`.
+  const [clinic, setClinic] = useState(null);
   const [form, setForm] = useState({
-    clinicName: '',
-    city: '',
-    province: '',
     specialties: '',
     contactName: '',
     contactPhone: '',
     contactEmail: '',
-    source: 'manual',
+    source: 'catalog',
     priority: 'medium',
     notes: '',
   });
@@ -518,12 +521,19 @@ function AddOutreachModal({ onClose, onCreated }) {
 
   async function submit(e) {
     e.preventDefault();
+    if (!clinic) return;
     setSaving(true);
     setError(null);
     try {
       const res = await adminFetch('/api/admin/clinic-outreach', {
         method: 'POST',
-        body: JSON.stringify(form),
+        body: JSON.stringify({
+          ...form,
+          clinicName: clinic.name,
+          city: clinic.city || '',
+          province: clinic.province || '',
+          linkedClinicId: clinic.id,
+        }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data?.error || 'Error');
@@ -544,15 +554,26 @@ function AddOutreachModal({ onClose, onCreated }) {
         background: '#fff', borderRadius: 8, padding: 24, width: 'min(560px, 90vw)',
         maxHeight: '90vh', overflowY: 'auto',
       }}>
-        <h3 style={{ margin: '0 0 16px', fontSize: 18 }}>Añadir clínica al outreach</h3>
+        <h3 style={{ margin: '0 0 4px', fontSize: 18 }}>Añadir clínica al outreach</h3>
+        <p style={{ margin: '0 0 16px', fontSize: 12, color: '#6b7280' }}>
+          Solo clínicas de nuestro catálogo (3.000+). Búsqueda tolera tildes, mayúsculas, orden de palabras y typos.
+        </p>
         {error && <div style={{ background: '#fee2e2', color: '#7f1d1d', padding: 8, borderRadius: 6, marginBottom: 12, fontSize: 12 }}>{error}</div>}
         <div style={{ display: 'grid', gap: 10 }}>
-          <Field label="Nombre clínica *" value={form.clinicName} onChange={(v) => setForm({ ...form, clinicName: v })} required />
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
-            <Field label="Ciudad" value={form.city} onChange={(v) => setForm({ ...form, city: v })} />
-            <Field label="Provincia" value={form.province} onChange={(v) => setForm({ ...form, province: v })} />
+          <div>
+            <label style={{ fontSize: 11, color: '#6b7280', display: 'block', marginBottom: 4, fontWeight: 600 }}>
+              Clínica *
+            </label>
+            <ClinicSelector
+              selected={clinic}
+              onPick={setClinic}
+              onClear={() => setClinic(null)}
+              placeholder="Buscar en el catálogo de clínicas…"
+              modalTitle="Buscar clínica en el catálogo"
+              modalHint="Escribe nombre, ciudad o provincia. La búsqueda ignora tildes, mayúsculas y orden de palabras."
+            />
           </div>
-          <Field label="Especialidades (separadas por comas)" value={form.specialties} onChange={(v) => setForm({ ...form, specialties: v })} />
+          <Field label="Especialidades (opcional, separadas por comas)" value={form.specialties} onChange={(v) => setForm({ ...form, specialties: v })} />
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
             <Field label="Contacto" value={form.contactName} onChange={(v) => setForm({ ...form, contactName: v })} />
             <Field label="Teléfono" value={form.contactPhone} onChange={(v) => setForm({ ...form, contactPhone: v })} />
@@ -579,8 +600,14 @@ function AddOutreachModal({ onClose, onCreated }) {
           <button type="button" onClick={onClose} className="ops-link-btn">Cancelar</button>
           <button
             type="submit"
-            disabled={saving || !form.clinicName.trim()}
-            style={{ background: '#1a3c5e', color: '#fff', border: 'none', padding: '8px 16px', borderRadius: 6, fontWeight: 600, cursor: 'pointer' }}
+            disabled={saving || !clinic}
+            style={{
+              background: clinic ? '#1a3c5e' : '#9ca3af',
+              color: '#fff', border: 'none', padding: '8px 16px',
+              borderRadius: 6, fontWeight: 600,
+              cursor: clinic ? 'pointer' : 'not-allowed',
+            }}
+            title={clinic ? '' : 'Elige primero una clínica del catálogo'}
           >
             {saving ? 'Guardando…' : 'Crear'}
           </button>

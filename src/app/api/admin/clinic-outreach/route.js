@@ -135,8 +135,14 @@ export async function GET(request) {
 /**
  * POST /api/admin/clinic-outreach
  *
- * Body: { clinicName, city?, province?, specialties?, contactName?,
- *         contactPhone?, contactEmail?, source?, priority?, notes?, assignedTo? }
+ * Body: { clinicName, linkedClinicId, city?, province?, specialties?,
+ *         contactName?, contactPhone?, contactEmail?, source?, priority?,
+ *         notes?, assignedTo? }
+ *
+ * `linkedClinicId` is required from the UI — the picker forces selection
+ * from the catalog. We still accept rows without it (for the future bulk
+ * import path that may stage clinics before they exist in `clinics`) but
+ * reject duplicates: one outreach row per catalog clinic.
  *
  * Creates a new outreach row in status='not_contacted'.
  */
@@ -159,16 +165,44 @@ export async function POST(request) {
 
   const priority = VALID_PRIORITIES.includes(body?.priority) ? body.priority : 'medium';
 
+  // linkedClinicId, when supplied, must be a positive integer. Empty / null
+  // means "not linked yet" (rare path — future bulk import only).
+  let linkedClinicId = null;
+  if (body?.linkedClinicId != null && body?.linkedClinicId !== '') {
+    const n = Number(body.linkedClinicId);
+    if (!Number.isInteger(n) || n <= 0) {
+      return NextResponse.json({ error: 'linkedClinicId must be a positive integer' }, { status: 400 });
+    }
+    linkedClinicId = n;
+  }
+
   try {
+    // Avoid duplicates when a catalog id is provided — one outreach row per
+    // clinic. The unique check is cheaper than a UNIQUE constraint because
+    // we only enforce it on the linked-to-catalog path.
+    if (linkedClinicId) {
+      const existing = await query(
+        `SELECT TOP 1 id FROM clinic_outreach WHERE linked_clinic_id = @cid`,
+        { cid: { type: sql.Int, value: linkedClinicId } },
+      );
+      if (existing.recordset.length > 0) {
+        return NextResponse.json(
+          { error: 'Esta clínica ya está en el pipeline de outreach', existingId: existing.recordset[0].id },
+          { status: 409 },
+        );
+      }
+    }
+
     const result = await query(
       `INSERT INTO clinic_outreach
-         (clinic_name, city, province, specialties, contact_name,
+         (clinic_name, linked_clinic_id, city, province, specialties, contact_name,
           contact_phone, contact_email, source, priority, notes, assigned_to)
        OUTPUT INSERTED.id
-       VALUES (@name, @city, @province, @specialties, @contactName,
+       VALUES (@name, @linkedClinicId, @city, @province, @specialties, @contactName,
                @contactPhone, @contactEmail, @source, @priority, @notes, @assignedTo)`,
       {
         name: { type: sql.NVarChar(255), value: clinicName },
+        linkedClinicId: { type: sql.Int, value: linkedClinicId },
         city: { type: sql.NVarChar(120), value: body?.city?.trim() || null },
         province: { type: sql.NVarChar(120), value: body?.province?.trim() || null },
         specialties: { type: sql.NVarChar(500), value: body?.specialties?.trim() || null },
