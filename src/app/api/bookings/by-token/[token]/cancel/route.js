@@ -2,10 +2,15 @@ import { NextResponse } from 'next/server';
 import Stripe from 'stripe';
 import { getPool, sql, DB_AVAILABLE } from '@/lib/db';
 import { sendEmail } from '@/lib/email';
-import { patientRefunded } from '@/lib/emailTemplates';
+import { patientRefunded, clinicSaleCancellation } from '@/lib/emailTemplates';
 import { bookingByTokenCancelSchema, formatZodError } from '@/lib/schemas';
 import { clientError } from '@/lib/errors';
 import { isRefundable, refundAmountFor } from '@/lib/refundPolicy';
+import {
+  getClinicNotificationConfig,
+  resolveActiveClinicForBooking,
+  CANCELLATION_REASON_LABELS,
+} from '@/lib/clinicNotifications';
 
 export const dynamic = 'force-dynamic';
 
@@ -168,6 +173,29 @@ export async function POST(request, { params }) {
       console.error('[bookings/cancel] email send failed', e.message);
     }
   }
+
+  // ── Clinic notification: patient self-service cancellation ───────────
+  // Fire-and-forget. Resolve the *active* clinic (the one currently
+  // expecting the patient — may be the original or an ops alternative).
+  resolveActiveClinicForBooking(booking.id)
+    .then(async (activeClinicId) => {
+      if (!activeClinicId) return;
+      const cfg = await getClinicNotificationConfig(activeClinicId);
+      if (!cfg || !cfg.enabled || !cfg.email) return;
+      const tpl = clinicSaleCancellation({
+        clinicName: cfg.clinicName || booking.provider_name,
+        bookingId: booking.id,
+        patientName: booking.patient_name,
+        patientEmail: booking.patient_email,
+        slotDate: booking.slot_date,
+        slotTime: booking.slot_time,
+        reason: 'El paciente canceló su cita desde el enlace del email de confirmación.',
+        reasonLabel: CANCELLATION_REASON_LABELS.self_service,
+        refundAmount,
+      });
+      await sendEmail({ to: cfg.email, subject: tpl.subject, html: tpl.html });
+    })
+    .catch((e) => console.error('[bookings/cancel] clinic notification failed', e?.message));
 
   return NextResponse.json({ ok: true, refundId, refundAmount });
 }

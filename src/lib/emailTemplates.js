@@ -1159,3 +1159,224 @@ export function reviewRequest({ patientName, providerName, slotDate, token }) {
     html,
   };
 }
+
+// ─────────────────────────────────────────────
+// 27. Clinic notification — new sale derived to this clinic
+//
+// Recipient is the clinic's notification_email (gerente / recepción).
+// Modeled on `clinicConfirmationWithOnboarding` but: (a) covers ALL four
+// channels (direct / internal / external / ops-proposed alternative),
+// (b) breaks the money figures down so the clinic knows exactly what the
+// patient paid and what they will receive, (c) fires at booking creation
+// for sin-seguro (status awaiting_voucher) so the clinic can plan agenda
+// without waiting for the voucher upload.
+//
+// Money explained:
+//   - With seguro: patient paid only Med Connect's priority fee. The
+//     consultation itself goes to the patient's insurance (the clinic
+//     bills the insurer directly, as usual).
+//   - Without seguro: patient paid Med Connect's priority fee + the SON
+//     catalogue price of the medical service. The clinic receives the
+//     service price via the SON voucher (separate workflow).
+// ─────────────────────────────────────────────
+export function clinicSaleNotification({
+  clinicName,
+  bookingId,
+  referralId,
+  channel,                  // 'directo' | 'derivacion_interna' | 'derivacion_externa' | 'alternativa_propuesta_por_ops'
+  channelLabel,
+  patientName,
+  patientEmail,
+  patientPhone,
+  specialty,
+  procedureName,
+  slotDate,
+  slotTime,
+  status,
+  amountPaid,               // total cobrado al paciente (priority fee + servicio si sin-seguro)
+  servicePrice,             // precio del acto médico (sin-seguro) — lo que recibe la clínica
+  platformFee,              // tarifa Med Connect — lo que se queda Med Connect
+  hasInsurance,
+  insuranceCompany,
+  derivadorEmail,
+  derivadorClinicName,
+}) {
+  const fmtDate = slotDate
+    ? new Date(slotDate + 'T00:00:00').toLocaleDateString('es-ES', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })
+    : slotDate;
+  const insured = hasInsurance === true;
+  const totalPaid = Number(amountPaid || 0);
+  const service = Number(servicePrice || 0);
+  const fee = Number(platformFee || 0);
+
+  // Money rows differ by insurance type. With seguro: the consultation
+  // goes via the patient's insurance, the clinic only sees Med Connect's
+  // priority fee on this email (informational). Without seguro: the
+  // service price is what the clinic actually receives via SON voucher.
+  const moneyRows = insured
+    ? `
+      ${infoRow('Importe pagado por el paciente', formatEUR(totalPaid))}
+      ${infoRow('Cubierto por su seguro', `Consulta · ${insuranceCompany || 'aseguradora del paciente'}`)}
+      ${fee ? infoRow('Tarifa Med Connect (prioridad)', formatEUR(fee)) : ''}
+      ${infoRow('Lo que recibe la clínica', 'La consulta se factura a la aseguradora del paciente como cualquier otra cita')}
+    `
+    : `
+      ${infoRow('Importe pagado por el paciente', formatEUR(totalPaid))}
+      ${service ? infoRow('Precio del acto médico (transferido a la clínica)', formatEUR(service)) : ''}
+      ${fee ? infoRow('Tarifa Med Connect (prioridad)', formatEUR(fee)) : ''}
+      ${infoRow('Lo que recibe la clínica', service ? `${formatEUR(service)} vía voucher SaludOnNet` : 'Vía voucher SaludOnNet')}
+    `;
+
+  const statusLabel = status === 'awaiting_voucher'
+    ? 'Pendiente de voucher (sin seguro) · cita ya está reservada en la agenda'
+    : status === 'confirmed'
+    ? 'Confirmada'
+    : status || '—';
+
+  const channelChip = channel === 'directo'
+    ? '<span style="display:inline-block;background:#dbeafe;color:#1e40af;padding:4px 10px;border-radius:999px;font-size:12px;font-weight:700;">Directo</span>'
+    : channel === 'derivacion_interna'
+    ? '<span style="display:inline-block;background:#dcfce7;color:#166534;padding:4px 10px;border-radius:999px;font-size:12px;font-weight:700;">Derivación interna</span>'
+    : channel === 'derivacion_externa'
+    ? '<span style="display:inline-block;background:#fef3c7;color:#92400e;padding:4px 10px;border-radius:999px;font-size:12px;font-weight:700;">Derivación externa</span>'
+    : channel === 'alternativa_propuesta_por_ops'
+    ? '<span style="display:inline-block;background:#ede9fe;color:#5b21b6;padding:4px 10px;border-radius:999px;font-size:12px;font-weight:700;">Alternativa propuesta por Operaciones</span>'
+    : '';
+
+  const html = baseWrapper(`
+    <tr><td style="background:#1a3c5e;padding:24px;text-align:center;">
+      <div style="width:60px;height:60px;background:rgba(201,168,76,0.25);border-radius:50%;margin:0 auto 12px;display:flex;align-items:center;justify-content:center;font-size:28px;color:#c9a84c;">📅</div>
+      <h2 style="margin:0;color:#ffffff;font-size:22px;font-weight:800;">Nueva cita en ${clinicName || 'tu clínica'}</h2>
+      <p style="margin:8px 0 0;color:rgba(255,255,255,0.85);font-size:14px;">Med Connect · ${fmtDate || ''} ${slotTime || ''}</p>
+    </td></tr>
+    ${bodySection(`
+      <p style="margin:0 0 16px;font-size:15px;color:#374151;line-height:1.55;">
+        Hola <strong>${clinicName || 'equipo de la clínica'}</strong>, acabamos de cerrar una venta
+        de Med Connect que termina en tu clínica. ${channelChip}
+      </p>
+
+      ${channelLabel ? `<p style="margin:0 0 12px;font-size:13px;color:#6b7280;line-height:1.55;">Canal de origen: <strong>${channelLabel}</strong>${derivadorClinicName ? ` — derivado por "${derivadorClinicName}"` : ''}${derivadorEmail ? ` (${derivadorEmail})` : ''}.</p>` : ''}
+
+      <h3 style="margin:18px 0 8px;font-size:14px;color:#1a3c5e;text-transform:uppercase;letter-spacing:0.05em;">La cita</h3>
+      <table width="100%" cellpadding="0" cellspacing="0" style="margin-bottom:18px;border:1px solid #e5e7eb;border-radius:8px;overflow:hidden;">
+        <tbody>
+          ${infoRow('Fecha', fmtDate || '—')}
+          ${infoRow('Hora', slotTime || '—')}
+          ${specialty ? infoRow('Especialidad', specialty) : ''}
+          ${procedureName ? infoRow('Acto médico', procedureName) : ''}
+          ${infoRow('Estado', statusLabel)}
+        </tbody>
+      </table>
+
+      <h3 style="margin:18px 0 8px;font-size:14px;color:#1a3c5e;text-transform:uppercase;letter-spacing:0.05em;">El paciente</h3>
+      <table width="100%" cellpadding="0" cellspacing="0" style="margin-bottom:18px;border:1px solid #e5e7eb;border-radius:8px;overflow:hidden;">
+        <tbody>
+          ${infoRow('Nombre', patientName || '(no facilitado)')}
+          ${patientPhone ? infoRow('Teléfono', `<a href="tel:${patientPhone}" style="color:#1a3c5e;">${patientPhone}</a>`) : ''}
+          ${patientEmail ? infoRow('Email', `<a href="mailto:${patientEmail}" style="color:#1a3c5e;">${patientEmail}</a>`) : ''}
+          ${insured && insuranceCompany ? infoRow('Aseguradora', insuranceCompany) : ''}
+          ${insured === false ? infoRow('Modalidad', 'Sin seguro · paciente recibirá voucher SaludOnNet') : ''}
+        </tbody>
+      </table>
+
+      <h3 style="margin:18px 0 8px;font-size:14px;color:#1a3c5e;text-transform:uppercase;letter-spacing:0.05em;">Importes</h3>
+      <table width="100%" cellpadding="0" cellspacing="0" style="margin-bottom:18px;border:1px solid #e5e7eb;border-radius:8px;overflow:hidden;">
+        <tbody>${moneyRows}</tbody>
+      </table>
+
+      <h3 style="margin:18px 0 8px;font-size:14px;color:#1a3c5e;text-transform:uppercase;letter-spacing:0.05em;">Referencias</h3>
+      <table width="100%" cellpadding="0" cellspacing="0" style="margin-bottom:24px;border:1px solid #e5e7eb;border-radius:8px;overflow:hidden;">
+        <tbody>
+          ${bookingId ? infoRow('Booking ID', `<code style="font-family:monospace;font-size:13px;">${bookingId}</code>`) : ''}
+          ${referralId ? infoRow('Referral ID', `<code style="font-family:monospace;font-size:13px;">${referralId}</code>`) : ''}
+        </tbody>
+      </table>
+
+      <div style="background:#f9f7f4;border:1px solid #e8e4df;border-radius:10px;padding:16px;margin-bottom:8px;">
+        <p style="margin:0 0 6px;font-size:13px;color:#475569;line-height:1.55;">
+          <strong>Próximos pasos para la clínica:</strong>
+        </p>
+        <ol style="margin:0;padding-left:20px;font-size:13px;color:#475569;line-height:1.7;">
+          <li>Anotad la cita en vuestra agenda en la fecha y hora indicadas.</li>
+          <li>Atended al paciente como cualquier otra cita${insured && insuranceCompany ? ` (${insuranceCompany})` : ''}.</li>
+          ${insured === false ? '<li>El paciente os entregará el voucher de SaludOnNet — escaneadlo o anotad el código.</li>' : ''}
+          <li>Si surge cualquier imprevisto contactad con Operaciones (${SUPPORT_PHONE_INLINE} · operaciones@medconnect.es).</li>
+        </ol>
+      </div>
+
+      <p style="margin:18px 0 0;font-size:12px;color:#9ca3af;line-height:1.55;">
+        Recibís este email porque sois la clínica destinataria configurada en Med Connect.
+        Si queréis cambiar el correo de notificaciones o pausar los avisos, contactad con Operaciones.
+      </p>
+    `)}
+  `);
+
+  return {
+    subject: `Nueva cita en ${clinicName || 'tu clínica'} (Med Connect) · ${patientName || 'paciente'} · ${fmtDate || ''} ${slotTime || ''}`.trim(),
+    html,
+  };
+}
+
+// ─────────────────────────────────────────────
+// 28. Clinic notification — sale cancelled / refunded
+//
+// Sent when a previously notified sale is cancelled or refunded. Two
+// origin types: patient self-service (via /api/bookings/by-token/.../cancel)
+// or ops action (cancel / refund from /admin/ops). The clinic needs this
+// to free the agenda slot.
+// ─────────────────────────────────────────────
+export function clinicSaleCancellation({
+  clinicName,
+  bookingId,
+  patientName,
+  patientEmail,
+  slotDate,
+  slotTime,
+  reason,        // free-text reason if available
+  reasonLabel,   // 'self_service' | 'ops_cancel' | 'ops_refund' label for the chip
+  refundAmount,
+}) {
+  const fmtDate = slotDate
+    ? new Date(slotDate + 'T00:00:00').toLocaleDateString('es-ES', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })
+    : slotDate;
+  const refundLine = refundAmount != null && Number(refundAmount) > 0
+    ? `<p style="margin:0 0 10px;font-size:13px;color:#475569;">Reembolso emitido al paciente: <strong>${formatEUR(Number(refundAmount))}</strong>.</p>`
+    : '';
+
+  const html = baseWrapper(`
+    <tr><td style="background:#7f1d1d;padding:24px;text-align:center;">
+      <div style="width:60px;height:60px;background:rgba(255,255,255,0.18);border-radius:50%;margin:0 auto 12px;display:flex;align-items:center;justify-content:center;font-size:28px;">✕</div>
+      <h2 style="margin:0;color:#ffffff;font-size:22px;font-weight:800;">Cita cancelada en ${clinicName || 'tu clínica'}</h2>
+      <p style="margin:8px 0 0;color:rgba(255,255,255,0.85);font-size:14px;">Med Connect · ${fmtDate || ''} ${slotTime || ''}</p>
+    </td></tr>
+    ${bodySection(`
+      <p style="margin:0 0 16px;font-size:15px;color:#374151;line-height:1.55;">
+        Hola <strong>${clinicName || 'equipo de la clínica'}</strong>, te avisamos de que una cita
+        de Med Connect en tu clínica acaba de cancelarse. Podéis liberar el hueco en vuestra agenda.
+      </p>
+
+      <table width="100%" cellpadding="0" cellspacing="0" style="margin-bottom:18px;border:1px solid #e5e7eb;border-radius:8px;overflow:hidden;">
+        <tbody>
+          ${infoRow('Paciente', patientName || '(no facilitado)')}
+          ${patientEmail ? infoRow('Email', `<a href="mailto:${patientEmail}" style="color:#1a3c5e;">${patientEmail}</a>`) : ''}
+          ${infoRow('Fecha', fmtDate || '—')}
+          ${infoRow('Hora', slotTime || '—')}
+          ${bookingId ? infoRow('Booking ID', `<code style="font-family:monospace;font-size:13px;">${bookingId}</code>`) : ''}
+          ${reasonLabel ? infoRow('Motivo', reasonLabel) : ''}
+        </tbody>
+      </table>
+
+      ${reason ? `<p style="margin:0 0 10px;font-size:13px;color:#475569;line-height:1.55;"><strong>Nota:</strong> ${reason}</p>` : ''}
+      ${refundLine}
+
+      <p style="margin:18px 0 0;font-size:13px;color:#6b7280;line-height:1.55;">
+        Si tenéis cualquier duda, contactad con Operaciones (${SUPPORT_PHONE_INLINE} · operaciones@medconnect.es).
+      </p>
+    `)}
+  `);
+
+  return {
+    subject: `Cita cancelada en ${clinicName || 'tu clínica'} (Med Connect) · ${patientName || 'paciente'} · ${fmtDate || ''} ${slotTime || ''}`.trim(),
+    html,
+  };
+}

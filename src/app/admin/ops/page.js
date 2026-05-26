@@ -89,6 +89,7 @@ export default function OpsDashboard() {
           <Link href="/admin/ops/internas" className="ops-link-btn" title="Derivaciones internas — visibilidad en caso de incidencia">🔁 Internas</Link>
           <Link href="/admin/clinic-alta" className="ops-link-btn">Altas clínicas</Link>
           <Link href="/admin/pro-verifications" className="ops-link-btn">Verificaciones</Link>
+          <Link href="/admin/clinics" className="ops-link-btn" title="Email de notificaciones por clínica">Notif. clínicas</Link>
           {user.role === 'admin' && <Link href="/admin/users" className="ops-link-btn">Usuarios</Link>}
           <button className="ops-link-btn" onClick={handleLogout}>Salir</button>
         </div>
