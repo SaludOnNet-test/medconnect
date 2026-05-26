@@ -134,12 +134,22 @@
 }
 
 /* ── Date buttons ─────────────────────────────────────────────────────── */
+/* Wrapper positions the chevron nav buttons. The inner `.cbm-dates`
+   keeps the horizontal scroll, but now snaps to button boundaries so
+   the last date never appears half-clipped (Jesús's 2026-05 review on
+   the Villasalud modal). */
+.cbm-dates-wrap {
+  position: relative;
+}
+
 .cbm-dates {
   display: flex;
   gap: 8px;
   overflow-x: auto;
   padding-bottom: 4px;
   scrollbar-width: none;
+  scroll-snap-type: x mandatory;
+  scroll-padding-left: 4px;
 }
 
 .cbm-dates::-webkit-scrollbar { display: none; }
@@ -160,6 +170,44 @@
   flex-shrink: 0;
   font-family: var(--font-body);
   color: var(--fg);
+  scroll-snap-align: start;
+}
+
+/* Chevron buttons — float over the left/right edges of the scroller and
+   appear only when there's overflow to reveal in that direction. Round,
+   solid-bone bg, soft shadow so they feel pinned to the strip rather
+   than the modal. Hidden state keeps them in the DOM (no layout shift)
+   but takes them off the tab order via `tabIndex=-1` + pointer-events. */
+.cbm-dates-nav {
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  z-index: 2;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  border: 1px solid var(--border);
+  background: var(--bone-50);
+  color: var(--fg);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.12);
+  transition: opacity var(--duration-micro) var(--ease),
+              background var(--duration-micro) var(--ease);
+}
+
+.cbm-dates-nav:hover {
+  background: var(--bone-200);
+}
+
+.cbm-dates-nav--prev { left: -6px; }
+.cbm-dates-nav--next { right: -6px; }
+
+.cbm-dates-nav--hidden {
+  opacity: 0;
+  pointer-events: none;
 }
 
 .cbm-date-btn:hover {

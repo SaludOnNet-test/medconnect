@@ -1,5 +1,5 @@
 'use client';
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useRef, useLayoutEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { trackEvent } from '@/lib/analytics';
 import { formatEUR } from '@/lib/format';
@@ -163,6 +163,48 @@ export default function ClinicBookingModal({
     ? (() => { const f = feeFromSlot(selectedSlot); return isSinSeguro ? procedurePrice + f.amount : f.amount; })()
     : null;
 
+  // Date strip horizontal scroll affordances. The row is `overflow-x: auto`
+  // and the inline scrollbar is hidden by design, so on small viewports
+  // (Villasalud's 5-7 dates don't fit a 360 px modal) the last button was
+  // clipping mid-button and the user had no visible way to scroll. We add
+  // chevron buttons + scroll-snap so the row always stops on a clean
+  // button boundary.
+  const datesRef = useRef(null);
+  const [canScrollDatesLeft, setCanScrollDatesLeft] = useState(false);
+  const [canScrollDatesRight, setCanScrollDatesRight] = useState(false);
+
+  const updateDatesOverflow = () => {
+    const el = datesRef.current;
+    if (!el) return;
+    // 1 px tolerance for sub-pixel scrollWidth on fractional zoom levels.
+    setCanScrollDatesLeft(el.scrollLeft > 1);
+    setCanScrollDatesRight(el.scrollLeft + el.clientWidth < el.scrollWidth - 1);
+  };
+
+  useLayoutEffect(() => {
+    updateDatesOverflow();
+  }, [dates.length, slotsLoading]);
+
+  useEffect(() => {
+    const el = datesRef.current;
+    if (!el) return;
+    const onScroll = () => updateDatesOverflow();
+    el.addEventListener('scroll', onScroll, { passive: true });
+    window.addEventListener('resize', updateDatesOverflow);
+    return () => {
+      el.removeEventListener('scroll', onScroll);
+      window.removeEventListener('resize', updateDatesOverflow);
+    };
+  }, [dates.length]);
+
+  const scrollDates = (direction) => {
+    const el = datesRef.current;
+    if (!el) return;
+    // Step ≈ one date button + gap (60 + 8 + small breathing room).
+    const step = Math.max(120, Math.floor(el.clientWidth * 0.6));
+    el.scrollBy({ left: direction * step, behavior: 'smooth' });
+  };
+
   return (
     <div className="cbm-overlay" onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}>
       <div className="cbm-modal" role="dialog" aria-modal="true">
@@ -227,25 +269,45 @@ export default function ClinicBookingModal({
           ) : dates.length === 0 ? (
             <p style={{ color: '#9ca3af', fontSize: '0.9rem' }}>No hay fechas disponibles próximamente.</p>
           ) : (
-          <div className="cbm-dates">
-            {dates.map((date) => {
-              const { weekday, day, month } = getDayLabel(date);
-              const isSelected = selectedDate === date;
-              return (
-                <button
-                  key={date}
-                  className={`cbm-date-btn ${isSelected ? 'cbm-date-btn--active' : ''}`}
-                  onClick={() => { setSelectedDate(date); setSelectedSlot(null); }}
-                >
-                  <span className="cbm-date-weekday">{weekday}</span>
-                  <span className="cbm-date-num">{day}</span>
-                  <span className="cbm-date-month">{month}</span>
-                  {priceByDate[date] != null && (
-                    <span className="cbm-date-price">desde {formatEUR(priceByDate[date])}</span>
-                  )}
-                </button>
-              );
-            })}
+          <div className="cbm-dates-wrap">
+            <button
+              type="button"
+              className={`cbm-dates-nav cbm-dates-nav--prev ${canScrollDatesLeft ? '' : 'cbm-dates-nav--hidden'}`}
+              onClick={() => scrollDates(-1)}
+              aria-label="Ver fechas anteriores"
+              tabIndex={canScrollDatesLeft ? 0 : -1}
+            >
+              <Icon name="chevron-left" size={18} />
+            </button>
+            <div className="cbm-dates" ref={datesRef}>
+              {dates.map((date) => {
+                const { weekday, day, month } = getDayLabel(date);
+                const isSelected = selectedDate === date;
+                return (
+                  <button
+                    key={date}
+                    className={`cbm-date-btn ${isSelected ? 'cbm-date-btn--active' : ''}`}
+                    onClick={() => { setSelectedDate(date); setSelectedSlot(null); }}
+                  >
+                    <span className="cbm-date-weekday">{weekday}</span>
+                    <span className="cbm-date-num">{day}</span>
+                    <span className="cbm-date-month">{month}</span>
+                    {priceByDate[date] != null && (
+                      <span className="cbm-date-price">desde {formatEUR(priceByDate[date])}</span>
+                    )}
+                  </button>
+                );
+              })}
+            </div>
+            <button
+              type="button"
+              className={`cbm-dates-nav cbm-dates-nav--next ${canScrollDatesRight ? '' : 'cbm-dates-nav--hidden'}`}
+              onClick={() => scrollDates(1)}
+              aria-label="Ver más fechas"
+              tabIndex={canScrollDatesRight ? 0 : -1}
+            >
+              <Icon name="chevron-right" size={18} />
+            </button>
           </div>
           )}
         </div>
