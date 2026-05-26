@@ -7,6 +7,10 @@
     {
       "path": "/api/reviews/request-batch",
       "schedule": "0 9 * * *"
+    },
+    {
+      "path": "/api/exec/daily-email",
+      "schedule": "0 6 * * *"
     }
   ]
 }
