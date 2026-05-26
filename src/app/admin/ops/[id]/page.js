@@ -899,23 +899,20 @@ function ClinicPickerModal({
     };
   }, [onClose]);
 
-  // Always seed the q with the case's city + specialty so the operator
-  // sees a city-scoped list as soon as the modal opens; typed tokens are
-  // appended and AND-ed server-side (Latin1_General_CI_AI collation).
-  const baseTokens = useMemo(() => {
-    const out = [];
-    if (cityFilter) out.push(String(cityFilter).trim());
-    if (specialtyFilter) out.push(String(specialtyFilter).trim());
-    return out.filter(Boolean);
-  }, [cityFilter, specialtyFilter]);
-
-  // Debounced server search. 250 ms responsive without hammering DB.
+  // Build q. /api/admin/clinics searches name + city + province + address
+  // only — it does NOT join clinic_specialties — so the case's specialty
+  // string would never match anything if added as a token, and the
+  // server-side AND would silently drop every result. We deliberately
+  // skip specialtyFilter here. cityFilter is used only as a soft seed
+  // when the operator hasn't typed anything yet, so the modal opens
+  // showing clinics in the case's city; the moment they start typing,
+  // the city seed is dropped — otherwise "centro m" + "Madrid" requires
+  // BOTH tokens, and a Madrid clinic without "Madrid" in the address
+  // would still be excluded.
   useEffect(() => {
     const handle = setTimeout(async () => {
-      const tokens = [...baseTokens];
       const typed = query.trim();
-      if (typed) tokens.push(typed);
-      const q = tokens.join(' ');
+      const q = typed || (cityFilter ? String(cityFilter).trim() : '');
       const myId = ++reqIdRef.current;
       setLoading(true);
       setFuzzyHint(false);
@@ -926,15 +923,20 @@ function ClinicPickerModal({
         let res = await adminFetch(`/api/admin/clinics?q=${encodeURIComponent(q)}&limit=50`);
         let j = await res.json();
         let list = Array.isArray(j?.clinics) ? j.clinics : [];
-        // Typo fallback — when the full query returned nothing AND the
-        // typed token is ≥ 5 chars, retry with the typed token chopped by
-        // one character. Catches "Bermudz" → "Bermud" → "Bermúdez".
-        if (myId === reqIdRef.current && list.length === 0 && typed.length >= 5) {
-          const shortened = [...baseTokens, typed.slice(0, -1)].join(' ');
-          res = await adminFetch(`/api/admin/clinics?q=${encodeURIComponent(shortened)}&limit=50`);
-          j = await res.json();
-          list = Array.isArray(j?.clinics) ? j.clinics : [];
-          if (list.length > 0) setFuzzyHint(true);
+        // Typo fallback — when the user has typed something AND the full
+        // query returned nothing AND the typed value is ≥ 5 chars, retry
+        // with the LAST token shortened by one character. Catches
+        // "Bermudz" → "Bermud" → "Bermúdez".
+        if (myId === reqIdRef.current && typed && list.length === 0 && typed.length >= 5) {
+          const parts = typed.split(/\s+/).filter(Boolean);
+          if (parts.length > 0) {
+            parts[parts.length - 1] = parts[parts.length - 1].slice(0, -1);
+            const shortened = parts.join(' ');
+            res = await adminFetch(`/api/admin/clinics?q=${encodeURIComponent(shortened)}&limit=50`);
+            j = await res.json();
+            list = Array.isArray(j?.clinics) ? j.clinics : [];
+            if (list.length > 0) setFuzzyHint(true);
+          }
         }
         if (myId === reqIdRef.current) setResults(list);
       } catch (err) {
@@ -947,7 +949,7 @@ function ClinicPickerModal({
       }
     }, 250);
     return () => clearTimeout(handle);
-  }, [baseTokens, query]);
+  }, [cityFilter, query]);
 
   const filtered = useMemo(() => {
     const preferKey = preferClinicName ? normalize(preferClinicName) : null;
