@@ -232,6 +232,12 @@ function BookContent() {
     email: '',
     age: '',
     gender: '',
+    // 2026-05 — collect identity + contact required by the clinic for
+    // every booking. DNI/NIE/Pasaporte is requested in the same field so
+    // foreign patients aren't forced to fake a Spanish doc.
+    dateOfBirth: '',
+    nationalId: '',
+    phone: '',
   });
 
   const handleFormChange = (field, value) => {
@@ -382,6 +388,11 @@ function BookContent() {
           patientEmail,
           patientPhone: lockInData?.patientPhone || form.phone || null,
           patientAddress: lockInData?.patientAddress || null,
+          // 2026-05 — captured from the booking form. DB columns are added
+          // via /api/db/setup; the bookings POST does a graceful UPDATE so
+          // pre-migration deploys don't drop the booking.
+          patientDateOfBirth: form.dateOfBirth || null,
+          patientNationalId: form.nationalId ? form.nationalId.trim() : null,
           providerId: Number(providerId) || null,
           providerName: clinicName,
           specialty: service?.name || null,
@@ -486,6 +497,8 @@ function BookContent() {
       patientName,
       patientEmail,
       patientPhone: lockInData?.patientPhone || form.phone || null,
+      patientDateOfBirth: form.dateOfBirth || null,
+      patientNationalId: form.nationalId ? form.nationalId.trim() : null,
       providerName: clinicName,
       slotDate: slotDateToUse,
       slotTime: slotTimeToUse,
@@ -1034,6 +1047,61 @@ function BookContent() {
                     <option value="F">Femenino</option>
                     <option value="O">Otro</option>
                   </select>
+                </div>
+                <div className="form-group">
+                  <label className="form-label" htmlFor="dateOfBirth">Fecha de nacimiento</label>
+                  <input
+                    id="dateOfBirth"
+                    className="form-input"
+                    type="date"
+                    /* Cap at today — patients can't be born in the future.
+                       Allow up to 120 years back (loose check; the API
+                       enforces a stricter ISO-date format). */
+                    max={new Date().toISOString().slice(0, 10)}
+                    value={form.dateOfBirth}
+                    onChange={(e) => handleFormChange('dateOfBirth', e.target.value)}
+                    required
+                  />
+                </div>
+                <div className="form-group">
+                  <label className="form-label" htmlFor="nationalId">DNI / NIE / Pasaporte</label>
+                  <input
+                    id="nationalId"
+                    className="form-input"
+                    type="text"
+                    placeholder="Ej. 12345678A · X1234567L · AB123456"
+                    value={form.nationalId}
+                    onChange={(e) => handleFormChange('nationalId', e.target.value)}
+                    /* Loose accepts: 5-20 alphanumerics + a few separators.
+                       Tightening to per-country regex would block legitimate
+                       passport formats; the clinic verifies the doc on
+                       arrival, so we keep this permissive. */
+                    pattern="[A-Za-z0-9 \-\.]{5,20}"
+                    title="Introduce un DNI, NIE o número de pasaporte válido"
+                    autoComplete="off"
+                    required
+                  />
+                </div>
+                <div className="form-group">
+                  <label className="form-label" htmlFor="phone">Teléfono de contacto</label>
+                  <input
+                    id="phone"
+                    className="form-input"
+                    type="tel"
+                    placeholder="Ej. +34 612 345 678"
+                    value={form.phone}
+                    onChange={(e) => handleFormChange('phone', e.target.value)}
+                    /* Loose accepts: country-code prefix + 6-20 digits/separators.
+                       The clinic will reach out on this number if there's a
+                       schedule change — better to accept all formats and
+                       validate at-call than to block valid international
+                       formats. */
+                    pattern="[\+0-9 \-\(\)]{6,25}"
+                    title="Introduce un teléfono válido"
+                    autoComplete="tel"
+                    inputMode="tel"
+                    required
+                  />
                 </div>
               </div>
 

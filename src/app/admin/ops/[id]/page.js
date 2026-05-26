@@ -807,49 +807,79 @@ function ClinicTypeahead({
   cityFilter, specialtyFilter, preferClinicName,
   onPick, onClear, selectedId, selectedName,
 }) {
-  const [allClinics, setAllClinics] = useState([]);
-  const [loading, setLoading] = useState(true);
+  // Server-driven search against /api/admin/clinics, which applies
+  // Latin1_General_CI_AI collation (case + accent insensitive) and
+  // tokenises the query so "cea berm" matches "Centro Médico Cea Bermúdez".
+  // The previous implementation pre-loaded 100 clinics filtered by
+  // /api/clinics/search?city=... and then filtered them client-side, which
+  // missed any clinic whose city field had a different accent/spelling from
+  // the one in operations_cases.original_clinic_city — the 2026-05 ops
+  // report ("sigue sin funcionar el dropdown inteligente") was caused by
+  // that mismatch.
+  const [results, setResults] = useState([]);
+  const [loading, setLoading] = useState(false);
   const [query, setQuery] = useState('');
   const [openDropdown, setOpenDropdown] = useState(false);
+  const [fuzzyHint, setFuzzyHint] = useState(false);
   const inputRef = useRef(null);
+  const reqIdRef = useRef(0);
 
-  // Fetch once on mount. We request a generous limit (100) so the
-  // typeahead can filter purely client-side after — most cities won't
-  // exceed that, and if they do the operator can refine the search.
-  useEffect(() => {
-    let cancelled = false;
-    async function load() {
-      setLoading(true);
-      try {
-        const params = new URLSearchParams({ limit: '100' });
-        if (cityFilter) params.set('city', cityFilter);
-        // The /api/clinics/search endpoint maps free-form specialty
-        // names through SPECIALTY_SLUG_MAP. We pass it as specialtySlug
-        // because the search endpoint normalizes slugs better than
-        // free-form name matching.
-        if (specialtyFilter) params.set('specialtySlug', normalize(specialtyFilter).replace(/\s+/g, '-'));
-        const res = await fetch(`/api/clinics/search?${params.toString()}`);
-        const j = await res.json();
-        if (cancelled) return;
-        const list = Array.isArray(j?.clinics) ? j.clinics : [];
-        setAllClinics(list);
-      } catch (err) {
-        console.error('[ClinicTypeahead] fetch error', err);
-        if (!cancelled) setAllClinics([]);
-      }
-      if (!cancelled) setLoading(false);
-    }
-    load();
-    return () => { cancelled = true; };
+  // Build the q string. We always seed with the case's city so the
+  // operator sees a city-scoped list when the input is empty, and as they
+  // type each token is AND-ed with the city (and with the specialty if
+  // available) so the result set narrows naturally.
+  const baseTokens = useMemo(() => {
+    const out = [];
+    if (cityFilter) out.push(String(cityFilter).trim());
+    if (specialtyFilter) out.push(String(specialtyFilter).trim());
+    return out.filter(Boolean);
   }, [cityFilter, specialtyFilter]);
 
+  // Debounced server search. 250 ms feels responsive without hammering
+  // Azure SQL on every keystroke. Each in-flight request carries an
+  // incrementing id so a slow response can't clobber a newer one.
+  useEffect(() => {
+    const handle = setTimeout(async () => {
+      const tokens = [...baseTokens];
+      const typed = query.trim();
+      if (typed) tokens.push(typed);
+      const q = tokens.join(' ');
+      const myId = ++reqIdRef.current;
+      setLoading(true);
+      setFuzzyHint(false);
+      try {
+        // First try: full query (verbatim tokens, accent-insensitive).
+        let res = await fetch(`/api/admin/clinics?q=${encodeURIComponent(q)}&limit=50`);
+        let j = await res.json();
+        let list = Array.isArray(j?.clinics) ? j.clinics : [];
+        // Typo fallback — when the typed token is at least 5 chars and the
+        // full query returned nothing, retry with the typed token shortened
+        // by one character. Catches "Bermudz" → match "Bermúdez" and
+        // similar single-character typos at the end of a word without a
+        // full Levenshtein library.
+        if (myId === reqIdRef.current && list.length === 0 && typed.length >= 5) {
+          const shortened = [...baseTokens, typed.slice(0, -1)].join(' ');
+          res = await fetch(`/api/admin/clinics?q=${encodeURIComponent(shortened)}&limit=50`);
+          j = await res.json();
+          list = Array.isArray(j?.clinics) ? j.clinics : [];
+          if (list.length > 0) setFuzzyHint(true);
+        }
+        if (myId === reqIdRef.current) setResults(list);
+      } catch (err) {
+        if (myId === reqIdRef.current) {
+          console.error('[ClinicTypeahead] fetch error', err);
+          setResults([]);
+        }
+      } finally {
+        if (myId === reqIdRef.current) setLoading(false);
+      }
+    }, 250);
+    return () => clearTimeout(handle);
+  }, [baseTokens, query]);
+
   const filtered = useMemo(() => {
-    const q = normalize(query);
-    const list = !q
-      ? allClinics
-      : allClinics.filter((c) => normalize(c.name).includes(q));
     const preferKey = preferClinicName ? normalize(preferClinicName) : null;
-    return [...list].sort((a, b) => {
+    return [...results].sort((a, b) => {
       const an = normalize(a.name);
       const bn = normalize(b.name);
       if (preferKey) {
@@ -860,7 +890,7 @@ function ClinicTypeahead({
       }
       return an.localeCompare(bn);
     }).slice(0, 12);
-  }, [allClinics, query, preferClinicName]);
+  }, [results, preferClinicName]);
 
   return (
     <div style={{ position: 'relative' }}>
@@ -905,13 +935,19 @@ function ClinicTypeahead({
               boxShadow: '0 4px 12px rgba(0,0,0,0.12)', zIndex: 10, marginTop: 2,
             }}>
               {loading ? (
-                <div style={{ padding: '8px 10px', fontSize: 12, color: '#6b7280' }}>Cargando clínicas…</div>
+                <div style={{ padding: '8px 10px', fontSize: 12, color: '#6b7280' }}>Buscando…</div>
               ) : filtered.length === 0 ? (
                 <div style={{ padding: '8px 10px', fontSize: 12, color: '#6b7280' }}>
                   Sin resultados{cityFilter ? ` en ${cityFilter}` : ''}. Cambia la búsqueda o emite reembolso si no hay alternativa.
                 </div>
               ) : (
-                filtered.map((cl) => (
+                <>
+                {fuzzyHint && (
+                  <div style={{ padding: '6px 10px', fontSize: 11, color: '#92400e', background: '#fef3c7', borderBottom: '1px solid #f3f4f6' }}>
+                    Mostrando coincidencias aproximadas (posible typo).
+                  </div>
+                )}
+                {filtered.map((cl) => (
                   <button
                     key={cl.id}
                     type="button"
@@ -928,7 +964,8 @@ function ClinicTypeahead({
                       {cl.city || ''}{cl.address ? ` · ${cl.address}` : ''}
                     </div>
                   </button>
-                ))
+                ))}
+                </>
               )}
             </div>
           )}

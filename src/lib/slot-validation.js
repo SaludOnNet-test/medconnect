@@ -21,7 +21,12 @@ export const PRICING_TIERS = [
 ];
 
 export const SLOT_RULES = {
-  BUFFER_BUSINESS_HOURS: 6,
+  // 9 business hours = one full working day (9:00-18:00). Guarantees at
+  // least one business day between the search and the earliest sellable
+  // slot — a search on Monday morning can't surface a Monday afternoon
+  // slot, Friday after-hours rolls to Monday afternoon, etc. Bumped from
+  // 6 hours in 2026-05 after the soft-launch review.
+  BUFFER_BUSINESS_HOURS: 9,
   BUSINESS_DAY_START: 9,    // 09:00
   BUSINESS_DAY_END: 18,     // 18:00
   TOLERANCE_MINUTES: 15,

@@ -724,6 +724,21 @@ export async function GET(request) {
       ALTER TABLE bookings ADD review_request_sent_at DATETIMEOFFSET NULL;
     `);
 
+    // ── Migration: patient identity fields (DOB + DNI/NIE/Pasaporte) ──
+    // 2026-05 — clinics need patient DOB + national-id to dispense care.
+    // Stored as NVARCHAR (not DATE) so foreign passports with country
+    // prefixes and DNI letter checksums round-trip exactly as the patient
+    // typed them. Optional in the schema (lock-in flow doesn't collect
+    // them yet); the /book form makes them client-side required.
+    await pool.request().query(`
+      IF NOT EXISTS (SELECT * FROM sys.columns WHERE Name = 'patient_date_of_birth' AND Object_ID = Object_ID('bookings'))
+      ALTER TABLE bookings ADD patient_date_of_birth NVARCHAR(20) NULL;
+    `);
+    await pool.request().query(`
+      IF NOT EXISTS (SELECT * FROM sys.columns WHERE Name = 'patient_national_id' AND Object_ID = Object_ID('bookings'))
+      ALTER TABLE bookings ADD patient_national_id NVARCHAR(20) NULL;
+    `);
+
     // ── Migration: per-clinic notification config (CEA Bermúdez pilot) ───
     // Lets the gerente/recepción of a destination clinic receive an email
     // every time a sale ends in their clinic (any of the 4 channels:
