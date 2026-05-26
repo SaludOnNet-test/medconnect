@@ -1,11 +1,18 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { adminFetch, getAdminToken, getAdminUser } from '@/lib/adminClient';
 import '../ops/ops.css';
 import './clinics.css';
+
+// Strip accents/diacritics so the local fallback filter matches the
+// backend's accent-insensitive search (`Bermúdez` ≈ `bermudez`, `Médico`
+// ≈ `medico`). NFD splits each accented char into base + combining mark;
+// the regex strips the combining marks.
+const stripDiacritics = (s) =>
+  String(s || '').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase();
 
 // /admin/clinics
 //
@@ -22,6 +29,7 @@ export default function AdminClinicsPage() {
   const router = useRouter();
   const [me, setMe] = useState(null);
   const [clinics, setClinics] = useState([]);
+  const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
   const [onlyConfig, setOnlyConfig] = useState(false);
@@ -38,42 +46,66 @@ export default function AdminClinicsPage() {
     else setMe(getAdminUser());
   }, [router]);
 
-  const load = async () => {
+  // Wrapped in useCallback so the debounce effect below has a stable
+  // reference even though the closure reads `search` and `onlyConfig`.
+  const load = useCallback(async (q, onlyConfigFlag) => {
     setLoading(true);
     try {
       const qs = new URLSearchParams();
-      if (search.trim()) qs.set('q', search.trim());
-      if (onlyConfig) qs.set('onlyConfig', 'true');
+      if (q && q.trim()) qs.set('q', q.trim());
+      if (onlyConfigFlag) qs.set('onlyConfig', 'true');
       const res = await adminFetch(`/api/admin/clinics?${qs.toString()}`);
       const j = await res.json();
       setClinics(j.clinics || []);
+      setTotal(typeof j.total === 'number' ? j.total : (j.clinics || []).length);
       setMigrationPending(!!j.migrationPending);
-      // Seed drafts from server state so unchanged rows render the current value.
-      const seed = {};
-      (j.clinics || []).forEach((c) => {
-        seed[c.id] = {
-          notificationEmail: c.notificationEmail || '',
-          notificationsEnabled: c.notificationsEnabled,
-        };
+      // Seed drafts from server state so unchanged rows render the current
+      // value but DON'T overwrite drafts the user is actively editing.
+      setDrafts((prev) => {
+        const next = { ...prev };
+        (j.clinics || []).forEach((c) => {
+          if (next[c.id] == null) {
+            next[c.id] = {
+              notificationEmail: c.notificationEmail || '',
+              notificationsEnabled: c.notificationsEnabled,
+            };
+          }
+        });
+        return next;
       });
-      setDrafts(seed);
     } catch (err) {
       console.error('[admin/clinics] load', err);
     }
     setLoading(false);
-  };
+  }, []);
 
-  useEffect(() => { if (me) load(); }, [me]);
+  // Debounced server-side refetch on every keystroke. The server runs an
+  // accent-insensitive multi-token AND search across name/city/province/
+  // address — see /api/admin/clinics for details. 300 ms balances "feels
+  // live" against "don't hammer the DB while the user is still typing".
+  const debounceRef = useRef(null);
+  useEffect(() => {
+    if (!me) return;
+    if (debounceRef.current) clearTimeout(debounceRef.current);
+    debounceRef.current = setTimeout(() => {
+      load(search, onlyConfig);
+    }, 300);
+    return () => { if (debounceRef.current) clearTimeout(debounceRef.current); };
+  }, [me, search, onlyConfig, load]);
 
-  // Live filter on top of the server response — server filters at name
-  // level via @q; we additionally filter by city locally for snappier UX.
+  // Local fallback filter. The server already filtered, but if the user
+  // is mid-typing (debounce pending) we render an instant local pre-filter
+  // using the same accent-insensitive semantics so the UI never feels stale.
   const visibleClinics = useMemo(() => {
-    const term = search.trim().toLowerCase();
+    const term = stripDiacritics(search.trim());
     if (!term) return clinics;
-    return clinics.filter((c) =>
-      (c.name || '').toLowerCase().includes(term) ||
-      (c.city || '').toLowerCase().includes(term),
-    );
+    const tokens = term.split(/\s+/).filter(Boolean);
+    return clinics.filter((c) => {
+      const haystack = stripDiacritics(
+        `${c.name || ''} ${c.city || ''} ${c.province || ''} ${c.address || ''}`,
+      );
+      return tokens.every((t) => haystack.includes(t));
+    });
   }, [clinics, search]);
 
   const updateDraft = (id, field, value) => {
@@ -144,23 +176,27 @@ export default function AdminClinicsPage() {
       <div className="clinics-toolbar">
         <input
           type="search"
-          placeholder="Buscar por nombre o ciudad…"
+          placeholder="Buscar por nombre, ciudad, provincia o dirección…"
           value={search}
           onChange={(e) => setSearch(e.target.value)}
           className="clinics-search"
+          autoFocus
         />
         <label className="clinics-toggle-only-config">
           <input
             type="checkbox"
             checked={onlyConfig}
-            onChange={(e) => { setOnlyConfig(e.target.checked); }}
-            onBlur={load}
+            onChange={(e) => setOnlyConfig(e.target.checked)}
           />
           Solo con correo configurado
         </label>
-        <button type="button" className="ops-action-btn" onClick={load} disabled={loading}>
-          {loading ? 'Cargando…' : 'Refrescar'}
-        </button>
+        <div className="clinics-toolbar-meta">
+          {loading ? 'Buscando…' : (
+            search.trim()
+              ? `${visibleClinics.length} resultado${visibleClinics.length === 1 ? '' : 's'}`
+              : `${total.toLocaleString('es-ES')} clínica${total === 1 ? '' : 's'} en total`
+          )}
+        </div>
       </div>
 
       <div className="ops-table-wrap" style={{ marginTop: 16 }}>
@@ -175,11 +211,11 @@ export default function AdminClinicsPage() {
             </tr>
           </thead>
           <tbody>
-            {loading ? (
+            {loading && visibleClinics.length === 0 ? (
               <tr><td colSpan={5} style={{ padding: 16, color: '#9ca3af' }}>Cargando…</td></tr>
             ) : visibleClinics.length === 0 ? (
               <tr><td colSpan={5} style={{ padding: 16, color: '#9ca3af' }}>
-                No hay resultados.
+                No hay resultados para <strong>{search}</strong>. Probá con menos palabras o sin tildes.
               </td></tr>
             ) : visibleClinics.map((c) => {
               const draft = drafts[c.id] || {};
