@@ -9,6 +9,7 @@ import {
   CANCELLATION_REASON_LABELS,
 } from '@/lib/clinicNotifications';
 import { query, sql } from '@/lib/db';
+import { notifyInternalWatcher } from '@/lib/internalWatcher';
 
 // Public endpoint — patient clicks accept/reject from the alternative-slot email.
 // GET /api/ops/respond?token=...&decision=accept|reject
@@ -55,6 +56,15 @@ export async function GET(request) {
     notifyAlternativeAcceptedClinics(c).catch((e) =>
       console.error('[ops/respond] clinic notifications failed', e?.message),
     );
+
+    // Internal watcher mirror — patient accepted the alternative.
+    notifyInternalWatcher({
+      kind: 'alternative_accepted',
+      summary: `${c.patient_name || 'paciente'} · ${c.alternative_clinic_name || c.original_clinic_name || ''}`,
+      booking: { id: c.booking_id, patientName: c.patient_name, patientEmail: c.patient_email },
+      case: c,
+      extra: { 'Decisión del paciente': 'aceptada' },
+    });
 
     return NextResponse.json({
       ok: true,
@@ -122,6 +132,19 @@ export async function GET(request) {
   }).catch((e) =>
     console.error('[ops/respond] cancellation notification failed', e?.message),
   );
+
+  // Internal watcher mirror — patient rejected the alternative.
+  notifyInternalWatcher({
+    kind: 'alternative_rejected',
+    summary: `${c.patient_name || 'paciente'} · ${c.original_clinic_name || ''} (rechazó alternativa)`,
+    booking: { id: c.booking_id, patientName: c.patient_name, patientEmail: c.patient_email },
+    case: c,
+    extra: {
+      'Decisión del paciente': 'rechazada',
+      'Refund €': refundAmount,
+      'Refund Stripe ID': refundId,
+    },
+  });
 
   return NextResponse.json({ ok: true, decision: 'rejected', refundAmount });
 }

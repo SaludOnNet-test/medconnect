@@ -4,6 +4,7 @@ import { sendEmail } from '@/lib/email';
 import { operationsBookingAlert } from '@/lib/emailTemplates';
 import { bookingByTokenRescheduleSchema, formatZodError } from '@/lib/schemas';
 import { clientError } from '@/lib/errors';
+import { notifyInternalWatcher } from '@/lib/internalWatcher';
 
 export const dynamic = 'force-dynamic';
 
@@ -111,6 +112,28 @@ export async function POST(request, { params }) {
     // Non-fatal — the DB record is the source of truth, ops will see it on
     // the dashboard even if the email failed.
   }
+
+  // Internal watcher mirror — Francisco sees every reschedule request.
+  notifyInternalWatcher({
+    kind: 'reschedule_requested',
+    summary: `${booking.provider_name || 'clínica'} · ${booking.patient_name || 'paciente'}${booking.slot_date ? ' · ' + booking.slot_date : ''}`,
+    booking: {
+      id: booking.id,
+      patientName: booking.patient_name,
+      patientEmail: booking.patient_email,
+      providerName: booking.provider_name,
+      slotDate: booking.slot_date,
+      slotTime: booking.slot_time,
+      amount: booking.amount,
+      status: 'reschedule_requested',
+      hasInsurance: booking.has_insurance,
+      insuranceCompany: booking.insurance_company,
+    },
+    extra: {
+      'Fechas preferidas': preferredDates,
+      Notas: notes,
+    },
+  });
 
   return NextResponse.json({ ok: true, message: 'Solicitud recibida. Te contactamos en menos de 6 horas hábiles.' });
 }

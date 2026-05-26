@@ -17,6 +17,7 @@ import {
   resolveActiveClinicForBooking,
   CANCELLATION_REASON_LABELS,
 } from '@/lib/clinicNotifications';
+import { notifyInternalWatcher } from '@/lib/internalWatcher';
 
 const BASE_URL = process.env.NEXT_PUBLIC_BASE_URL || 'https://medconnect-bay.vercel.app';
 
@@ -267,6 +268,13 @@ export async function POST(request, { params }) {
           ? ` Email a clínica enviado a ${clinicMail.to}${clinicMail.alreadyOnboarded ? ' (ya onboarded)' : ' (CTA onboarding)'}`
           : ` Email a clínica no enviado: ${clinicMail.reason || 'desconocido'}.`;
         await appendCallLog(id, 'Clínica aceptó el slot original. Cita confirmada al paciente.' + tail, session.username);
+        notifyInternalWatcher({
+          kind: 'clinic_accepted',
+          summary: `${c.patient_name || 'paciente'} · ${c.original_clinic_name || ''}`,
+          booking: { id: c.booking_id, patientName: c.patient_name, patientEmail: c.patient_email },
+          case: c,
+          extra: { 'Ops user': session.username, 'Email a clínica': clinicMail.sent ? clinicMail.to : `no enviado (${clinicMail.reason})` },
+        });
         break;
       }
       case 'clinic_proposed_alternative': {
@@ -292,11 +300,25 @@ export async function POST(request, { params }) {
         c = await getCase(id);
         await notifyAlternative(c);
         await appendCallLog(id, `Clínica propone ${altDate} ${altTime}. Email enviado al paciente. Tiene 24 h para responder.`, session.username);
+        notifyInternalWatcher({
+          kind: 'alternative_proposed',
+          summary: `${c.patient_name || 'paciente'} · misma clínica, nuevo slot ${altDate} ${altTime}`,
+          booking: { id: c.booking_id, patientName: c.patient_name, patientEmail: c.patient_email },
+          case: c,
+          extra: { 'Tipo': 'misma clínica, nuevo slot', 'Ops user': session.username, 'Motivo': reason || '—' },
+        });
         break;
       }
       case 'clinic_rejected': {
         await updateCase(id, { status: CASE_STATUS.CLINIC_REJECTED_SEARCHING, assigned_to: session.username });
         await appendCallLog(id, 'Clínica rechazó. Buscando clínica alternativa.', session.username);
+        notifyInternalWatcher({
+          kind: 'clinic_rejected',
+          summary: `${c.patient_name || 'paciente'} · ${c.original_clinic_name || ''} rechazó — buscando alternativa`,
+          booking: { id: c.booking_id, patientName: c.patient_name, patientEmail: c.patient_email },
+          case: c,
+          extra: { 'Ops user': session.username },
+        });
         break;
       }
       case 'alternative_clinic_proposed': {
@@ -326,6 +348,13 @@ export async function POST(request, { params }) {
         c = await getCase(id);
         await notifyAlternative(c);
         await appendCallLog(id, `Alternativa propuesta: ${altClinicName} ${altDate} ${altTime}. Email al paciente. Tiene 24 h para responder.`, session.username);
+        notifyInternalWatcher({
+          kind: 'alternative_proposed',
+          summary: `${c.patient_name || 'paciente'} · cambio de clínica → ${altClinicName} ${altDate} ${altTime}`,
+          booking: { id: c.booking_id, patientName: c.patient_name, patientEmail: c.patient_email },
+          case: c,
+          extra: { 'Tipo': 'clínica alternativa', 'Ops user': session.username, 'Motivo': reason || '—' },
+        });
         break;
       }
       case 'no_alternative_refund': {
@@ -354,6 +383,13 @@ export async function POST(request, { params }) {
           reason: `Sin alternativa disponible — reembolso emitido. ${reasonRaw}`,
           refundAmount: r.refundAmount,
         }).catch(() => {});
+        notifyInternalWatcher({
+          kind: 'refunded',
+          summary: `${c.patient_name || 'paciente'} · sin alternativa · €${r.refundAmount}`,
+          booking: { id: c.booking_id, patientName: c.patient_name, patientEmail: c.patient_email },
+          case: c,
+          extra: { 'Ops user': session.username, 'Motivo': reasonRaw, 'Refund €': r.refundAmount, 'Refund Stripe ID': r.refundId, 'Override fuera de cutoff': r.forced || null },
+        });
         break;
       }
       case 'refund': {
@@ -377,6 +413,13 @@ export async function POST(request, { params }) {
           reason: `Reembolso manual de Operaciones. ${reasonRaw}`,
           refundAmount: r.refundAmount,
         }).catch(() => {});
+        notifyInternalWatcher({
+          kind: 'refunded',
+          summary: `${c.patient_name || 'paciente'} · refund manual · €${r.refundAmount}`,
+          booking: { id: c.booking_id, patientName: c.patient_name, patientEmail: c.patient_email },
+          case: c,
+          extra: { 'Ops user': session.username, 'Motivo': reasonRaw, 'Refund €': r.refundAmount, 'Refund Stripe ID': r.refundId, 'Override fuera de cutoff': r.forced || null },
+        });
         break;
       }
       case 'cancel': {
@@ -386,6 +429,13 @@ export async function POST(request, { params }) {
           reasonLabel: CANCELLATION_REASON_LABELS.ops_cancel,
           reason: body.reason || 'El caso fue cancelado por el equipo de Operaciones.',
         }).catch(() => {});
+        notifyInternalWatcher({
+          kind: 'cancelled',
+          summary: `${c.patient_name || 'paciente'} · ${c.original_clinic_name || ''} (ops cancel)`,
+          booking: { id: c.booking_id, patientName: c.patient_name, patientEmail: c.patient_email },
+          case: c,
+          extra: { 'Ops user': session.username, 'Origen': 'Ops cancel', 'Motivo': body.reason || '—' },
+        });
         break;
       }
       default:

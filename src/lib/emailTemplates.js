@@ -1383,3 +1383,153 @@ export function clinicSaleCancellation({
     html,
   };
 }
+
+// ─────────────────────────────────────────────
+// 29. Internal event digest — mirrors every meaningful platform event to
+//     a single watcher mailbox (Francisco by default). Generic structured
+//     dump: any caller passes { booking, case, extra } and we render
+//     consistent sections.
+//
+//     Subject pattern: `[Med Connect Interno · <Label>] <summary>` — lets
+//     Francisco filter / route by label in Gmail without opening anything.
+// ─────────────────────────────────────────────
+function fmtDateLong(slotDate) {
+  if (!slotDate) return null;
+  try {
+    return new Date(slotDate + 'T00:00:00').toLocaleDateString('es-ES', {
+      weekday: 'long', day: 'numeric', month: 'long', year: 'numeric',
+    });
+  } catch { return slotDate; }
+}
+
+function fmtMoney(v) {
+  if (v == null || v === '') return null;
+  const n = Number(v);
+  if (!Number.isFinite(n)) return null;
+  return formatEUR(n);
+}
+
+function renderKv(rows) {
+  // rows: [[label, value], ...] — value may be string|number|null. Null
+  // entries are dropped so each section auto-prunes empty fields.
+  const visible = rows.filter(([, v]) => v != null && v !== '');
+  if (visible.length === 0) return '';
+  return `
+    <table width="100%" cellpadding="0" cellspacing="0" style="margin:0 0 16px;border:1px solid #e5e7eb;border-radius:8px;overflow:hidden;">
+      <tbody>
+        ${visible.map(([k, v]) => infoRow(k, v)).join('')}
+      </tbody>
+    </table>`;
+}
+
+export function internalEventDigest({ kind, label, summary, booking, caseRow, extra }) {
+  const b = booking || {};
+  const c = caseRow || {};
+  const e = extra || {};
+
+  // Booking section. Uses whichever fields are present — the function
+  // doesn't know whether the caller passed a route-shaped object (with
+  // camelCase keys like patientEmail) or a raw DB row (snake_case like
+  // patient_email), so it checks both. This keeps the wiring at each
+  // trigger point as light as `notifyInternalWatcher({ booking })`.
+  const bid          = b.id || b.bookingId || null;
+  const bPatientName = b.patient_name ?? b.patientName ?? null;
+  const bPatientEmail= b.patient_email ?? b.patientEmail ?? null;
+  const bPatientPhone= b.patient_phone ?? b.patientPhone ?? null;
+  const bProviderName= b.provider_name ?? b.providerName ?? null;
+  const bSpecialty   = b.specialty ?? null;
+  const bProcedure   = b.procedure_name ?? b.procedureName ?? null;
+  const bSlotDate    = b.slot_date ?? b.slotDate ?? null;
+  const bSlotTime    = b.slot_time ?? b.slotTime ?? null;
+  const bAmount      = b.amount ?? null;
+  const bServicePrice= b.service_price ?? b.servicePrice ?? null;
+  const bPlatformFee = b.platform_fee ?? b.platformFee ?? null;
+  const bStatus      = b.status ?? null;
+  const bHasInsurance= b.has_insurance ?? b.hasInsurance ?? null;
+  const bInsurance   = b.insurance_company ?? b.insuranceCompany ?? null;
+  const bReferralId  = b.referral_id ?? b.referralId ?? null;
+  const bPaymentInt  = b.payment_intent_id ?? b.paymentIntentId ?? null;
+
+  const bookingHtml = bid || bPatientName || bSlotDate
+    ? renderKv([
+        ['Booking ID', bid ? `<code>${bid}</code>` : null],
+        ['Estado', bStatus],
+        ['Paciente', bPatientName],
+        ['Email', bPatientEmail ? `<a href="mailto:${bPatientEmail}" style="color:#1a3c5e;">${bPatientEmail}</a>` : null],
+        ['Teléfono', bPatientPhone ? `<a href="tel:${bPatientPhone}" style="color:#1a3c5e;">${bPatientPhone}</a>` : null],
+        ['Clínica', bProviderName],
+        ['Especialidad', bSpecialty],
+        ['Procedimiento', bProcedure],
+        ['Fecha', fmtDateLong(bSlotDate)],
+        ['Hora', bSlotTime],
+        ['Modalidad', bHasInsurance === true ? `Con seguro · ${bInsurance || 'aseguradora del paciente'}` : bHasInsurance === false ? 'Sin seguro · voucher SaludOnNet' : null],
+        ['Importe pagado', fmtMoney(bAmount)],
+        ['Precio del acto médico', fmtMoney(bServicePrice)],
+        ['Tarifa Med Connect', fmtMoney(bPlatformFee)],
+        ['Referral ID', bReferralId ? `<code>${bReferralId}</code>` : null],
+        ['Stripe PaymentIntent', bPaymentInt ? `<code>${bPaymentInt}</code>` : null],
+      ])
+    : '';
+
+  // Case section. Same dual-shape tolerance.
+  const cid     = c.id ?? null;
+  const cStatus = c.status ?? null;
+  const cAssign = c.assigned_to ?? c.assignedTo ?? null;
+  const cOrigClinic = c.original_clinic_name ?? c.originalClinicName ?? null;
+  const cOrigDate   = c.original_slot_date ?? c.originalSlotDate ?? null;
+  const cOrigTime   = c.original_slot_time ?? c.originalSlotTime ?? null;
+  const cAltClinic  = c.alternative_clinic_name ?? c.alternativeClinicName ?? null;
+  const cAltDate    = c.alternative_slot_date ?? c.alternativeSlotDate ?? null;
+  const cAltTime    = c.alternative_slot_time ?? c.alternativeSlotTime ?? null;
+  const cAltReason  = c.alternative_reason ?? c.alternativeReason ?? null;
+  const cRefundId   = c.refund_id ?? c.refundId ?? null;
+  const cRefundAmt  = c.refund_amount ?? c.refundAmount ?? null;
+
+  const caseHtml = cid || cAltClinic || cOrigClinic
+    ? renderKv([
+        ['Case ID', cid ?? null],
+        ['Estado del caso', cStatus],
+        ['Asignado a', cAssign],
+        ['Clínica original', cOrigClinic],
+        ['Slot original', cOrigDate ? `${fmtDateLong(cOrigDate)} ${cOrigTime || ''}` : null],
+        ['Clínica alternativa', cAltClinic],
+        ['Slot alternativo', cAltDate ? `${fmtDateLong(cAltDate)} ${cAltTime || ''}` : null],
+        ['Motivo del cambio', cAltReason],
+        ['Refund ID', cRefundId ? `<code>${cRefundId}</code>` : null],
+        ['Refund €', fmtMoney(cRefundAmt)],
+      ])
+    : '';
+
+  // Extra section — caller-supplied key/value pairs (channel, refund
+  // amount when not on the case, ops username, reason text, etc.).
+  const extraRows = Object.entries(e)
+    .filter(([, v]) => v != null && v !== '')
+    .map(([k, v]) => [k, typeof v === 'number' ? String(v) : v]);
+  const extraHtml = extraRows.length ? renderKv(extraRows) : '';
+
+  const reviewLink = bid ? `${BASE_URL}/admin/ops` : `${BASE_URL}/admin/ops`;
+
+  const html = baseWrapper(`
+    <tr><td style="background:#1a3c5e;padding:18px 24px;">
+      <p style="margin:0;color:#c9a84c;font-size:12px;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;">Med Connect · Interno</p>
+      <h2 style="margin:6px 0 0;color:#ffffff;font-size:20px;font-weight:800;">${label} · ${summary}</h2>
+    </td></tr>
+    ${bodySection(`
+      ${bookingHtml ? `<h3 style="margin:0 0 8px;font-size:13px;color:#1a3c5e;text-transform:uppercase;letter-spacing:0.05em;">Booking</h3>${bookingHtml}` : ''}
+      ${caseHtml ? `<h3 style="margin:0 0 8px;font-size:13px;color:#1a3c5e;text-transform:uppercase;letter-spacing:0.05em;">Operations case</h3>${caseHtml}` : ''}
+      ${extraHtml ? `<h3 style="margin:0 0 8px;font-size:13px;color:#1a3c5e;text-transform:uppercase;letter-spacing:0.05em;">Contexto</h3>${extraHtml}` : ''}
+      <div style="margin-top:18px;text-align:center;">
+        ${ctaButton(reviewLink, 'Abrir /admin/ops', '#1a3c5e', '#ffffff')}
+      </div>
+      <p style="margin:18px 0 0;font-size:11px;color:#9ca3af;line-height:1.55;text-align:center;">
+        Notificación automática de Med Connect — cada venta, cambio o cancelación dispara este email.
+        Para desactivar, vacía la env var <code>INTERNAL_WATCHER_EMAIL</code> en Vercel.
+      </p>
+    `)}
+  `);
+
+  return {
+    subject: `[Med Connect Interno · ${label}] ${summary}`,
+    html,
+  };
+}
