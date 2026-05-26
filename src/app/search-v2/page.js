@@ -212,8 +212,16 @@ function SearchV2Content() {
         Array.isArray(p.acceptedInsurance) && p.acceptedInsurance.includes(insuranceFilter)
       );
     }
-    if (sortBy === 'rating')  list.sort((a, b) => (b.rating || 0) - (a.rating || 0));
-    if (sortBy === 'reviews') list.sort((a, b) => (b.reviewCount || 0) - (a.reviewCount || 0));
+    // Tiered comparator: Med Connect partners always sort first; ties
+    // fall through to the user-selected secondary sort. Without the
+    // partner tier the user picking "Mejor valorados" / "Más opiniones"
+    // would re-rank the list and bury the partner clinics.
+    list.sort((a, b) => {
+      if (!!a.isPartner !== !!b.isPartner) return a.isPartner ? -1 : 1;
+      if (sortBy === 'rating')  return (b.rating || 0) - (a.rating || 0);
+      if (sortBy === 'reviews') return (b.reviewCount || 0) - (a.reviewCount || 0);
+      return 0;
+    });
     return list;
   }, [baseProviders, insuranceFilter, sortBy]);
 

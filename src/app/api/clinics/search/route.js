@@ -3,6 +3,7 @@ import { query, sql, DB_AVAILABLE } from '@/lib/db';
 import { limits } from '@/lib/rateLimit';
 import { internalError } from '@/lib/errors';
 import { isBookableProcedure } from '@/lib/text';
+import { PARTNER_CLINIC_IDS_SQL, isPartnerClinic } from '@/lib/partnerClinics';
 
 const SPECIALTY_SLUG_MAP = {
   1: ['traumatologia', 'cirugia-ortopedica'],
@@ -109,6 +110,16 @@ export async function GET(request) {
       }
     }
 
+    // Partner-first sort key. When the code-level allowlist
+    // (PARTNER_CLINIC_IDS) has any clinic ids, emit a CASE that ranks
+    // those ids above everything else. Safe to inline — the values are
+    // integer literals from a code constant, never user input. Empty
+    // allowlist falls through to `0` so the original tier ordering
+    // (is_preferential, rating, name) decides alone.
+    const partnerSortKey = PARTNER_CLINIC_IDS_SQL
+      ? `(CASE WHEN c.id IN (${PARTNER_CLINIC_IDS_SQL}) THEN 1 ELSE 0 END)`
+      : '0';
+
     // Single round-trip: COUNT(*) OVER() pulls the total alongside the page,
     // STRING_AGG inlines the specialties array. Replaces the previous
     // count + page + specialties N+1 (3 round trips → 1) and removes the
@@ -125,7 +136,7 @@ export async function GET(request) {
           WHERE cs.clinic_id = c.id) AS specialty_slugs
       FROM clinics c
       ${where}
-      ORDER BY c.is_preferential DESC, c.rating DESC, c.name ASC
+      ORDER BY ${partnerSortKey} DESC, c.is_preferential DESC, c.rating DESC, c.name ASC
       OFFSET @offset ROWS FETCH NEXT @limit ROWS ONLY
     `;
     const result = await query(
@@ -162,6 +173,11 @@ export async function GET(request) {
       smallPictureId: c.small_picture_id || null,
       mediumPictureId: c.medium_picture_id || null,
       isPreferential: !!c.is_preferential,
+      // Med Connect partner — sorted to the top of the list and used by
+      // the client's `displayProviders` sort so the partner-first
+      // ordering survives the user switching to "Mejor valorados" /
+      // "Más opiniones". Backed by `src/lib/partnerClinics.js`.
+      isPartner: isPartnerClinic(c.id),
       hasRealSchedule: true,
     }));
 
