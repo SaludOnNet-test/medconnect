@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 300" role="img" aria-label="Med Connect">
+  <!-- Landscape Google Ads logo (4:1) — horizontal wordmark + mark, centered, with safe-area padding. -->
+  <!-- The full wordmark SVG is 220×48; here we re-build it scaled and positioned for 1200×300. -->
+  <!-- Mark on the left (scaled 4×), wordmark to its right. -->
+  <g transform="translate(90,95) scale(2.5)" fill="none" stroke-linecap="round">
+    <path d="M2 26 C 2 10, 14 2, 24 2 C 34 2, 44 10, 44 22" stroke="#0E1A2B" stroke-width="3" fill="none"/>
+    <circle cx="44" cy="22" r="4.5" fill="#C9A24B"/>
+  </g>
+  <!-- Wordmark, vertically optical-centered. Font-size lowered + start x pushed right
+       so "Connect" doesn't clip against the canvas edge with serif fallback widths. -->
+  <g fill="#0E1A2B" font-family="Fraunces, 'Tiempos Headline', Georgia, serif" font-weight="500" letter-spacing="-2">
+    <text x="260" y="200" font-size="130">Med <tspan font-style="italic">Connect</tspan></text>
+  </g>
+</svg>
