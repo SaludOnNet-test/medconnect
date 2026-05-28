@@ -26,8 +26,17 @@ export async function GET(request, { params }) {
     const params = { clinicId: { type: sql.Int, value: clinicId } };
     let where = 'clinic_id = @clinicId AND procedure_name IS NOT NULL AND procedure_name <> \'\'';
     if (specialtySlug) {
-      where += ' AND specialty_slug = @specialtySlug';
-      params.specialtySlug = { type: sql.NVarChar, value: specialtySlug };
+      // BUG FIX 2026-05-28: previously used exact equality (`= @specialtySlug`).
+      // The DB stores long slugs like `obstetricia-y-ginecologia` and
+      // `traumatologia-y-cirugia-ortopedica`, but the URL passes short
+      // slugs (`ginecologia`, `traumatologia`) from the SEO landing pages.
+      // Exact match returned 0 rows for those specialties, leaving the
+      // booking modal with no procedure → no procedureSlug auto-select →
+      // "Confirmar reserva" button never appears → users bailed out and
+      // book_started never fired. Switching to LIKE %slug% matches the
+      // pattern used by /api/clinics/search and accepts both slug forms.
+      where += ' AND specialty_slug LIKE @specialtySlug';
+      params.specialtySlug = { type: sql.NVarChar(100), value: `%${specialtySlug}%` };
     }
 
     const result = await query(
