@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 1200" role="img" aria-label="Med Connect">
+  <!-- Square Google Ads logo (1:1) — mark stacked on top of wordmark, centered, with safe-area padding. -->
+  <!-- Mark: arc + gold dot. SVG mark is 56×40, scaled ×6 to 336×240 and centered horizontally (1200-336)/2 = 432 on x, y=320. -->
+  <g transform="translate(432,320) scale(6)" fill="none" stroke-linecap="round">
+    <path d="M4 32 C 4 12, 18 4, 28 4 C 38 4, 50 12, 50 28" stroke="#0E1A2B" stroke-width="3.5" fill="none"/>
+    <circle cx="50" cy="28" r="5" fill="#C9A24B"/>
+  </g>
+  <!-- Wordmark centered below the mark. The italic "Connect" is rendered via tspan. -->
+  <g fill="#0E1A2B" font-family="Fraunces, 'Tiempos Headline', Georgia, serif" font-weight="500" letter-spacing="-2">
+    <text x="600" y="900" text-anchor="middle" font-size="140">Med <tspan font-style="italic">Connect</tspan></text>
+  </g>
+</svg>
