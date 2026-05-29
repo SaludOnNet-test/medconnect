@@ -252,9 +252,14 @@ export default function SearchResults({ specialtySlug, city }) {
           Same `.sv2-layout container` shell as /search-v2 so the visuals
           match what the user already knows from the main search page. */}
       <div className={`sv2-layout container ${showMap ? '' : 'sv2-layout--list-only'}`}>
-        {/* Left: cards */}
+        {/* Left: cards.
+            min-height reserves space for ~6 cards before the fetch resolves
+            so the hero/about/FAQ blocks below don't shift downward when the
+            first batch arrives — primary CLS driver on this page (was 1.1
+            on Clarity, 2026-05-29). 1800 px = ~6 * 300 px card height,
+            roughly one viewport on mobile so we don't over-reserve. */}
         <div className="sv2-left">
-          <div className="sv2-results">
+          <div className="sv2-results" style={{ minHeight: clinics === null ? '1800px' : undefined }}>
             {displayClinics.length > 0 ? (
               displayClinics.map((provider, i) => (
                 <ClinicCardV2
@@ -272,7 +277,7 @@ export default function SearchResults({ specialtySlug, city }) {
                 />
               ))
             ) : isLoading ? (
-              <div className="sv2-empty">
+              <div className="sv2-empty" style={{ minHeight: '600px' }}>
                 <p style={{ color: 'var(--fg-muted)' }}>Cargando centros…</p>
               </div>
             ) : (
@@ -296,9 +301,13 @@ export default function SearchResults({ specialtySlug, city }) {
         {/* Right: real Leaflet map. Re-mounted on city change (key=city)
             so the inner user-interaction flag resets and the map recenters
             on the new city instead of staying stuck on a previous pan. */}
+        {/* Right: real Leaflet map. The wrap reserves 500 px so Leaflet's
+            late hydration doesn't push neighbouring content (sv2-left)
+            around. ClinicMap is dynamic({ ssr: false }) so without this
+            the wrap is 0 px until Leaflet mounts. */}
         {showMap && (
           <div className="sv2-map-panel">
-            <div className="sv2-map-wrap">
+            <div className="sv2-map-wrap" style={{ minHeight: '500px' }}>
               <ClinicMap
                 key={city || 'all'}
                 providers={displayClinics.filter((p) => p.lat && p.lng)}

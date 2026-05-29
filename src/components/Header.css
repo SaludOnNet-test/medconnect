@@ -61,11 +61,15 @@
   text-underline-offset: 6px;
 }
 
-/* ── Right cluster (phone + auth) ───────────────────────────────────── */
+/* ── Right cluster (phone + auth) ─────────────────────────────────────
+   min-height locks the row height so the auth-area swap (signed-out CTAs
+   ↔ signed-in avatar) doesn't change the header's height when Clerk
+   hydrates. Was contributing to CLS on every page. */
 .header-right {
   display: flex;
   align-items: center;
   gap: var(--space-4);
+  min-height: 44px;
 }
 
 .header-phone {

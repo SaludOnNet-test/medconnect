@@ -667,9 +667,20 @@ function BookContent() {
                 <p className="book-step-label">Paso 2 de 2</p>
                 <h1 className="book-title">Pago seguro</h1>
               </div>
+              {/* data-loading="lock-in" gives this card the 600 px min-height
+                  used by the final PaymentForm so the swap doesn't reflow
+                  the page — see book.css `.book-summary-card[data-loading]`. */}
               <div
                 className="book-summary-card"
-                style={{ textAlign: 'center', padding: 'var(--space-7)', color: 'var(--fg-muted)' }}
+                data-loading="lock-in"
+                style={{
+                  textAlign: 'center',
+                  padding: 'var(--space-7)',
+                  color: 'var(--fg-muted)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                }}
               >
                 Cargando los datos de tu reserva…
               </div>
