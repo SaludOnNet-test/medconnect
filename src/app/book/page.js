@@ -105,6 +105,17 @@ function BookContent() {
   );
   const [paymentRef, setPaymentRef] = useState('');
   const [lockInData, setLockInData] = useState(null);
+
+  // F15 — booking pre-creation. We reserve a `pending_payment` booking row
+  // BEFORE the patient submits the payment form, then hand the id to
+  // PaymentForm so it lands in the Stripe PaymentIntent metadata. If the
+  // patient closes the tab during 3-D Secure, the webhook still finalizes
+  // the booking row (no orphan charges). Lives once per /book session in
+  // a useRef so toggling hasInsurance back and forth doesn't reserve a
+  // second row. Race-condition safe because reserveBookingId stabilizes
+  // before PaymentForm mounts.
+  const [reservedBookingId, setReservedBookingId] = useState(null);
+  const reservedBookingPromise = useRef(null);
   // True while we're fetching the referral row that backs the payment
   // step. PaymentForm shows a skeleton instead of trying to render with
   // missing data.
@@ -452,8 +463,70 @@ function BookContent() {
     setStep('payment');
   };
 
+  // F15 — reserve booking row before the patient hits the Stripe form so
+  // the webhook always has something to UPDATE if 3-D Secure / tab close
+  // interrupts the round-trip. Only fires once per /book session
+  // (reservedBookingPromise.current guards against re-runs from
+  // hasInsurance toggling).
+  useEffect(() => {
+    if (step !== 'payment') return;
+    if (hasInsurance === null) return;
+    if (reservedBookingPromise.current) return;
+
+    // Required fields for the reserve — bail if anything is missing
+    // (lock-in fallback path may still be hydrating, or the patient form
+    // isn't fully filled).
+    const pEmail = lockInData?.patientEmail || form.email;
+    const pName = lockInData?.patientName || `${form.name} ${form.surname}`.trim();
+    const sDate = lockInData?.slotDate || date;
+    const sTime = lockInData?.slotTime || time;
+    if (!pEmail || !sDate || !sTime) return;
+
+    // Stable ID generated once. Format: `mc_<24-hex>` keeps it short enough
+    // for the NVARCHAR(50) PK and recognizable in Stripe metadata.
+    const id = `mc_${Array.from(crypto.getRandomValues(new Uint8Array(12))).map((b) => b.toString(16).padStart(2, '0')).join('')}`;
+
+    reservedBookingPromise.current = fetch('/api/bookings/reserve', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        id,
+        patientEmail: pEmail,
+        patientName: pName,
+        providerId: Number(providerId) || null,
+        providerName: lockInData?.providerName || providerName,
+        specialty: service?.name || null,
+        slotDate: sDate,
+        slotTime: sTime,
+        amount: totalPrice,
+        hasInsurance: hasInsurance === true,
+        insuranceCompany: selectedInsurance || null,
+      }),
+    })
+      .then((r) => r.json())
+      .then((j) => {
+        if (j && j.id) setReservedBookingId(j.id);
+      })
+      .catch((err) => {
+        // Reserve failed (DB hiccup, rate limit, etc.). Don't block the
+        // payment flow — fall back to the legacy "INSERT on finalize" path.
+        // The orphan-charge risk reappears for this one booking but the
+        // flow still completes for the patient.
+        console.error('[F15 reserve failed]', err?.message);
+        reservedBookingPromise.current = null;
+      });
+  }, [step, hasInsurance, lockInData, form.email, form.name, form.surname, date, time,
+      providerId, providerName, service, totalPrice, selectedInsurance]);
+
   const handlePaymentSuccess = async ({ last4, reference }) => {
-    setPaymentRef(reference);
+    // F15 — prefer the booking id we reserved BEFORE the charge over the
+    // Stripe PaymentIntent id. This ensures the /api/bookings POST hits
+    // the UPSERT path (UPDATE existing pending_payment row) instead of
+    // attempting a fresh INSERT that would PK-collide with the row the
+    // webhook may have already finalized. Falls back to the Stripe ref
+    // if reserve was skipped or failed.
+    const bookingRef = reservedBookingId || reference;
+    setPaymentRef(bookingRef);
 
     const patientEmail = lockInData?.patientEmail || form.email;
     const patientName = lockInData?.patientName || `${form.name} ${form.surname}`.trim();
@@ -471,7 +544,9 @@ function BookContent() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          id: reference,
+          // F15 — use the reserved id so the POST hits the UPSERT path
+          // (UPDATE existing pending_payment row instead of fresh INSERT).
+          id: bookingRef,
           referralId: lockInData?.id || null,
           patientName,
           patientEmail,
@@ -494,6 +569,9 @@ function BookContent() {
           cardLast4: last4,
           hasInsurance: hasInsurance === true,
           insuranceCompany: selectedInsurance || null,
+          // The Stripe `reference` (`pi_xxx`) is what we want to record as
+          // the payment_intent_id — keep this distinct from the booking id
+          // (`bookingRef`) which may be the reserved `mc_xxx` id.
           paymentIntentId: reference,
           // New: procedure (acto médico) + price split snapshots.
           procedureSlug: procedureSlugParam || null,
@@ -917,6 +995,7 @@ function BookContent() {
                 slotTime={slotTimeToUse}
                 patientName={patientName}
                 patientEmail={patientEmailForPayment}
+                bookingId={reservedBookingId}
                 onPaymentSuccess={handlePaymentSuccess}
                 onBack={() => {
                   // For lock-in patients there is no /form to go back to —
