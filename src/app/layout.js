@@ -78,11 +78,39 @@ export const metadata = {
 const rawPublishableKey = process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY;
 const publishableKey = rawPublishableKey ? rawPublishableKey.trim() : '';
 
+// Preconnect hints — start the TLS handshake to third-party origins
+// during the initial paint so that, when the corresponding script/tile
+// is requested later, the connection is already warm and the resource
+// downloads in one RTT instead of three.
+//
+//   js.stripe.com    — Stripe Elements bundle. Lazy-loaded via PaymentForm
+//                      (PR #69) so the warm handshake matters most for the
+//                      first patient that reaches the payment step.
+//   api.stripe.com   — POST /api/payments + 3-D Secure round-trip.
+//   tile.openstreetmap.org — Leaflet tile server, used in
+//                      /especialistas + /search-v2.
+//
+// Clerk is NOT preconnected because clerk.medconnect.es is on our own
+// domain (already warm via the apex connection) and over-using
+// preconnect hurts more than helps (browsers cap at ~6 origins).
+function PerformanceHints() {
+  return (
+    <>
+      <link rel="preconnect" href="https://js.stripe.com" crossOrigin="anonymous" />
+      <link rel="dns-prefetch" href="https://api.stripe.com" />
+      <link rel="dns-prefetch" href="https://tile.openstreetmap.org" />
+    </>
+  );
+}
+
 export default async function RootLayout({ children }) {
   if (publishableKey) {
     const { ClerkProvider } = await import('@clerk/nextjs');
     return (
       <html lang="es" className={fontClassNames}>
+        <head>
+          <PerformanceHints />
+        </head>
         <body>
           <ClerkProvider publishableKey={publishableKey}>
             {children}
@@ -95,6 +123,9 @@ export default async function RootLayout({ children }) {
 
   return (
     <html lang="es" className={fontClassNames}>
+      <head>
+        <PerformanceHints />
+      </head>
       <body>
         {children}
         <CookieBanner />
