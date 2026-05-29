@@ -437,13 +437,27 @@
   margin-bottom: -2px;
 }
 
-/* Stripe Elements styling */
+/* Stripe Elements styling.
+   min-height reserves space for the <CardElement> iframe BEFORE Stripe.js
+   resolves (~300-800 ms). Without this the iframe grows from 0 → ~44 px
+   on mount, pushing the cardholder name + pay button down — was the single
+   biggest contributor to Clarity CLS=1.4 on /book (2026-05-29). 44 px is
+   the rendered single-line height of the CardElement. */
 .payment-stripe-element {
   border: 1px solid var(--border);
   border-radius: var(--radius-md);
   padding: var(--space-md);
   background: white;
   font-family: inherit;
+  min-height: 48px;
+}
+
+/* The pre-PaymentForm "Cargando los datos de tu reserva…" block on the
+   lock-in entry path used to render as a single ~80-px line. When
+   lockInData resolved the page swapped to a ~600 px PaymentForm — huge
+   CLS. Reserve the final height while loading so the swap is in-place. */
+.book-summary-card[data-loading="lock-in"] {
+  min-height: 600px;
 }
 
 .payment-actions {

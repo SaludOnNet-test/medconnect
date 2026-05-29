@@ -5,24 +5,41 @@ import CookieBanner from '@/components/CookieBanner';
 // Brand 2026 typography. Variables here flow into `var(--font-display)`,
 // `--font-body`, and `--font-mono` declared in globals.css. Fraunces is loaded
 // across its full optical-size axis so headings scale (opsz 9 → 144).
+//
+// `adjustFontFallback` (next/font default: enabled for sans, opt-in for serif)
+// emits a `@font-face fallback` block with `size-adjust`, `ascent-override`
+// and `descent-override` tuned to match the real font's metrics. Without
+// this, the fallback serif is wider/narrower than Fraunces and every H1/H2
+// reflows on font swap — primary CLS-via-FOUT cause on
+// /especialistas/[especialidad]/[ciudad] (Clarity 1.1 → reduced once swap
+// is metric-matched). `preload: true` and explicit `fallback` arrays make
+// the swap as cheap as possible.
 const fraunces = Fraunces({
   subsets: ['latin'],
   weight: ['400', '500', '600', '700'],
   style: ['normal', 'italic'],
   variable: '--font-display',
   display: 'swap',
+  preload: true,
+  fallback: ['Georgia', 'Times New Roman', 'serif'],
+  adjustFontFallback: 'Times New Roman',
 });
 const interTight = Inter_Tight({
   subsets: ['latin'],
   weight: ['400', '500', '600', '700'],
   variable: '--font-body',
   display: 'swap',
+  preload: true,
+  fallback: ['system-ui', '-apple-system', 'Segoe UI', 'sans-serif'],
+  adjustFontFallback: 'Arial',
 });
 const jetbrainsMono = JetBrains_Mono({
   subsets: ['latin'],
   weight: ['400', '500'],
   variable: '--font-mono',
   display: 'swap',
+  preload: false,
+  fallback: ['ui-monospace', 'SFMono-Regular', 'Menlo', 'monospace'],
 });
 
 const fontClassNames = `${fraunces.variable} ${interTight.variable} ${jetbrainsMono.variable}`;
