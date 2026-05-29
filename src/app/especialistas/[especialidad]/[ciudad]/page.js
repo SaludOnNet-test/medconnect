@@ -177,7 +177,13 @@ export default async function EspecialistasCiudadPage({ params }) {
           pre-redesign palette. Now bone-100 bg with ink text and brass
           left-border on the stat pills, matching /faq, /aseguradoras,
           /como-funciona's PageHeader style. */}
+      {/* Hero — compresses ~50% on mobile (<640px) via the .esp-hero class
+          + the responsive overrides in search-v2.css. Above-the-fold goal
+          on mobile: header + breadcrumb + hero fits in <300px so the first
+          ClinicCard is visible without scroll. We also hide 2 of the 4 stat
+          pills below 640px (keep the 2 most distinctive). */}
       <section
+        className="esp-hero"
         style={{
           background: 'var(--bone-100)',
           color: 'var(--ink-1000)',
@@ -187,6 +193,7 @@ export default async function EspecialistasCiudadPage({ params }) {
       >
         <div className="container">
           <h1
+            className="esp-hero__title"
             style={{
               fontFamily: 'var(--font-display)',
               fontSize: 'clamp(1.75rem, 4vw, 2.6rem)',
@@ -200,6 +207,7 @@ export default async function EspecialistasCiudadPage({ params }) {
             {specialty.plural} privados en {city}
           </h1>
           <p
+            className="esp-hero__intro"
             style={{
               color: 'var(--fg-muted)',
               fontSize: '1.05rem',
@@ -215,6 +223,7 @@ export default async function EspecialistasCiudadPage({ params }) {
               scanability, framed in a brand-tokened pill so they don't
               read as a free-floating emoji row. */}
           <div
+            className="esp-hero__pills"
             style={{
               display: 'flex',
               gap: '0.6rem',
@@ -223,13 +232,14 @@ export default async function EspecialistasCiudadPage({ params }) {
             }}
           >
             {[
-              ['✅', 'Sin lista de espera'],
-              ['📅', 'Cita en 24-72 h'],
-              ['🏥', 'Centros verificados'],
-              ['💳', 'Con y sin seguro'],
-            ].map(([icon, label]) => (
+              ['✅', 'Sin lista de espera', 'keep-mobile'],
+              ['📅', 'Cita en 24-72 h', 'keep-mobile'],
+              ['🏥', 'Centros verificados', 'hide-mobile'],
+              ['💳', 'Con y sin seguro', 'hide-mobile'],
+            ].map(([icon, label, mobileClass]) => (
               <span
                 key={label}
+                className={`esp-hero__pill esp-hero__pill--${mobileClass}`}
                 style={{
                   display: 'inline-flex',
                   alignItems: 'center',

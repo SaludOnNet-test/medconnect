@@ -25,6 +25,7 @@ import { useState, useMemo, useEffect } from 'react';
 import dynamic from 'next/dynamic';
 import ClinicCardV2 from '@/components/ClinicCardV2';
 import ClinicBookingModal from '@/components/ClinicBookingModal';
+import MobileStickyBar from '@/components/MobileStickyBar';
 import Icon from '@/components/icons/Icon';
 import { insuranceCompanies } from '@/data/mock';
 import '../../../search-v2/search-v2.css';
@@ -165,7 +166,7 @@ export default function SearchResults({ specialtySlug, city }) {
           since the SEO breadcrumb + hero already serve as navigation
           and that's what was producing the misalignment. */}
       <div className="container">
-        <div className="sv2-filters">
+        <div className="sv2-filters" id="esp-filters-anchor">
           <div className="sv2-filter-group">
             <label className="sv2-filter-label">Aseguradora</label>
             <select
@@ -315,6 +316,21 @@ export default function SearchResults({ specialtySlug, city }) {
           }}
         />
       )}
+
+      {/* Mobile sticky bottom bar — only visible <=900px (CSS-controlled).
+          Filtros button scrolls to the inline filter row; Ver mapa toggles
+          the dynamic ClinicMap panel that's hidden by default on mobile. */}
+      <MobileStickyBar
+        filterCount={
+          (insuranceFilter ? 1 : 0) + (ratingFilter > 0 ? 1 : 0) + (sortBy !== 'rating' ? 1 : 0)
+        }
+        onOpenFilters={() => {
+          const anchor = document.getElementById('esp-filters-anchor');
+          if (anchor) anchor.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }}
+        isMapOpen={showMap}
+        onToggleMap={() => setShowMap((v) => !v)}
+      />
     </>
   );
 }

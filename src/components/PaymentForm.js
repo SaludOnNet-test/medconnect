@@ -83,10 +83,26 @@ function PaymentFormContent({ totalPrice, providerName, slotDate, slotTime, pati
       // every booking attempt. Now we receive the real email from /book
       // (`patientEmail` prop, derived from the lock-in or the form input)
       // and validate it before sending so we never trigger that error.
-      const safeEmail =
-        typeof patientEmail === 'string' && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(patientEmail.trim())
-          ? patientEmail.trim()
-          : undefined;
+      //
+      // 2026-05-29 Bug 1.4 fix — previously when the email failed the regex
+      // we silently dropped it to `undefined`. Stripe would then either fail
+      // downstream with "email_invalid" or accept without email — either way
+      // the user saw a dead Pay button with no explanation. Now we abort
+      // the payment up-front with a clear inline error so the user knows
+      // exactly what to fix (typically: go back to the form and correct the
+      // email field).
+      const trimmedEmail = typeof patientEmail === 'string' ? patientEmail.trim() : '';
+      const emailLooksValid = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(trimmedEmail);
+      if (!emailLooksValid) {
+        alert(
+          'El email del paciente no es válido (' +
+            (trimmedEmail || 'vacío') +
+            '). Vuelve al paso anterior y corrige el campo "Email" antes de pagar.'
+        );
+        setIsLoading(false);
+        return;
+      }
+      const safeEmail = trimmedEmail;
       const { error, paymentMethod } = await stripe.createPaymentMethod({
         type: 'card',
         card: cardElement,

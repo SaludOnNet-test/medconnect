@@ -439,3 +439,99 @@
     flex-wrap: wrap;
   }
 }
+
+/* ──────────────────────────────────────────────────────────────────────────
+   2026-05-29 — Mobile UX pass on /especialistas/[especialidad]/[ciudad].
+   1) Compress the hero so the first ClinicCard fits above-the-fold on phones.
+   2) New sticky bottom bar — Filtros + Ver mapa.
+   ────────────────────────────────────────────────────────────────────────── */
+
+/* Hero compression on mobile (<640px). Inline styles in page.js set the
+   "desktop" size; these override for mobile via more-specific selectors. */
+@media (max-width: 639px) {
+  .esp-hero {
+    padding: 1rem 0 1rem !important;
+  }
+  .esp-hero__title {
+    font-size: clamp(1.25rem, 5vw, 1.65rem) !important;
+    margin-bottom: 0.4rem !important;
+  }
+  .esp-hero__intro {
+    font-size: 0.92rem !important;
+    margin-bottom: 0.75rem !important;
+  }
+  .esp-hero__pills {
+    gap: 0.35rem !important;
+    font-size: 0.78rem !important;
+  }
+  .esp-hero__pill {
+    padding: 0.3rem 0.7rem 0.3rem 0.5rem !important;
+  }
+  /* Hide the 2 less-distinctive pills on mobile (centros verificados, con/sin
+     seguro) — they take a second line on small screens and aren't decisive
+     for clicking. Keep "Sin lista de espera" + "Cita en 24-72 h" which carry
+     the value prop. */
+  .esp-hero__pill--hide-mobile {
+    display: none !important;
+  }
+  /* Leave room for the sticky bar so the last ClinicCard isn't obscured. */
+  .sv2-results {
+    padding-bottom: 76px !important;
+  }
+}
+
+/* Sticky bottom bar — Filtros + Ver mapa. Mobile-only.
+   z-index sits BELOW the cookie banner (9999) but ABOVE the map (1) and
+   content (auto). 100 is plenty. */
+.mc-sticky-bar {
+  display: none;
+}
+@media (max-width: 900px) {
+  .mc-sticky-bar {
+    display: flex;
+    position: fixed;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    z-index: 100;
+    background: #fff;
+    border-top: 1px solid var(--border, #e5e0d4);
+    box-shadow: 0 -4px 18px rgba(0,0,0,0.08);
+    padding: 0.45rem 0.75rem calc(0.45rem + env(safe-area-inset-bottom, 0px));
+    gap: 0.6rem;
+  }
+  .mc-sticky-bar__btn {
+    flex: 1;
+    min-height: 44px;
+    border-radius: 999px;
+    border: 1px solid rgba(26,60,94,0.32);
+    background: var(--bone-100, #f6f3ec);
+    color: var(--ink-1000, #0e1a2b);
+    font-weight: 600;
+    font-size: 0.9rem;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.4rem;
+    padding: 0 0.85rem;
+    transition: background 0.12s ease;
+  }
+  .mc-sticky-bar__btn:hover {
+    background: var(--bone-50, #fbf8f1);
+  }
+  .mc-sticky-bar__btn--active {
+    background: #1a3c5e;
+    color: #fff;
+    border-color: #1a3c5e;
+  }
+  .mc-sticky-bar__badge {
+    background: var(--brass-500, #c9a84c);
+    color: #1a3c5e;
+    font-size: 0.72rem;
+    font-weight: 700;
+    padding: 0.05rem 0.45rem;
+    border-radius: 999px;
+    margin-left: 0.25rem;
+  }
+}

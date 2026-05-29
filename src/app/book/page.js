@@ -201,6 +201,27 @@ function BookContent() {
   }, [stepParam, lockInId, searchParams]);
   const [selectedInsurance, setSelectedInsurance] = useState(insuranceParam || '');
 
+  // 2026-05-29 — form validation feedback. Clarity AI detected dead clicks on
+  // "Confirmar y Proceder al Pago" because HTML5 required-field validation
+  // shows a small tooltip that's hard to see on mobile. `formErrorHint`
+  // surfaces a visible error message above the submit button when validation
+  // fails. `submitAttempted` toggles a CSS class on the form so we can style
+  // invalid fields red post-attempt without nagging the user before they try.
+  const [formErrorHint, setFormErrorHint] = useState('');
+  const [submitAttempted, setSubmitAttempted] = useState(false);
+
+  // Bug 1.1 fix — when the user toggles "Sí, tengo seguro" but didn't arrive
+  // with an `?insurance=` URL param, the dropdown was empty and the form
+  // silently failed at submit. Pre-select the first available insurer if
+  // none was set yet. The user can still change it; this just avoids the
+  // dead-end state.
+  const handleHasInsuranceClick = (val) => {
+    setHasInsurance(val);
+    if (val === true && !selectedInsurance && insuranceCompanies.length > 0) {
+      setSelectedInsurance(insuranceCompanies[0]);
+    }
+  };
+
   // Referral states. Initial value comes from ?asProfessional=true (the
   // explicit deep-link case); the Clerk bridge below also flips it on
   // when a signed-in user has a `professional`/`admin` role but didn't
@@ -267,6 +288,41 @@ function BookContent() {
 
   const handlePay = async (e) => {
     e.preventDefault();
+
+    // Bug 1.2 fix — validate before submitting. HTML5 `required` still fires
+    // first because <input required> is on each field, but on mobile the
+    // browser-native bubble is tiny and easy to miss → users perceive a
+    // dead click. We complement it with a visible message + smooth scroll
+    // to the first invalid field so the failure mode is obvious.
+    setSubmitAttempted(true);
+    const formEl = e.currentTarget;
+    if (formEl && typeof formEl.checkValidity === 'function' && !formEl.checkValidity()) {
+      const firstInvalid = formEl.querySelector(':invalid');
+      if (firstInvalid) {
+        firstInvalid.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        firstInvalid.focus({ preventScroll: true });
+      }
+      setFormErrorHint('Por favor completa los campos marcados antes de continuar.');
+      return;
+    }
+    // Bug 1.3 corollary — even if the form has no `<input required>` missing,
+    // we still gate on the insurance toggle (no `required` on the divs).
+    if (hasInsurance === null) {
+      setFormErrorHint('Indica si tienes seguro médico para continuar.');
+      const insuranceEl = document.querySelector('.book-insurance-toggle');
+      if (insuranceEl) insuranceEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      return;
+    }
+    if (hasInsurance === true && !selectedInsurance) {
+      setFormErrorHint('Selecciona tu aseguradora antes de continuar.');
+      const sel = document.querySelector('#insurance-company') || document.querySelector('#insurance-company-payment');
+      if (sel) {
+        sel.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        sel.focus({ preventScroll: true });
+      }
+      return;
+    }
+    setFormErrorHint('');
 
     // If it's a professional referral, create referral and redirect to lock-in page
     if (isReferral) {
@@ -537,7 +593,7 @@ function BookContent() {
     // SHA-256 hashed inside trackConversion() before being sent.
     // Fire-and-forget; never await — booking UX must not depend on the ad
     // network being reachable.
-    trackConversion({
+    const conversionPayload = {
       transactionId: reference,
       value: Number(activeFee) || 0,
       currency: 'EUR',
@@ -545,7 +601,35 @@ function BookContent() {
         email: patientEmail,
         phone: lockInData?.patientPhone || form.phone || null,
       },
-    });
+    };
+
+    // 2026-05-29 — cookie consent auto-upgrade on purchase ("acepta solo si
+    // hay compra"). The CookieBanner exposes a third consent state,
+    // `rejected-pending-purchase`, that lets the user navigate freely without
+    // tracking BUT auto-promotes to `accepted` the moment they complete a
+    // paid booking. Legal basis: GDPR Art. 6(1)(b) — processing necessary for
+    // performance of a contract. At point of paid booking, measurement of
+    // the conversion + payment confirmation is contractually necessary
+    // (SaludOnNet test-program measurement obligation + Stripe receipt
+    // tracking). The CookieBanner subscribes to `mc-consent-upgraded` and
+    // mounts TrackingScripts on receipt; the gtag <Script onLoad> replays
+    // the stashed conversion below once the gtag library is ready.
+    try {
+      const consent = typeof window !== 'undefined' ? localStorage.getItem('mc_cookie_consent') : null;
+      if (consent === 'rejected-pending-purchase') {
+        window._mcPendingConversion = conversionPayload;
+        localStorage.setItem('mc_cookie_consent', 'accepted');
+        window.dispatchEvent(new CustomEvent('mc-consent-upgraded'));
+        // Skip the immediate trackConversion — TrackingScripts won't be
+        // mounted yet, so window.gtag is undefined. The onLoad replay path
+        // in CookieBanner will fire it once gtag.js has loaded.
+      } else {
+        trackConversion(conversionPayload);
+      }
+    } catch {
+      // localStorage unavailable (SSR/private mode) — fall back to direct fire
+      trackConversion(conversionPayload);
+    }
 
     setStep('success');
     // Store calendarUrl for the success screen
@@ -698,7 +782,7 @@ function BookContent() {
                 <div className="book-insurance-toggle">
                   <div
                     className={`book-insurance-option ${hasInsurance === true ? 'active' : ''}`}
-                    onClick={() => setHasInsurance(true)}
+                    onClick={() => handleHasInsuranceClick(true)}
                   >
                     <strong>Sí, tengo seguro</strong>
                     <span style={{ display: 'block', fontSize: '0.78rem', color: 'var(--muted)', marginTop: '4px', fontWeight: 400 }}>
@@ -707,7 +791,7 @@ function BookContent() {
                   </div>
                   <div
                     className={`book-insurance-option ${hasInsurance === false ? 'active' : ''}`}
-                    onClick={() => setHasInsurance(false)}
+                    onClick={() => handleHasInsuranceClick(false)}
                   >
                     <strong>No tengo seguro</strong>
                     <span style={{ display: 'block', fontSize: '0.78rem', color: 'var(--muted)', marginTop: '4px', fontWeight: 400 }}>
@@ -930,7 +1014,7 @@ function BookContent() {
             </div>
           </div>
 
-          <form onSubmit={handlePay}>
+          <form onSubmit={handlePay} className={submitAttempted ? 'book-form-submitted' : ''}>
             
             {/* Professional Referral Toggle */}
             <div className="book-form" style={{ marginBottom: 'var(--space-md)', padding: 'var(--space-md) var(--space-xl)' }}>
@@ -1123,7 +1207,7 @@ function BookContent() {
                 <div className="book-insurance-toggle">
                   <div
                     className={`book-insurance-option ${hasInsurance === true ? 'active' : ''}`}
-                    onClick={() => setHasInsurance(true)}
+                    onClick={() => handleHasInsuranceClick(true)}
                   >
                     <strong>Sí, {isReferral ? 'tiene' : 'tengo'} seguro</strong>
                     <span style={{ display: 'block', fontSize: '0.78rem', color: 'var(--muted)', marginTop: '4px', fontWeight: 400 }}>
@@ -1132,7 +1216,7 @@ function BookContent() {
                   </div>
                   <div
                     className={`book-insurance-option ${hasInsurance === false ? 'active' : ''}`}
-                    onClick={() => setHasInsurance(false)}
+                    onClick={() => handleHasInsuranceClick(false)}
                   >
                     <strong>No {isReferral ? 'tiene' : 'tengo'} seguro</strong>
                     <span style={{ display: 'block', fontSize: '0.78rem', color: 'var(--muted)', marginTop: '4px', fontWeight: 400 }}>
@@ -1225,14 +1309,45 @@ function BookContent() {
               </div>
             )}
 
-            {/* Submit */}
-            {hasInsurance !== null && (
-              <div className="book-actions animate-fade-in">
-                <button type="submit" className="btn btn-gold btn-lg" id="pay-btn">
-                  {totalPrice > 0 ? `Confirmar y Proceder al Pago (${formatEUR(totalPrice)})` : 'Confirmar reserva gratuita'}
-                </button>
-              </div>
-            )}
+            {/* Submit — Bug 1.3 fix: always render the button so users never
+                see it just "disappear". When the insurance toggle hasn't been
+                decided yet, the button is visibly disabled and a hint
+                explains what's missing. When validation fails on submit,
+                `formErrorHint` surfaces a visible message instead of relying
+                only on the browser-native required-tooltip (which is hard
+                to see on mobile). */}
+            <div className="book-actions animate-fade-in">
+              {hasInsurance === null && (
+                <p style={{
+                  color: 'var(--muted)',
+                  fontSize: '0.85rem',
+                  marginBottom: '0.6rem',
+                  textAlign: 'center',
+                }}>
+                  Indica arriba si tienes seguro médico para continuar.
+                </p>
+              )}
+              {formErrorHint && (
+                <p role="alert" style={{
+                  color: '#dc2626',
+                  fontSize: '0.9rem',
+                  marginBottom: '0.6rem',
+                  textAlign: 'center',
+                  fontWeight: 500,
+                }}>
+                  {formErrorHint}
+                </p>
+              )}
+              <button
+                type="submit"
+                className="btn btn-gold btn-lg"
+                id="pay-btn"
+                disabled={hasInsurance === null}
+                style={hasInsurance === null ? { opacity: 0.55, cursor: 'not-allowed' } : undefined}
+              >
+                {totalPrice > 0 ? `Confirmar y Proceder al Pago (${formatEUR(totalPrice)})` : 'Confirmar reserva gratuita'}
+              </button>
+            </div>
           </form>
         </div>
       </main>

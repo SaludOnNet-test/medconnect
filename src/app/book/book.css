@@ -492,3 +492,20 @@
   cursor: not-allowed;
 }
 
+/* 2026-05-29 — Bug 1.2 fix. Mark invalid inputs with a red border ONLY after
+   the user has attempted to submit at least once. Before submit we don't
+   nag — the browser's native required-tooltip is enough as a hint. After
+   submit-attempt, we surface invalid fields visibly so the user can see
+   exactly what's blocking. The form-level p[role="alert"] adds a text
+   message above the submit button as well. */
+form.book-form-submitted input:invalid,
+form.book-form-submitted select:invalid {
+  border-color: #dc2626 !important;
+  box-shadow: 0 0 0 1px rgba(220, 38, 38, 0.18);
+}
+form.book-form-submitted input:invalid:focus,
+form.book-form-submitted select:invalid:focus {
+  outline: 2px solid rgba(220, 38, 38, 0.35);
+  outline-offset: 1px;
+}
+

@@ -59,7 +59,21 @@ export default function CookiesPage() {
             </table>
           </div>
           <p className="legal-note">
-            Las cookies técnicas (mc_cookie_consent, mc_sid) son necesarias para el funcionamiento básico y no requieren consentimiento. Las analíticas solo se activan si las aceptas.
+            Las cookies técnicas (mc_cookie_consent, mc_sid) son necesarias para el funcionamiento básico y no requieren consentimiento. Las analíticas y de marketing solo se activan si las aceptas.
+          </p>
+        </Section>
+
+        <Section title="Activación automática al reservar una cita">
+          <p>
+            Si eliges <strong>"Solo necesarias"</strong> en el banner de cookies y, posteriormente, completas una reserva de cita médica con pago en Med Connect, activaremos automáticamente las cookies analíticas y de marketing en ese momento. Esto es <strong>técnicamente necesario</strong> para:
+          </p>
+          <ul>
+            <li>Confirmar la transacción y emitir el recibo de pago.</li>
+            <li>Atribuir la conversión correctamente para el seguimiento del programa piloto con SaludOnNet.</li>
+            <li>Cumplir las obligaciones contables y de soporte ligadas a tu reserva.</li>
+          </ul>
+          <p>
+            Base jurídica: artículo 6(1)(b) del RGPD — tratamiento necesario para la ejecución de un contrato del que el interesado es parte (tu reserva confirmada). Verás un aviso breve en pantalla cuando esto ocurra. Puedes revocar el consentimiento en cualquier momento posterior siguiendo las indicaciones de la siguiente sección.
           </p>
         </Section>
 
