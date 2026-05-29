@@ -83,15 +83,46 @@ export async function POST(request) {
 }
 
 async function markBookingPaid(paymentIntent) {
+  // F15 — the booking row may now exist in `pending_payment` status when
+  // /api/bookings/reserve ran but the client-side finalize POST never
+  // came back (tab closed mid-3DS). The webhook is the only authoritative
+  // tail-call we have, so it must promote the row to the correct paid
+  // status based on `has_insurance` (sin-seguro → awaiting_voucher;
+  // con-seguro → confirmed).
+  //
+  // We DO NOT create the ops case / fire notifications from here yet —
+  // those need patient_phone / procedureName / etc. that the reserve
+  // payload skipped. The /admin/ops dashboard will surface
+  // `pending_payment → awaiting_voucher` rows for manual finalization
+  // (or a follow-up cron). The critical win this PR delivers is that
+  // the booking row is NEVER orphaned: every paid Stripe charge always
+  // maps to a row that ops can act on.
+  //
+  // Prefer the metadata.bookingId path first — it's the canonical link.
+  // Fall back to payment_intent_id / id matching for legacy rows.
   const pool = await getPool();
+  const metadataBookingId = paymentIntent?.metadata?.bookingId || null;
+
+  // Status mapping: pending_payment rows know their hasInsurance flag
+  // already (reserve stored it). UPDATE picks the correct final status
+  // inline via CASE so we don't need a round-trip SELECT.
   await pool.request()
     .input('pi', sql.NVarChar(80), paymentIntent.id)
-    .input('status', sql.NVarChar(30), 'confirmed')
+    .input('booking_id', sql.NVarChar(50), metadataBookingId)
     .query(`
       UPDATE bookings
-      SET status = @status, updated_at = SYSDATETIMEOFFSET()
-      WHERE (payment_intent_id = @pi OR id = @pi)
-        AND status IN ('pending', 'awaiting_payment', 'requires_action')
+      SET status = CASE
+                     WHEN status = 'pending_payment' AND has_insurance = 1 THEN 'confirmed'
+                     WHEN status = 'pending_payment' AND has_insurance = 0 THEN 'awaiting_voucher'
+                     ELSE 'confirmed'
+                   END,
+          updated_at = SYSDATETIMEOFFSET()
+      WHERE (
+              (@booking_id IS NOT NULL AND id = @booking_id)
+              OR payment_intent_id = @pi
+              OR id = @pi
+            )
+        AND status IN ('pending', 'pending_payment', 'awaiting_payment', 'requires_action')
     `);
 }
 

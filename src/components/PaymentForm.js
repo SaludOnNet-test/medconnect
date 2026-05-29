@@ -34,7 +34,7 @@ const CARD_ELEMENT_OPTIONS = {
   },
 };
 
-function PaymentFormContent({ totalPrice, providerName, slotDate, slotTime, patientName, patientEmail, onPaymentSuccess, onBack }) {
+function PaymentFormContent({ totalPrice, providerName, slotDate, slotTime, patientName, patientEmail, bookingId, onPaymentSuccess, onBack }) {
   const [cardNumber, setCardNumber] = useState('4242 4242 4242 4242'); // Mock fallback
   const [expiry, setExpiry] = useState('12/28');
   const [cvv, setCvv] = useState('123');
@@ -124,6 +124,11 @@ function PaymentFormContent({ totalPrice, providerName, slotDate, slotTime, pati
       // if absent so the server can still create the intent (email is
       // optional on Stripe's side, the breakage was only when we sent a
       // non-email string).
+      // F15 — bookingId is passed so the PaymentIntent metadata carries it.
+      // The webhook uses metadata.bookingId to finalize the booking row
+      // even if the patient closes the tab mid-3DS, preventing orphan
+      // Stripe charges. Falls back to undefined for legacy callers; in
+      // that case the webhook still works via payment_intent_id matching.
       const response = await fetch('/api/payments', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -133,6 +138,7 @@ function PaymentFormContent({ totalPrice, providerName, slotDate, slotTime, pati
           email: safeEmail,
           description: `Med Connect - ${providerName} on ${slotDate} at ${slotTime}`,
           name: cardName,
+          ...(bookingId ? { bookingId } : {}),
         }),
       });
 
@@ -347,7 +353,7 @@ function PaymentFormContent({ totalPrice, providerName, slotDate, slotTime, pati
   );
 }
 
-export default function PaymentForm({ totalPrice, providerName, slotDate, slotTime, patientName, patientEmail, onPaymentSuccess, onBack }) {
+export default function PaymentForm({ totalPrice, providerName, slotDate, slotTime, patientName, patientEmail, bookingId, onPaymentSuccess, onBack }) {
   return stripePromise ? (
     <Elements stripe={stripePromise}>
       <PaymentFormContent
@@ -357,6 +363,7 @@ export default function PaymentForm({ totalPrice, providerName, slotDate, slotTi
         slotTime={slotTime}
         patientName={patientName}
         patientEmail={patientEmail}
+        bookingId={bookingId}
         onPaymentSuccess={onPaymentSuccess}
         onBack={onBack}
       />
@@ -369,6 +376,7 @@ export default function PaymentForm({ totalPrice, providerName, slotDate, slotTi
       slotTime={slotTime}
       patientName={patientName}
       patientEmail={patientEmail}
+      bookingId={bookingId}
       onPaymentSuccess={onPaymentSuccess}
       onBack={onBack}
     />

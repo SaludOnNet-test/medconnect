@@ -33,6 +33,36 @@ export const paymentsBodySchema = z.object({
   bookingId: optionalText(80),
 });
 
+// ---------- /api/bookings/reserve POST (F15) ----------
+//
+// The reservation endpoint pre-creates a booking row with status
+// `pending_payment` BEFORE the Stripe charge is attempted. The id this
+// returns is what the client passes to /api/payments as `bookingId`,
+// which Stripe stores in PaymentIntent metadata. That way:
+//   1. If the patient closes the tab mid-3DS, the webhook still has a
+//      row to UPDATE → no orphan charge.
+//   2. If the patient completes the round-trip, the regular
+//      /api/bookings POST detects the existing pending_payment row and
+//      UPDATEs it instead of throwing on a PK violation.
+//
+// We keep the schema minimal — only the fields needed to (a) reserve
+// the slot and (b) survive a tab-close so the webhook can finalize with
+// the right status. Detail fields (procedure, fee split, etc.) come on
+// the /api/bookings POST after the charge succeeds.
+export const bookingsReserveSchema = z.object({
+  id: trimmedString(50),
+  patientEmail: emailSchema,
+  patientName: optionalText(255),
+  providerId: z.coerce.number().int().nullable().optional(),
+  providerName: optionalText(255),
+  specialty: optionalText(100),
+  slotDate: optionalText(20),
+  slotTime: optionalText(10),
+  amount: z.coerce.number().nonnegative().max(1000).nullable().optional(),
+  hasInsurance: z.boolean().optional(),
+  insuranceCompany: optionalText(100),
+});
+
 // ---------- /api/bookings POST ----------
 
 export const bookingsCreateSchema = z.object({

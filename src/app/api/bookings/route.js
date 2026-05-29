@@ -213,11 +213,61 @@ export async function POST(request) {
   // B2 — sin seguro starts at awaiting_voucher (ops must upload SON voucher).
   const finalStatus = status || (hasInsurance === true ? 'confirmed' : 'awaiting_voucher');
 
+  // F15 — detect whether this id was already reserved by /api/bookings/reserve.
+  // Three terminal cases:
+  //   - row doesn't exist            → fresh INSERT (legacy path, lock-in or
+  //                                    callers that skip reserve)
+  //   - row exists, status='pending_payment' → UPDATE in place + run the
+  //                                    finalization side effects (ops case,
+  //                                    notifications). This is the canonical
+  //                                    /book happy path post-F15.
+  //   - row exists, status=anything else     → idempotent return of current
+  //                                    state. Webhook may have finalized
+  //                                    first (tab closed mid-3DS then
+  //                                    reopened), or this is a duplicate
+  //                                    client POST. Either way: no side
+  //                                    effects, return the existing row.
+  let existingRow = null;
+  try {
+    const pre = await (await getPool()).request()
+      .input('id', sql.NVarChar(50), id)
+      .query(`SELECT TOP 1 id, status, self_service_token FROM bookings WHERE id = @id`);
+    existingRow = pre.recordset[0] || null;
+  } catch (preErr) {
+    console.error('[POST /api/bookings] pre-check failed', preErr?.message);
+  }
+  const isReservedRow = !!(existingRow && existingRow.status === 'pending_payment');
+  const isAlreadyFinalized = !!(existingRow && !isReservedRow);
+
+  if (isAlreadyFinalized) {
+    // Webhook (or a previous client POST) already finalized this booking.
+    // Return the current state so the client UI moves forward exactly as
+    // if it had been the one to finalize it.
+    try {
+      const result = await (await getPool()).request()
+        .input('id', sql.NVarChar(50), id)
+        .query('SELECT * FROM bookings WHERE id = @id');
+      return NextResponse.json({
+        ...toBooking(result.recordset[0]),
+        selfServiceToken: existingRow.self_service_token,
+        _case: null,
+        _alreadyFinalized: true,
+      }, { status: 200 });
+    } catch (alreadyErr) {
+      return internalError(alreadyErr, '[POST /api/bookings idempotent return]');
+    }
+  }
+
   // F2 — generate the patient self-service token at insert time. 32 hex chars
   // (128 bits of entropy), unique-indexed so collisions error out instead of
   // silently sharing tokens between bookings. Tokens expire 90 days after
   // creation so a leaked email doesn't yield an indefinite cancel primitive.
-  const selfServiceToken = crypto.randomBytes(16).toString('hex');
+  //
+  // F15 — if the row was reserved by /api/bookings/reserve, reuse its
+  // token so the patient gets a stable cancel/reschedule link.
+  const selfServiceToken = isReservedRow
+    ? existingRow.self_service_token
+    : crypto.randomBytes(16).toString('hex');
   const selfServiceTokenExpiresAt = new Date(
     Date.now() + SELF_SERVICE_TOKEN_TTL_DAYS * 24 * 60 * 60 * 1000,
   );
@@ -254,7 +304,34 @@ export async function POST(request) {
       .input('platform_fee', sql.Decimal(10, 2), platformFee != null ? Number(platformFee) : null)
       .input('self_service_token', sql.NVarChar(64), selfServiceToken)
       .input('self_service_token_expires_at', sql.DateTimeOffset, selfServiceTokenExpiresAt)
-      .query(`
+      .query(isReservedRow
+        ? `
+        UPDATE bookings SET
+          referral_id = @referral_id,
+          patient_name = @patient_name,
+          patient_email = @patient_email,
+          patient_phone = @patient_phone,
+          patient_address = @patient_address,
+          provider_id = @provider_id,
+          provider_name = @provider_name,
+          specialty = @specialty,
+          slot_date = @slot_date,
+          slot_time = @slot_time,
+          amount = @amount,
+          status = @status,
+          card_last4 = @card_last4,
+          has_insurance = @has_insurance,
+          insurance_company = @insurance_company,
+          payment_intent_id = @payment_intent_id,
+          procedure_slug = @procedure_slug,
+          procedure_name = @procedure_name,
+          service_price = @service_price,
+          platform_fee = @platform_fee,
+          updated_at = SYSDATETIMEOFFSET()
+        WHERE id = @id
+          AND status = 'pending_payment'
+        `
+        : `
         INSERT INTO bookings
           (id, referral_id, patient_name, patient_email, patient_phone, patient_address,
            provider_id, provider_name, specialty, slot_date, slot_time,
