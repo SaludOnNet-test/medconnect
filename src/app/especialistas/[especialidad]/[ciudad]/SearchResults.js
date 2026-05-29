@@ -106,6 +106,14 @@ export default function SearchResults({ specialtySlug, city }) {
 
   // Apply client-side filters (insurance) + sort. Insurance lives client-side
   // because the API doesn't filter on it — it returns the per-clinic list.
+  //
+  // 2026-05-29 — mirror search-v2's partner-first sort. The API returns
+  // partners first (PARTNER_CLINIC_IDS_SQL in /api/clinics/search), but the
+  // client-side `rating` / `reviews` sort below would otherwise bury partner
+  // clinics (e.g. Centro Médico Cea Bermúdez, id=1) below higher-rated
+  // non-partner ones. Critical for /especialistas/cardiologia/madrid and
+  // /especialistas/ginecologia/madrid — both linked from active SEM
+  // campaigns and where Cea Bermúdez is the operationally-vetted destination.
   const displayClinics = useMemo(() => {
     let list = Array.isArray(clinics) ? [...clinics] : [];
     if (insuranceFilter) {
@@ -113,8 +121,14 @@ export default function SearchResults({ specialtySlug, city }) {
         Array.isArray(c.acceptedInsurance) && c.acceptedInsurance.includes(insuranceFilter)
       );
     }
-    if (sortBy === 'rating')  list.sort((a, b) => (b.rating || 0) - (a.rating || 0));
-    if (sortBy === 'reviews') list.sort((a, b) => (b.reviewCount || 0) - (a.reviewCount || 0));
+    list.sort((a, b) => {
+      // 1. Partner clinics always first, regardless of sort selection.
+      if (!!a.isPartner !== !!b.isPartner) return a.isPartner ? -1 : 1;
+      // 2. Then by the user's chosen criterion.
+      if (sortBy === 'rating')  return (b.rating || 0) - (a.rating || 0);
+      if (sortBy === 'reviews') return (b.reviewCount || 0) - (a.reviewCount || 0);
+      return 0;
+    });
     return list;
   }, [clinics, insuranceFilter, sortBy]);
 

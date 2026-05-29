@@ -258,6 +258,34 @@ export default async function EspecialistasCiudadPage({ params }) {
               </span>
             ))}
           </div>
+
+          {/* 2026-05-29 — Search escape hatch. A Clarity-recorded session
+              showed a user scrolling to the top of the page looking for a
+              search input, not finding one, and bouncing. The SEO landing
+              page intentionally doesn't carry SearchBarV2 (alignment +
+              breadcrumb redundancy reasons) — this small link below the
+              hero pills gives users a direct affordance to /search-v2
+              when they want to refine specialty or city. */}
+          <div className="esp-hero__search-cta" style={{
+            marginTop: 'var(--space-4)',
+            fontSize: '0.9rem',
+            color: 'var(--fg-muted)',
+          }}>
+            ¿Buscas otra especialidad o ciudad?{' '}
+            <Link
+              href="/search-v2"
+              style={{
+                color: 'var(--ink-1000)',
+                fontWeight: 600,
+                textDecoration: 'underline',
+                textDecorationColor: 'var(--brass-500)',
+                textDecorationThickness: '2px',
+                textUnderlineOffset: '3px',
+              }}
+            >
+              Buscar todo
+            </Link>
+          </div>
         </div>
       </section>
 

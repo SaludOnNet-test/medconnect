@@ -474,6 +474,10 @@
   .esp-hero__pill--hide-mobile {
     display: none !important;
   }
+  .esp-hero__search-cta {
+    margin-top: 0.6rem !important;
+    font-size: 0.82rem !important;
+  }
   /* Leave room for the sticky bar so the last ClinicCard isn't obscured. */
   .sv2-results {
     padding-bottom: 76px !important;
