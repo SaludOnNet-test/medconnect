@@ -5,12 +5,45 @@ import dynamic from 'next/dynamic';
 import Link from 'next/link';
 import Header from '@/components/Header';
 import Footer from '@/components/Footer';
-import PaymentForm from '@/components/PaymentForm';
 import { services, insuranceCompanies, createReferral, getConvenienceFee, REFERRAL_STATES } from '@/data/mock';
 import { trackEvent, trackConversion } from '@/lib/analytics';
 import { formatEUR } from '@/lib/format';
 import Icon from '@/components/icons/Icon';
 import './book.css';
+
+// 2026-05-29 — PaymentForm is lazy-loaded so Stripe.js (~200 KB) doesn't
+// download during the initial /book paint. PaymentForm.js does
+// `loadStripe(...)` at module level, so importing it statically meant
+// every SEM visitor paid the Stripe.js cost on first paint even when
+// they were still on step 1 (the patient form). After this change,
+// Stripe.js only hits the wire once the dynamic chunk is requested —
+// which the parent gates on `hasInsurance !== null`, i.e. after the
+// user has answered the insurance toggle.
+//
+// `loading` returns the same min-height as the rendered form
+// (`min-height: 580px` matches book.css `.book-summary-card[data-loading]`)
+// so CLS stays at 0 — the swap is in-place.
+//
+// `ssr: false` is required because Stripe Elements touches `window`
+// and would crash during SSR.
+const PaymentForm = dynamic(() => import('@/components/PaymentForm'), {
+  ssr: false,
+  loading: () => (
+    <div
+      className="book-summary-card"
+      data-loading="lock-in"
+      style={{
+        textAlign: 'center',
+        color: 'var(--fg-muted)',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+      }}
+    >
+      Cargando formulario de pago seguro…
+    </div>
+  ),
+});
 
 // 2026-04-29 — Clerk auto-detection restored via `ClerkProBridge`.
 // The earlier inline `require('@clerk/nextjs')` bridge broke production
