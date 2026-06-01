@@ -159,9 +159,23 @@ export default function ClinicBookingModal({
     return () => window.removeEventListener('keydown', handleKey);
   }, [onClose]);
 
-  const selectedFee = selectedSlot
-    ? (() => { const f = feeFromSlot(selectedSlot); return isSinSeguro ? procedurePrice + f.amount : f.amount; })()
-    : null;
+  // 2026-06-01 — price-shock fix. Previously the footer only showed ONE
+  // price (the priority fee when isSinSeguro=false, or the full total when
+  // isSinSeguro=true). Users coming from the ad landing pages have
+  // isSinSeguro=false, so they saw "€29" in the modal and mentally
+  // committed to that. Then on /book they toggled "No tengo seguro" and
+  // the price jumped to €70+ — instant bailout (confirmed via Clarity:
+  // session of the only user who filled the form abandoned exactly at
+  // that toggle on 05/29). Now the modal exposes BOTH the "with insurance"
+  // and "without insurance" totals upfront so the user is informed before
+  // committing.
+  const selectedPriorityFee = selectedSlot ? feeFromSlot(selectedSlot).amount : 0;
+  const selectedTotalNoInsurance = selectedPriorityFee + procedurePrice;
+  // Backwards-compatible single number for callers that still expect it
+  // (used in fragment summaries elsewhere). For sin-seguro users we keep
+  // showing the full total; for the rest we expose the priority fee here
+  // and surface the no-insurance total separately in the footer JSX.
+  const selectedFee = isSinSeguro ? selectedTotalNoInsurance : selectedPriorityFee;
 
   // Date strip horizontal scroll affordances. The row is `overflow-x: auto`
   // and the inline scrollbar is hidden by design, so on small viewports
@@ -359,6 +373,27 @@ export default function ClinicBookingModal({
                   {' · '}{selectedSlot.time}
                   {selectedProcedure ? ` · ${selectedProcedure.name}` : ''}
                 </p>
+                {/* Show BOTH prices upfront to avoid the price-shock at /book
+                    when the user toggles "No tengo seguro". When the user
+                    came via the sin-seguro flow (isSinSeguro=true) we know
+                    the full total already and only show that. Otherwise we
+                    show "Con seguro: €X · Sin seguro: €Y" so the user has
+                    full information before committing. */}
+                {!isSinSeguro && procedurePrice > 0 && selectedPriorityFee > 0 && (
+                  <p className="cbm-footer-pricehint" style={{
+                    fontSize: '0.78rem',
+                    color: 'var(--muted, #6b7280)',
+                    marginTop: '4px',
+                    lineHeight: 1.4,
+                  }}>
+                    <strong>{formatEUR(selectedPriorityFee)}</strong> con tu seguro
+                    {' · '}
+                    <strong>{formatEUR(selectedTotalNoInsurance)}</strong> sin seguro
+                    <span style={{ display: 'block', fontSize: '0.72rem', opacity: 0.85, marginTop: '2px' }}>
+                      Sin seguro pagas también la consulta ({formatEUR(procedurePrice)}). Con seguro solo la prioridad.
+                    </span>
+                  </p>
+                )}
               </div>
               <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
                 <span className="cbm-footer-fee">{selectedFee > 0 ? formatEUR(selectedFee) : 'Gratis'}</span>

@@ -907,8 +907,13 @@ function BookContent() {
                     onClick={() => handleHasInsuranceClick(true)}
                   >
                     <strong>Sí, tengo seguro</strong>
-                    <span style={{ display: 'block', fontSize: '0.78rem', color: 'var(--muted)', marginTop: '4px', fontWeight: 400 }}>
-                      Pagas solo la tarifa de prioridad. La consulta va por tu póliza.
+                    {activeFee > 0 && (
+                      <span style={{ display: 'block', fontSize: '0.95rem', color: 'var(--ink-1000, #0e1a2b)', marginTop: '4px', fontWeight: 700 }}>
+                        Pagas {formatEUR(activeFee)}
+                      </span>
+                    )}
+                    <span style={{ display: 'block', fontSize: '0.78rem', color: 'var(--muted)', marginTop: '2px', fontWeight: 400 }}>
+                      Solo la tarifa de prioridad. La consulta va por tu póliza.
                     </span>
                   </div>
                   <div
@@ -916,8 +921,13 @@ function BookContent() {
                     onClick={() => handleHasInsuranceClick(false)}
                   >
                     <strong>No tengo seguro</strong>
-                    <span style={{ display: 'block', fontSize: '0.78rem', color: 'var(--muted)', marginTop: '4px', fontWeight: 400 }}>
-                      Pagas la consulta privada + la tarifa de prioridad. Total visible antes del pago.
+                    {(activeFee + servicePrice) > 0 && (
+                      <span style={{ display: 'block', fontSize: '0.95rem', color: 'var(--ink-1000, #0e1a2b)', marginTop: '4px', fontWeight: 700 }}>
+                        Pagas {formatEUR(activeFee + servicePrice)}
+                      </span>
+                    )}
+                    <span style={{ display: 'block', fontSize: '0.78rem', color: 'var(--muted)', marginTop: '2px', fontWeight: 400 }}>
+                      Consulta ({formatEUR(servicePrice)}) + prioridad ({formatEUR(activeFee)}). Total final, sin sorpresas.
                     </span>
                   </div>
                 </div>
@@ -1333,8 +1343,16 @@ function BookContent() {
                     onClick={() => handleHasInsuranceClick(true)}
                   >
                     <strong>Sí, {isReferral ? 'tiene' : 'tengo'} seguro</strong>
-                    <span style={{ display: 'block', fontSize: '0.78rem', color: 'var(--muted)', marginTop: '4px', fontWeight: 400 }}>
-                      Pagas solo la tarifa de prioridad. La consulta va por tu póliza.
+                    {/* 2026-06-01 — show concrete € upfront so the user makes
+                        an informed choice between the two options instead
+                        of being surprised by a price jump after clicking. */}
+                    {activeFee > 0 && (
+                      <span style={{ display: 'block', fontSize: '0.95rem', color: 'var(--ink-1000, #0e1a2b)', marginTop: '4px', fontWeight: 700 }}>
+                        Pagas {formatEUR(activeFee)}
+                      </span>
+                    )}
+                    <span style={{ display: 'block', fontSize: '0.78rem', color: 'var(--muted)', marginTop: '2px', fontWeight: 400 }}>
+                      Solo la tarifa de prioridad. La consulta va por tu póliza.
                     </span>
                   </div>
                   <div
@@ -1342,8 +1360,13 @@ function BookContent() {
                     onClick={() => handleHasInsuranceClick(false)}
                   >
                     <strong>No {isReferral ? 'tiene' : 'tengo'} seguro</strong>
-                    <span style={{ display: 'block', fontSize: '0.78rem', color: 'var(--muted)', marginTop: '4px', fontWeight: 400 }}>
-                      Pagas la consulta privada + la tarifa de prioridad. Total visible antes del pago.
+                    {(activeFee + servicePrice) > 0 && (
+                      <span style={{ display: 'block', fontSize: '0.95rem', color: 'var(--ink-1000, #0e1a2b)', marginTop: '4px', fontWeight: 700 }}>
+                        Pagas {formatEUR(activeFee + servicePrice)}
+                      </span>
+                    )}
+                    <span style={{ display: 'block', fontSize: '0.78rem', color: 'var(--muted)', marginTop: '2px', fontWeight: 400 }}>
+                      Consulta ({formatEUR(servicePrice)}) + prioridad ({formatEUR(activeFee)}). Total final, sin sorpresas.
                     </span>
                   </div>
                 </div>
