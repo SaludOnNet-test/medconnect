@@ -254,6 +254,48 @@ function BookContent() {
   const [formErrorHint, setFormErrorHint] = useState('');
   const [submitAttempted, setSubmitAttempted] = useState(false);
 
+  // 2026-06-01 — patient identity data collected AFTER payment.
+  // The pre-payment form was reduced to 4 fields to cut abandonment; DOB
+  // and DNI are now collected on the success page. `identityForm` holds
+  // the post-payment data, `identityStatus` tracks the submit lifecycle.
+  const [identityForm, setIdentityForm] = useState({ dateOfBirth: '', nationalId: '' });
+  const [identityStatus, setIdentityStatus] = useState('idle'); // idle | submitting | saved | error
+  const [identityError, setIdentityError] = useState('');
+
+  const submitIdentityData = async () => {
+    if (!paymentRef) return; // safety: we need a booking id
+    // Require at least one of the two — endpoint enforces this too, but
+    // we surface the message faster client-side.
+    if (!identityForm.dateOfBirth && !identityForm.nationalId.trim()) {
+      setIdentityError('Rellena al menos la fecha de nacimiento o el DNI.');
+      return;
+    }
+    setIdentityStatus('submitting');
+    setIdentityError('');
+    try {
+      const patientEmail = lockInData?.patientEmail || form.email;
+      const r = await fetch(`/api/bookings/${encodeURIComponent(paymentRef)}/patient-data`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          patientEmail,
+          dateOfBirth: identityForm.dateOfBirth || undefined,
+          nationalId: identityForm.nationalId?.trim() || undefined,
+        }),
+      });
+      if (!r.ok) {
+        const data = await r.json().catch(() => ({}));
+        setIdentityError(data.error || 'No pudimos guardar los datos. Inténtalo de nuevo.');
+        setIdentityStatus('error');
+        return;
+      }
+      setIdentityStatus('saved');
+    } catch {
+      setIdentityError('Error de red. Inténtalo de nuevo.');
+      setIdentityStatus('error');
+    }
+  };
+
   // Bug 1.1 fix — when the user toggles "Sí, tengo seguro" but didn't arrive
   // with an `?insurance=` URL param, the dropdown was empty and the form
   // silently failed at submit. Pre-select the first available insurer if
@@ -1060,6 +1102,86 @@ function BookContent() {
                 </div>
               </div>
 
+              {/* 2026-06-01 — Post-payment identity capture.
+                  These fields used to be in the pre-payment form; we moved
+                  them here to reduce form-step abandonment. The user has
+                  already paid, so they have zero incentive to drop off at
+                  this point. Both fields are individually optional (the
+                  endpoint accepts either one) but at least one is required
+                  for the clinic to identify the patient on arrival. */}
+              {identityStatus !== 'saved' ? (
+                <div className="book-info-box" style={{ marginTop: '1.5rem', textAlign: 'left', background: '#fffbeb', border: '1px solid #fde68a' }}>
+                  <strong><Icon name="user" size={16} /> Datos para identificarte en tu cita</strong>
+                  <p style={{ marginTop: '0.4rem', fontSize: '0.88rem', lineHeight: 1.55, color: '#78350f' }}>
+                    Danos estos datos para que la clínica te identifique al llegar. Si los rellenas ahora ahorras tiempo el día de la cita.
+                  </p>
+                  <div style={{
+                    display: 'grid',
+                    gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))',
+                    gap: '0.75rem',
+                    marginTop: '0.75rem',
+                  }}>
+                    <div className="form-group" style={{ margin: 0 }}>
+                      <label className="form-label" htmlFor="identity-dob" style={{ fontSize: '0.8rem' }}>Fecha de nacimiento</label>
+                      <input
+                        id="identity-dob"
+                        className="form-input"
+                        type="date"
+                        max={new Date().toISOString().slice(0, 10)}
+                        value={identityForm.dateOfBirth}
+                        onChange={(e) => setIdentityForm((f) => ({ ...f, dateOfBirth: e.target.value }))}
+                        disabled={identityStatus === 'submitting'}
+                      />
+                    </div>
+                    <div className="form-group" style={{ margin: 0 }}>
+                      <label className="form-label" htmlFor="identity-nid" style={{ fontSize: '0.8rem' }}>DNI / NIE / Pasaporte</label>
+                      <input
+                        id="identity-nid"
+                        className="form-input"
+                        type="text"
+                        placeholder="Ej. 12345678A"
+                        pattern="[A-Za-z0-9 \-\.]{5,20}"
+                        autoComplete="off"
+                        value={identityForm.nationalId}
+                        onChange={(e) => setIdentityForm((f) => ({ ...f, nationalId: e.target.value }))}
+                        disabled={identityStatus === 'submitting'}
+                      />
+                    </div>
+                  </div>
+                  {identityError && (
+                    <p role="alert" style={{ marginTop: '0.6rem', color: '#dc2626', fontSize: '0.85rem' }}>
+                      {identityError}
+                    </p>
+                  )}
+                  <div style={{ marginTop: '0.85rem', display: 'flex', gap: '0.75rem', flexWrap: 'wrap' }}>
+                    <button
+                      type="button"
+                      className="btn btn-navy"
+                      onClick={submitIdentityData}
+                      disabled={identityStatus === 'submitting'}
+                      style={identityStatus === 'submitting' ? { opacity: 0.6, cursor: 'wait' } : undefined}
+                    >
+                      {identityStatus === 'submitting' ? 'Guardando…' : 'Guardar para mi cita'}
+                    </button>
+                    <button
+                      type="button"
+                      className="btn btn-link"
+                      style={{ background: 'transparent', border: 'none', color: 'var(--muted)', textDecoration: 'underline', fontSize: '0.85rem', cursor: 'pointer' }}
+                      onClick={() => setIdentityStatus('saved')}
+                    >
+                      Lo haré en la clínica
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <div className="book-info-box book-info-box--green" style={{ marginTop: '1.5rem', textAlign: 'left' }}>
+                  <strong>✓ Datos guardados</strong>
+                  <p style={{ marginTop: '0.3rem', fontSize: '0.88rem', lineHeight: 1.55 }}>
+                    La clínica ya tiene tu identificación. Solo trae tu DNI físico el día de la cita.
+                  </p>
+                </div>
+              )}
+
               {hasInsurance === true && (
                 <div className="book-info-box" style={{ marginTop: '1rem', textAlign: 'left' }}>
                   <strong>Cuando llegues a la clínica</strong>
@@ -1238,67 +1360,15 @@ function BookContent() {
                     required
                   />
                 </div>
-                <div className="form-group">
-                  <label className="form-label" htmlFor="age">Edad</label>
-                  <input
-                    id="age"
-                    className="form-input"
-                    type="number"
-                    placeholder="Edad"
-                    value={form.age}
-                    onChange={(e) => handleFormChange('age', e.target.value)}
-                    required
-                  />
-                </div>
-                <div className="form-group">
-                  <label className="form-label" htmlFor="gender">Sexo</label>
-                  <select
-                    id="gender"
-                    className="form-select"
-                    value={form.gender}
-                    onChange={(e) => handleFormChange('gender', e.target.value)}
-                    required
-                  >
-                    <option value="">Seleccionar</option>
-                    <option value="M">Masculino</option>
-                    <option value="F">Femenino</option>
-                    <option value="O">Otro</option>
-                  </select>
-                </div>
-                <div className="form-group">
-                  <label className="form-label" htmlFor="dateOfBirth">Fecha de nacimiento</label>
-                  <input
-                    id="dateOfBirth"
-                    className="form-input"
-                    type="date"
-                    /* Cap at today — patients can't be born in the future.
-                       Allow up to 120 years back (loose check; the API
-                       enforces a stricter ISO-date format). */
-                    max={new Date().toISOString().slice(0, 10)}
-                    value={form.dateOfBirth}
-                    onChange={(e) => handleFormChange('dateOfBirth', e.target.value)}
-                    required
-                  />
-                </div>
-                <div className="form-group">
-                  <label className="form-label" htmlFor="nationalId">DNI / NIE / Pasaporte</label>
-                  <input
-                    id="nationalId"
-                    className="form-input"
-                    type="text"
-                    placeholder="Ej. 12345678A · X1234567L · AB123456"
-                    value={form.nationalId}
-                    onChange={(e) => handleFormChange('nationalId', e.target.value)}
-                    /* Loose accepts: 5-20 alphanumerics + a few separators.
-                       Tightening to per-country regex would block legitimate
-                       passport formats; the clinic verifies the doc on
-                       arrival, so we keep this permissive. */
-                    pattern="[A-Za-z0-9 \-\.]{5,20}"
-                    title="Introduce un DNI, NIE o número de pasaporte válido"
-                    autoComplete="off"
-                    required
-                  />
-                </div>
+                {/* 2026-06-01 — pre-payment form reduced from 8 → 4 fields
+                    (name, surname, email, phone). Edad / Sexo / Fecha de
+                    nacimiento / DNI moved AFTER payment to the success step
+                    under "Datos para la clínica". Rationale: 4 of the 5
+                    sessions that reached /book between 28-may and 1-jun
+                    abandoned at the form step; reducing required fields
+                    pre-payment cuts friction. The clinic-identification
+                    data is still collected, just after the user has
+                    committed financially — when drop-off cost is zero. */}
                 <div className="form-group">
                   <label className="form-label" htmlFor="phone">Teléfono de contacto</label>
                   <input

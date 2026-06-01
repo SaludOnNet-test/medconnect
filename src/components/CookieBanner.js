@@ -1,51 +1,100 @@
 'use client';
 /**
- * CookieBanner — GDPR/LOPDGDD compliant cookie consent (May 2026 redesign).
+ * CookieBanner v3 — May 2026.
  *
- * Layout
- *   - Desktop (>=640px): centered modal with backdrop.
- *   - Mobile (<640px): full-width bottom-sheet sliding up from the bottom.
+ * 3-button design tuned for high consent capture during the SaludOnNet
+ * pilot measurement window:
+ *   1. "Aceptar todas"                 — all tracking + commercial use
+ *   2. "Rechazar las cookies comerciales" — all tracking, NO commercial sale
+ *   3. "Políticas de cookies"          — opens a granular panel with all
+ *                                        categories PRE-CHECKED; the user
+ *                                        must un-tick each one to opt out
+ *                                        of any specific category.
  *
- * Consent states (persisted in localStorage under `mc_cookie_consent`):
- *   - null/missing       → SSR + first visit, banner pending decision.
- *   - 'pending'          → client mounted, awaiting choice. Banner visible.
- *   - 'accepted'         → user pressed "Aceptar todas". Tracking loads.
- *   - 'rejected-pending-purchase'
- *                        → user pressed "Solo necesarias". No tracking yet.
- *                          If the user later completes a booking, /book/page.js
- *                          auto-upgrades this state to 'accepted' (GDPR Art.
- *                          6(1)(b) — necessary for contract performance) and
- *                          fires the conversion event the user already opted
- *                          out of pre-purchase. Communicated transparently
- *                          in the banner copy.
+ * Both "Aceptar todas" and "Rechazar las cookies comerciales" activate the
+ * full TrackingScripts payload (gtag + Google Ads + Microsoft Clarity).
+ * The only functional difference is the `mc_cookie_commercial` flag in
+ * localStorage — which we surface to downstream integrations that need
+ * to honour the "no commercial sale" choice (Customer Match uploads,
+ * data-broker exports, etc).
  *
- * Upgrade flow
- *   When /book/page.js fires `book_completed` and finds consent ===
- *   'rejected-pending-purchase', it:
- *     1. Stashes the conversion payload in `window._mcPendingConversion`.
- *     2. Sets consent → 'accepted'.
- *     3. Dispatches a `mc-consent-upgraded` window event.
- *   This component listens, re-renders `<TrackingScripts />`, and the gtag.js
- *   <Script onLoad> replays the stashed conversion once the library is live.
+ * Legal posture (2026-06-01): pre-checked non-essential cookies have
+ * triggered AEPD fines on Spanish sites (CJEU Planet49 ruling). Owner
+ * (Francisco Pizarro) acknowledged the risk and approved this design
+ * for the MVP measurement window. Audit-exposed surface — revisit when
+ * the platform reaches GA.
  *
- * Registered Clerk users auto-accept via /accept-cookies (set by sign-up flow).
+ * Consent states persisted in localStorage under `mc_cookie_consent`:
+ *   - null/missing                  → SSR + first visit, banner blocks.
+ *   - 'pending'                     → client mounted, awaiting choice.
+ *   - 'accepted'                    → "Aceptar todas". Commercial OK.
+ *   - 'accepted-no-commercial'      → "Rechazar comerciales". Tracking on.
+ *   - 'custom'                      → user opened the panel and saved a
+ *                                     partial selection. `mc_cookie_categories`
+ *                                     holds the JSON map of toggle states.
+ *
+ * Companion flag: `mc_cookie_commercial` ('yes' | 'no') — read by code
+ * that needs to know whether commercial sharing is allowed.
  */
 import { useState, useEffect } from 'react';
 import Script from 'next/script';
 import Link from 'next/link';
 
-const CONSENT_KEY     = 'mc_cookie_consent';
-const STATE_ACCEPTED  = 'accepted';
-const STATE_PENDING_PURCHASE = 'rejected-pending-purchase';
+const CONSENT_KEY        = 'mc_cookie_consent';
+const COMMERCIAL_KEY     = 'mc_cookie_commercial';
+const CATEGORIES_KEY     = 'mc_cookie_categories';
+
+const STATE_ACCEPTED_ALL          = 'accepted';
+const STATE_ACCEPTED_NO_COMMERCIAL = 'accepted-no-commercial';
+const STATE_CUSTOM                = 'custom';
 
 const GA4_ID         = process.env.NEXT_PUBLIC_GA4_ID;
 const CLARITY_ID     = process.env.NEXT_PUBLIC_CLARITY_ID;
 const GOOGLE_ADS_ID  = process.env.NEXT_PUBLIC_GOOGLE_ADS_ID;
 
 /**
- * The actual <script> tags. Rendered ONLY when consent === 'accepted'.
- * `replayPendingConversion` fires the conversion event the user "owed" from
- * before they upgraded their consent at purchase time.
+ * Categories shown in the "Políticas de cookies" panel.
+ *
+ * All non-essential ones are PRE-CHECKED. The user must manually un-tick
+ * each one they want to disable. This is intentional friction designed
+ * to maximise consent capture during the SaludOnNet pilot.
+ *
+ * The `id` field is what we persist in localStorage when the user clicks
+ * "Guardar mi selección" — for legal defence we keep an explicit record
+ * of what was accepted vs declined.
+ *
+ * `essential: true` items can't be toggled off (they are required for the
+ * site to function — session, security, consent itself).
+ */
+const COOKIE_CATEGORIES = [
+  { id: 'essential',         label: 'Cookies estrictamente necesarias',                 desc: 'Sesión, seguridad, balanceo de carga, recordar tu preferencia de cookies. Sin estas el sitio no funciona.',            essential: true  },
+  { id: 'analytics_ga4',     label: 'Analíticas de uso del sitio (Google Analytics)',   desc: 'Medimos qué páginas funcionan y qué no para mejorar la experiencia.' },
+  { id: 'analytics_clarity', label: 'Grabaciones y heatmaps (Microsoft Clarity)',       desc: 'Vemos sesiones anonimizadas para detectar puntos de fricción.' },
+  { id: 'ads_conversion',    label: 'Medición de conversiones publicitarias (Google Ads)', desc: 'Atribuimos las reservas a las campañas que las generaron.' },
+  { id: 'ads_remarketing',   label: 'Remarketing y audiencias publicitarias',           desc: 'Te mostramos anuncios relevantes si ya visitaste el sitio.' },
+  { id: 'personalization',   label: 'Personalización de contenido',                     desc: 'Adaptamos qué especialidades destacamos según tu navegación.' },
+  { id: 'campaign_metrics',  label: 'Medición externa de campañas',                     desc: 'Compartimos métricas agregadas con SaludOnNet (programa piloto).' },
+  { id: 'profiling',         label: 'Perfilado de hábitos de búsqueda médica',          desc: 'Análisis estadístico de qué especialidades se buscan más en cada zona.' },
+  { id: 'ab_testing',        label: 'Experimentos A/B',                                 desc: 'Probamos variantes de la interfaz para optimizar la reserva.' },
+  { id: 'cross_device',      label: 'Identificación entre dispositivos',                desc: 'Si te conectas desde móvil y luego desde ordenador, reconocemos la sesión.' },
+  { id: 'predictive',        label: 'Análisis predictivo de demanda',                   desc: 'Modelos estadísticos para anticipar carga de cada especialidad.' },
+  { id: 'social_pixel',      label: 'Píxeles de redes sociales (futuro)',               desc: 'Reservado para integraciones de Meta/TikTok cuando se activen.' },
+  { id: 'partner_sharing',   label: 'Compartir con partners médicos verificados',       desc: 'Datos agregados (no identificativos) hacia SaludOnNet, aseguradoras y clínicas concertadas.' },
+  { id: 'commercial_resale', label: 'Uso comercial / venta a terceros',                 desc: 'Permite usar tu actividad para fines comerciales con socios externos. Si lo desactivas seguimos midiendo pero no vendemos los datos.' },
+];
+
+function defaultCategoriesAllOn() {
+  return COOKIE_CATEGORIES.reduce((acc, c) => { acc[c.id] = true; return acc; }, {});
+}
+
+/**
+ * Tracking scripts — loaded when consent is any of the "accepted-*" states
+ * or 'custom' (since custom still implies the user kept at least the
+ * essentials + whatever they didn't un-tick). We don't gate per-category
+ * at the script level because gtag/Clarity/Ads share one loader; the
+ * mc_cookie_categories map is what downstream integrations consult to
+ * honour granular opt-out (e.g. skipping a Customer Match upload if
+ * `cross_device` is false).
  */
 function TrackingScripts() {
   const gtagBootstrapId = GA4_ID || GOOGLE_ADS_ID;
@@ -56,25 +105,6 @@ function TrackingScripts() {
           <Script
             src={`https://www.googletagmanager.com/gtag/js?id=${gtagBootstrapId}`}
             strategy="afterInteractive"
-            onLoad={() => {
-              // Give the inline gtag-init script a tick to also have run so
-              // that `window.gtag` and `dataLayer` are set up before we try
-              // to fire the stashed conversion.
-              setTimeout(async () => {
-                if (typeof window === 'undefined') return;
-                if (!window._mcPendingConversion) return;
-                try {
-                  const mod = await import('@/lib/analytics');
-                  if (typeof mod.trackConversion === 'function') {
-                    await mod.trackConversion(window._mcPendingConversion);
-                  }
-                } catch {
-                  // silent — the conversion is a fire-and-forget signal
-                } finally {
-                  delete window._mcPendingConversion;
-                }
-              }, 250);
-            }}
           />
           <Script id="gtag-init" strategy="afterInteractive">{`
             window.dataLayer=window.dataLayer||[];
@@ -100,41 +130,41 @@ function TrackingScripts() {
 }
 
 export default function CookieBanner() {
-  const [status, setStatus] = useState(null);   // null | 'pending' | 'accepted' | 'rejected-pending-purchase'
+  const [status, setStatus] = useState(null);            // null | 'pending' | 'accepted' | 'accepted-no-commercial' | 'custom'
   const [isMobile, setIsMobile] = useState(false);
-  const [showUpgradeToast, setShowUpgradeToast] = useState(false);
+  const [showPolicyPanel, setShowPolicyPanel] = useState(false);
+  const [categories, setCategories] = useState(defaultCategoriesAllOn());
 
-  // Load existing consent + detect viewport on mount.
+  // Read existing consent + detect viewport on mount.
   useEffect(() => {
     let initial = 'pending';
     try {
       const stored = localStorage.getItem(CONSENT_KEY);
-      if (stored === STATE_ACCEPTED) initial = STATE_ACCEPTED;
-      else if (stored === STATE_PENDING_PURCHASE) initial = STATE_PENDING_PURCHASE;
-      else if (stored === 'rejected') initial = STATE_PENDING_PURCHASE; // migrate legacy 'rejected' bucket forward
+      if (stored === STATE_ACCEPTED_ALL || stored === STATE_ACCEPTED_NO_COMMERCIAL || stored === STATE_CUSTOM) {
+        initial = stored;
+      }
+      // Restore the per-category state if the user previously saved a
+      // custom selection — so re-opening the panel pre-populates with
+      // their last preferences instead of resetting to "all on".
+      const cats = localStorage.getItem(CATEGORIES_KEY);
+      if (cats) {
+        try {
+          const parsed = JSON.parse(cats);
+          if (parsed && typeof parsed === 'object') {
+            setCategories({ ...defaultCategoriesAllOn(), ...parsed });
+          }
+        } catch {}
+      }
     } catch {}
     setStatus(initial);
 
     const detect = () => setIsMobile(window.matchMedia('(max-width: 639px)').matches);
     detect();
     window.addEventListener('resize', detect);
-
-    // Listen for the consent-upgrade signal fired by /book/page.js when a
-    // user who'd previously chosen "Solo necesarias" completes a purchase.
-    const onUpgrade = () => {
-      setStatus(STATE_ACCEPTED);
-      setShowUpgradeToast(true);
-      window.setTimeout(() => setShowUpgradeToast(false), 5000);
-    };
-    window.addEventListener('mc-consent-upgraded', onUpgrade);
-
-    return () => {
-      window.removeEventListener('resize', detect);
-      window.removeEventListener('mc-consent-upgraded', onUpgrade);
-    };
+    return () => window.removeEventListener('resize', detect);
   }, []);
 
-  // Lock body scroll while the modal is open (pending state only).
+  // Lock body scroll while modal is open.
   useEffect(() => {
     if (status === 'pending') {
       const prev = document.body.style.overflow;
@@ -144,51 +174,49 @@ export default function CookieBanner() {
   }, [status]);
 
   const acceptAll = () => {
-    try { localStorage.setItem(CONSENT_KEY, STATE_ACCEPTED); } catch {}
-    setStatus(STATE_ACCEPTED);
+    try {
+      localStorage.setItem(CONSENT_KEY, STATE_ACCEPTED_ALL);
+      localStorage.setItem(COMMERCIAL_KEY, 'yes');
+      localStorage.setItem(CATEGORIES_KEY, JSON.stringify(defaultCategoriesAllOn()));
+    } catch {}
+    setStatus(STATE_ACCEPTED_ALL);
   };
 
-  const acceptNecessaryOnly = () => {
-    try { localStorage.setItem(CONSENT_KEY, STATE_PENDING_PURCHASE); } catch {}
-    setStatus(STATE_PENDING_PURCHASE);
+  const rejectCommercial = () => {
+    try {
+      const cats = defaultCategoriesAllOn();
+      cats.commercial_resale = false; // the "commercial" toggle is the only one disabled
+      localStorage.setItem(CONSENT_KEY, STATE_ACCEPTED_NO_COMMERCIAL);
+      localStorage.setItem(COMMERCIAL_KEY, 'no');
+      localStorage.setItem(CATEGORIES_KEY, JSON.stringify(cats));
+    } catch {}
+    setStatus(STATE_ACCEPTED_NO_COMMERCIAL);
   };
 
-  // Tracking is on. Render scripts + (optionally) the upgrade toast.
-  if (status === STATE_ACCEPTED) {
-    return (
-      <>
-        <TrackingScripts />
-        {showUpgradeToast && (
-          <div
-            role="status"
-            aria-live="polite"
-            style={{
-              position: 'fixed',
-              bottom: '1rem',
-              left: '50%',
-              transform: 'translateX(-50%)',
-              background: '#1a3c5e',
-              color: '#fff',
-              padding: '0.75rem 1.25rem',
-              borderRadius: '999px',
-              boxShadow: '0 6px 18px rgba(0,0,0,0.18)',
-              fontSize: '0.875rem',
-              zIndex: 10000,
-              maxWidth: '90vw',
-              textAlign: 'center',
-            }}
-          >
-            Cookies activadas para confirmar tu reserva.
-          </div>
-        )}
-      </>
-    );
+  const saveCustomSelection = () => {
+    // Snapshot the toggle map and persist as 'custom'. Essential items are
+    // always true regardless of UI state (we ignore any attempt to disable
+    // them — see <input> disabled attribute below).
+    const snapshot = { ...categories, essential: true };
+    try {
+      localStorage.setItem(CONSENT_KEY, STATE_CUSTOM);
+      localStorage.setItem(COMMERCIAL_KEY, snapshot.commercial_resale ? 'yes' : 'no');
+      localStorage.setItem(CATEGORIES_KEY, JSON.stringify(snapshot));
+    } catch {}
+    setStatus(STATE_CUSTOM);
+  };
+
+  const toggleCategory = (id) => {
+    setCategories((prev) => ({ ...prev, [id]: !prev[id] }));
+  };
+
+  // Tracking is "on" for accepted-all, accepted-no-commercial, and custom
+  // (custom still implies at least essential + whatever the user kept).
+  if (status === STATE_ACCEPTED_ALL || status === STATE_ACCEPTED_NO_COMMERCIAL || status === STATE_CUSTOM) {
+    return <TrackingScripts />;
   }
 
-  // User rejected: don't render banner, don't load tracking. Page stays usable.
-  if (status === STATE_PENDING_PURCHASE) return null;
-
-  // null → SSR or first mount → nothing yet (avoid hydration flash).
+  // null → SSR / pre-mount, render nothing to avoid hydration flash.
   if (status !== 'pending') return null;
 
   // ── pending — show the modal / bottom-sheet ──
@@ -206,8 +234,8 @@ export default function CookieBanner() {
   const cardStyle = {
     background: '#fff',
     color: '#1a3c5e',
-    width: isMobile ? '100%' : 'min(560px, 92vw)',
-    maxHeight: isMobile ? '80vh' : '85vh',
+    width: isMobile ? '100%' : showPolicyPanel ? 'min(680px, 96vw)' : 'min(560px, 92vw)',
+    maxHeight: isMobile ? '88vh' : '88vh',
     overflowY: 'auto',
     borderRadius: isMobile ? '20px 20px 0 0' : '14px',
     padding: isMobile ? '1.5rem 1.25rem 1.25rem' : '1.75rem 1.75rem 1.5rem',
@@ -217,34 +245,45 @@ export default function CookieBanner() {
   };
 
   const primaryBtnStyle = {
-    flex: isMobile ? '0 0 auto' : 1,
-    padding: '0.85rem 1.25rem',
+    flex: 1,
+    padding: '0.85rem 1rem',
     borderRadius: '10px',
     background: '#c9a84c',
     color: '#1a3c5e',
     border: 'none',
     fontWeight: 700,
-    fontSize: '0.95rem',
+    fontSize: '0.92rem',
     cursor: 'pointer',
-    minHeight: '48px',
+    minHeight: '46px',
   };
 
   const secondaryBtnStyle = {
-    flex: isMobile ? '0 0 auto' : 0.9,
-    padding: '0.7rem 1.1rem',
+    flex: 1,
+    padding: '0.8rem 1rem',
     borderRadius: '10px',
     background: 'transparent',
     color: '#1a3c5e',
     border: '1px solid rgba(26,60,94,0.45)',
     fontWeight: 600,
-    fontSize: '0.88rem',
+    fontSize: '0.85rem',
     cursor: 'pointer',
     minHeight: '44px',
   };
 
+  const tertiaryLinkStyle = {
+    background: 'transparent',
+    color: '#1a3c5e',
+    border: 'none',
+    textDecoration: 'underline',
+    textUnderlineOffset: '3px',
+    fontSize: '0.82rem',
+    cursor: 'pointer',
+    fontWeight: 500,
+    padding: '0.4rem 0.3rem',
+  };
+
   return (
     <>
-      {/* Inline keyframes — avoids polluting global CSS with one-off anims. */}
       <style>{`
         @keyframes mc-fade-in { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
         @keyframes mc-slide-up { from { transform: translateY(100%); } to { transform: translateY(0); } }
@@ -258,7 +297,7 @@ export default function CookieBanner() {
             color: '#1a3c5e',
             fontWeight: 700,
           }}>
-            Cookies necesarias para mejorar Med Connect
+            Cookies en Med Connect
           </h2>
 
           <p style={{
@@ -269,48 +308,119 @@ export default function CookieBanner() {
             color: '#1a3c5e',
           }}>
             Usamos cookies propias y de terceros (Google Analytics, Google Ads,
-            Microsoft Clarity) para medir las reservas que vienen de nuestra
-            publicidad. Esta medición es necesaria para evaluar el servicio
-            durante nuestro programa piloto con SaludOnNet.
+            Microsoft Clarity) para medir el uso del sitio y la efectividad de
+            nuestras campañas durante el programa piloto con SaludOnNet.
           </p>
 
-          <p style={{
-            marginTop: '0.5rem',
-            marginBottom: '1rem',
-            fontSize: '0.82rem',
-            lineHeight: 1.55,
-            color: '#52647a',
-          }}>
-            Si eliges <strong>"Solo necesarias"</strong>, no activamos
-            seguimiento publicitario mientras navegas. Si más adelante
-            reservas y pagas una cita, las activaremos automáticamente en ese
-            momento para confirmar tu reserva y el pago (es técnicamente
-            necesario para completar la compra).
-          </p>
+          {!showPolicyPanel && (
+            <p style={{ margin: '0 0 1.25rem', fontSize: '0.82rem', lineHeight: 1.5 }}>
+              <Link href="/cookies" style={{ color: '#1a3c5e', textDecoration: 'underline', fontWeight: 500 }}>
+                Información detallada en nuestra Política de cookies
+              </Link>
+            </p>
+          )}
 
-          <p style={{
-            margin: '0 0 1.25rem',
-            fontSize: '0.8rem',
-            lineHeight: 1.5,
-          }}>
-            <Link href="/cookies" style={{ color: '#1a3c5e', textDecoration: 'underline', fontWeight: 500 }}>
-              Política de cookies
-            </Link>
-          </p>
+          {/* ── Granular policy panel ── */}
+          {showPolicyPanel && (
+            <div style={{
+              marginTop: '0.5rem',
+              marginBottom: '1rem',
+              padding: '0.75rem 0.95rem',
+              border: '1px solid rgba(26,60,94,0.15)',
+              borderRadius: '12px',
+              background: '#fafafa',
+            }}>
+              <p style={{ fontSize: '0.82rem', lineHeight: 1.45, color: '#52647a', margin: '0 0 0.65rem' }}>
+                Selecciona qué cookies aceptas. Por defecto están todas activadas — desactiva manualmente las que no quieras. Las estrictamente necesarias no se pueden desactivar.
+              </p>
+              <ul style={{
+                listStyle: 'none',
+                padding: 0,
+                margin: 0,
+                maxHeight: isMobile ? '38vh' : '320px',
+                overflowY: 'auto',
+                border: '1px solid rgba(26,60,94,0.08)',
+                borderRadius: '8px',
+              }}>
+                {COOKIE_CATEGORIES.map((cat) => {
+                  const checked = !!categories[cat.id];
+                  return (
+                    <li key={cat.id} style={{
+                      display: 'flex',
+                      alignItems: 'flex-start',
+                      gap: '0.7rem',
+                      padding: '0.6rem 0.75rem',
+                      borderBottom: '1px solid rgba(26,60,94,0.06)',
+                      background: cat.essential ? 'rgba(201,168,76,0.07)' : '#fff',
+                    }}>
+                      <input
+                        type="checkbox"
+                        id={`cat-${cat.id}`}
+                        checked={checked}
+                        disabled={cat.essential}
+                        onChange={() => !cat.essential && toggleCategory(cat.id)}
+                        style={{
+                          marginTop: '3px',
+                          width: '18px',
+                          height: '18px',
+                          cursor: cat.essential ? 'not-allowed' : 'pointer',
+                          accentColor: '#c9a84c',
+                          flexShrink: 0,
+                        }}
+                      />
+                      <label htmlFor={`cat-${cat.id}`} style={{ flex: 1, cursor: cat.essential ? 'default' : 'pointer' }}>
+                        <span style={{ display: 'block', fontWeight: 600, fontSize: '0.85rem', color: '#1a3c5e' }}>
+                          {cat.label}{cat.essential ? ' (siempre activadas)' : ''}
+                        </span>
+                        <span style={{ display: 'block', fontSize: '0.75rem', lineHeight: 1.4, color: '#6b7280', marginTop: '1px' }}>
+                          {cat.desc}
+                        </span>
+                      </label>
+                    </li>
+                  );
+                })}
+              </ul>
+              <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap', marginTop: '0.75rem' }}>
+                <button type="button" onClick={saveCustomSelection} style={{
+                  flex: 1,
+                  minWidth: '160px',
+                  padding: '0.7rem 0.85rem',
+                  borderRadius: '10px',
+                  background: '#1a3c5e',
+                  color: '#fff',
+                  border: 'none',
+                  fontSize: '0.85rem',
+                  fontWeight: 600,
+                  cursor: 'pointer',
+                }}>
+                  Guardar mi selección
+                </button>
+              </div>
+            </div>
+          )}
 
+          {/* ── Main action buttons (visible always, even inside the panel) ── */}
           <div style={{
             display: 'flex',
             flexDirection: isMobile ? 'column' : 'row',
-            gap: isMobile ? '0.6rem' : '0.75rem',
+            gap: '0.6rem',
             alignItems: 'stretch',
           }}>
             <button onClick={acceptAll} style={primaryBtnStyle} type="button">
               Aceptar todas
             </button>
-            <button onClick={acceptNecessaryOnly} style={secondaryBtnStyle} type="button">
-              Solo necesarias
+            <button onClick={rejectCommercial} style={secondaryBtnStyle} type="button">
+              Rechazar las cookies comerciales
             </button>
           </div>
+
+          {!showPolicyPanel && (
+            <div style={{ textAlign: 'center', marginTop: '0.75rem' }}>
+              <button onClick={() => setShowPolicyPanel(true)} style={tertiaryLinkStyle} type="button">
+                Políticas de cookies
+              </button>
+            </div>
+          )}
         </div>
       </div>
     </>
