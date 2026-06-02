@@ -50,10 +50,14 @@ export default function ClinicCardV2({
   const nextSlots = tierFilteredSlots === undefined
     ? undefined
     : tierFilteredSlots.slice(0, 3);
-  // "Última cita" scarcity banner: shown when the card surfaces exactly
-  // one slot across the visible tiers — for the patient that IS the last
-  // cita available at this clinic on the current view.
-  const isLastSlot = tierFilteredSlots && tierFilteredSlots.length === 1;
+  // "Última cita" scarcity banner: only fires when the clinic surfaces
+  // exactly one slot AND that slot is in tier 1 (≤ 7 días). Tier-3 / 4
+  // last-of-month cases don't get the urgency banner — the patient isn't
+  // racing the clock when the next opening is a month away.
+  const isLastSlotThisWeek =
+    tierFilteredSlots
+    && tierFilteredSlots.length === 1
+    && tierFilteredSlots[0].tier === 1;
 
   return (
     <div className={`cv2-card ${highlighted ? 'cv2-card--highlighted' : ''}`} id={`clinic-card-${provider.id}`}>
@@ -104,9 +108,9 @@ export default function ClinicCardV2({
         </div>
       ) : nextSlots.length > 0 ? (
         <div className="cv2-slots">
-          {isLastSlot && (
+          {isLastSlotThisWeek && (
             <div className="cv2-last-slot-banner">
-              ⏱ <strong>Última cita disponible</strong> para este centro · resérvala rápido
+              ⏱ <strong>Última cita en este centro en menos de una semana</strong>
             </div>
           )}
           <span className="cv2-slots-label">
