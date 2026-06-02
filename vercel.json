@@ -11,6 +11,10 @@
     {
       "path": "/api/exec/daily-email",
       "schedule": "0 6 * * *"
+    },
+    {
+      "path": "/api/slot-holds/recover-abandoned",
+      "schedule": "*/15 * * * *"
     }
   ]
 }

@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { query, sql, DB_AVAILABLE } from '@/lib/db';
 import { generateSlotsForClinic, PRICING_TIERS } from '@/lib/slot-validation';
+import { getHeldKeys } from '@/lib/slotHolds';
 
 export async function GET(request, { params }) {
   const { id } = await params;
@@ -64,6 +65,17 @@ export async function GET(request, { params }) {
     } catch (err) {
       console.error('available-slots bookings lookup error (continuing):', err?.message);
     }
+  }
+
+  // Active Redis holds for this clinic — same rotation semantics as
+  // bookings. Own-session holds stay visible so the user keeps their
+  // pick if they navigate back. Best-effort.
+  try {
+    const sessionId = request.headers.get('x-mc-session') || null;
+    const heldKeys = await getHeldKeys([clinicId], sessionId);
+    for (const k of heldKeys) bookedKeys.add(k);
+  } catch (err) {
+    console.error('available-slots held-keys lookup error (continuing):', err?.message);
   }
 
   const { slots, rule, earliestSellable } = generateSlotsForClinic(clinicId, schedules, { city, bookedKeys });

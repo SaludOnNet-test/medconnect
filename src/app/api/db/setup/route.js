@@ -808,6 +808,55 @@ export async function GET(request) {
       CREATE INDEX IX_clinic_outreach_priority ON clinic_outreach(priority, status);
     `);
 
+    // ── Slot holds — 15-min reservation + abandoned-cart recovery ─────────
+    //
+    // Mirrors the Upstash Redis `hold:<clinicId>|<date>|<time>` key so a
+    // cron can find expired holds whose patient typed an email but didn't
+    // convert, and send them a recovery email. Redis stays authoritative
+    // for the read-hot `getHeldKeys()` filter; this row is the audit +
+    // recovery hook. `converted_at` is stamped by /api/bookings POST on
+    // success, which kills the recovery candidacy via the partial index.
+    await pool.request().query(`
+      IF NOT EXISTS (SELECT * FROM sys.tables WHERE name = 'slot_holds')
+      CREATE TABLE slot_holds (
+        id                       INT IDENTITY PRIMARY KEY,
+        session_id               NVARCHAR(80)   NOT NULL,
+        clinic_id                INT            NOT NULL,
+        clinic_name              NVARCHAR(255)  NULL,
+        slot_date                NVARCHAR(20)   NOT NULL,
+        slot_time                NVARCHAR(10)   NOT NULL,
+        procedure_slug           NVARCHAR(100)  NULL,
+        procedure_name           NVARCHAR(255)  NULL,
+        procedure_price          DECIMAL(10,2)  NULL,
+        tier                     TINYINT        NULL,
+        fee                      DECIMAL(10,2)  NULL,
+        fee_label                NVARCHAR(100)  NULL,
+        has_insurance            BIT            NULL,
+        insurance_company        NVARCHAR(100)  NULL,
+        form_snapshot            NVARCHAR(MAX)  NULL,
+        patient_email            NVARCHAR(255)  NULL,
+        held_until               DATETIMEOFFSET NOT NULL,
+        converted_at             DATETIMEOFFSET NULL,
+        recovery_email_sent_at   DATETIMEOFFSET NULL,
+        created_at               DATETIMEOFFSET NOT NULL DEFAULT SYSDATETIMEOFFSET(),
+        updated_at               DATETIMEOFFSET NOT NULL DEFAULT SYSDATETIMEOFFSET()
+      );
+    `);
+    await pool.request().query(`
+      IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE name = 'IX_slot_holds_session_held' AND object_id = OBJECT_ID('slot_holds'))
+      CREATE INDEX IX_slot_holds_session_held ON slot_holds(session_id, held_until DESC);
+    `);
+    await pool.request().query(`
+      IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE name = 'IX_slot_holds_clinic_slot' AND object_id = OBJECT_ID('slot_holds'))
+      CREATE INDEX IX_slot_holds_clinic_slot ON slot_holds(clinic_id, slot_date, slot_time);
+    `);
+    // Partial index for the recovery cron — only rows that are eligible.
+    await pool.request().query(`
+      IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE name = 'IX_slot_holds_recovery_due' AND object_id = OBJECT_ID('slot_holds'))
+      CREATE INDEX IX_slot_holds_recovery_due ON slot_holds(held_until)
+        WHERE converted_at IS NULL AND recovery_email_sent_at IS NULL AND patient_email IS NOT NULL;
+    `);
+
     // ── EXEC: email_sends ledger — for Resend quota tracking ───────────────
     // Resend free tier doesn't expose monthly usage via API. We keep our own
     // ledger (one row per send) so /api/exec/quotas can compute the real
