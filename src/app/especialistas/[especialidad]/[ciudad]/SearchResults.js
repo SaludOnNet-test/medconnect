@@ -58,9 +58,11 @@ const PAGE_SIZE = 30;
  */
 export default function SearchResults({ specialtySlug, city }) {
   // ── Filters that live on this page ──
+  // Rating filter + "Ordenar" dropdown removed 2026-06 — listing now
+  // differentiates clinics by availability window (tier filter below)
+  // + insurance. Server-side ordering inside /api/clinics/search
+  // (partner-first → rating DESC → name ASC) is the default.
   const [insuranceFilter, setInsuranceFilter] = useState('');
-  const [ratingFilter, setRatingFilter]       = useState(0);
-  const [sortBy, setSortBy]                   = useState('rating');
   // Tier window filter (multi-select). Empty Set = no filter (show all).
   // SEO landings don't currently URL-sync this — they keep the patient
   // on the same page after toggling. Add ?tier= sync later if it becomes
@@ -94,7 +96,6 @@ export default function SearchResults({ specialtySlug, city }) {
     const params = new URLSearchParams();
     if (specialtySlug) params.set('specialtySlug', specialtySlug);
     if (city)          params.set('city', city);
-    if (ratingFilter > 0) params.set('rating', String(ratingFilter));
     if (mapBounds) {
       const { south, west, north, east } = mapBounds;
       params.set('bbox', `${south.toFixed(6)},${west.toFixed(6)},${north.toFixed(6)},${east.toFixed(6)}`);
@@ -102,9 +103,9 @@ export default function SearchResults({ specialtySlug, city }) {
     params.set('limit', String(PAGE_SIZE));
     params.set('offset', '0');
     return `/api/clinics/search?${params.toString()}`;
-  }, [specialtySlug, city, ratingFilter, mapBounds]);
+  }, [specialtySlug, city, mapBounds]);
 
-  // Load clinics whenever specialty/city/rating/bbox change.
+  // Load clinics whenever specialty/city/bbox change.
   useEffect(() => {
     let cancelled = false;
     setIsLoading(true);
@@ -123,16 +124,11 @@ export default function SearchResults({ specialtySlug, city }) {
     return () => { cancelled = true; };
   }, [searchUrl]);
 
-  // Apply client-side filters (insurance) + sort. Insurance lives client-side
-  // because the API doesn't filter on it — it returns the per-clinic list.
-  //
-  // 2026-05-29 — mirror search-v2's partner-first sort. The API returns
-  // partners first (PARTNER_CLINIC_IDS_SQL in /api/clinics/search), but the
-  // client-side `rating` / `reviews` sort below would otherwise bury partner
-  // clinics (e.g. Centro Médico Cea Bermúdez, id=1) below higher-rated
-  // non-partner ones. Critical for /especialistas/cardiologia/madrid and
-  // /especialistas/ginecologia/madrid — both linked from active SEM
-  // campaigns and where Cea Bermúdez is the operationally-vetted destination.
+  // Insurance filter (client-side, API doesn't filter on it) + partner-first
+  // hoist. The API already returns partner clinics first
+  // (PARTNER_CLINIC_IDS_SQL inside /api/clinics/search) ordered by rating
+  // DESC then name; we just re-hoist partners here defensively in case
+  // the server order ever drifts.
   const displayClinics = useMemo(() => {
     let list = Array.isArray(clinics) ? [...clinics] : [];
     if (insuranceFilter) {
@@ -141,15 +137,11 @@ export default function SearchResults({ specialtySlug, city }) {
       );
     }
     list.sort((a, b) => {
-      // 1. Partner clinics always first, regardless of sort selection.
       if (!!a.isPartner !== !!b.isPartner) return a.isPartner ? -1 : 1;
-      // 2. Then by the user's chosen criterion.
-      if (sortBy === 'rating')  return (b.rating || 0) - (a.rating || 0);
-      if (sortBy === 'reviews') return (b.reviewCount || 0) - (a.reviewCount || 0);
       return 0;
     });
     return list;
-  }, [clinics, insuranceFilter, sortBy]);
+  }, [clinics, insuranceFilter]);
 
   // Tier filter + cap pass — mirrors /search-v2. See the comment block
   // there for the full semantics. Partners bypass caps.
@@ -271,38 +263,8 @@ export default function SearchResults({ specialtySlug, city }) {
             </div>
           </div>
 
-          <div className="sv2-filter-group">
-            <label className="sv2-filter-label">Valoración</label>
-            <div className="sv2-rating-chips">
-              {[
-                { v: 0,   label: 'Todos' },
-                { v: 3,   label: '★ 3+' },
-                { v: 4,   label: '★ 4+' },
-                { v: 4.5, label: '★ 4.5+' },
-              ].map(({ v, label }) => (
-                <button
-                  key={v}
-                  type="button"
-                  className={`sv2-chip ${ratingFilter === v ? 'sv2-chip--active' : ''}`}
-                  onClick={() => setRatingFilter(v)}
-                >
-                  {label}
-                </button>
-              ))}
-            </div>
-          </div>
-
-          <div className="sv2-filter-group">
-            <label className="sv2-filter-label">Ordenar</label>
-            <select
-              className="sv2-select"
-              value={sortBy}
-              onChange={(e) => setSortBy(e.target.value)}
-            >
-              <option value="rating">Mejor valorados</option>
-              <option value="reviews">Más opiniones</option>
-            </select>
-          </div>
+          {/* "Valoración" filter + "Ordenar" dropdown removed 2026-06.
+              Sort is partner-first → server default (rating DESC / name). */}
 
           <div className="sv2-filter-group sv2-filter-group--right">
             <span className="sv2-count">
@@ -366,7 +328,7 @@ export default function SearchResults({ specialtySlug, city }) {
                 <button
                   type="button"
                   className="btn btn-gold"
-                  onClick={() => { setInsuranceFilter(''); setRatingFilter(0); }}
+                  onClick={() => { setInsuranceFilter(''); setTierFilter(new Set()); }}
                 >
                   Limpiar filtros
                 </button>
@@ -422,7 +384,7 @@ export default function SearchResults({ specialtySlug, city }) {
           the dynamic ClinicMap panel that's hidden by default on mobile. */}
       <MobileStickyBar
         filterCount={
-          (insuranceFilter ? 1 : 0) + (ratingFilter > 0 ? 1 : 0) + (sortBy !== 'rating' ? 1 : 0) + (tierFilter.size > 0 ? 1 : 0)
+          (insuranceFilter ? 1 : 0) + (tierFilter.size > 0 ? 1 : 0)
         }
         onOpenFilters={() => {
           const anchor = document.getElementById('esp-filters-anchor');

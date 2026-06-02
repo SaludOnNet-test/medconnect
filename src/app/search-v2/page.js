@@ -64,10 +64,13 @@ function SearchV2Content() {
   // top of the file for the rollback rationale.
   const isPro = asProfessionalParam;
 
-  // Filter state
+  // Filter state. Rating filter + "Ordenar" dropdown removed 2026-06 —
+  // the patient-facing listing now only differentiates clinics by
+  // availability window (tier filter below) and insurance. Ordering is
+  // server-driven (partner-first → rating DESC → name) inside
+  // /api/clinics/search, which is the right default for both the SEO
+  // landing pages and the in-app search.
   const [insuranceFilter, setInsuranceFilter] = useState('');
-  const [ratingFilter, setRatingFilter]       = useState(0);
-  const [sortBy, setSortBy]                   = useState('rating');
   const [showMap, setShowMap]                 = useState(false);
   const [filtersOpen, setFiltersOpen]         = useState(false);
   // Tier window filter (multi-select). Empty Set = no filter (show all).
@@ -152,7 +155,6 @@ function SearchV2Content() {
     if (specialtySlug)     params.set('specialtySlug', specialtySlug);
     else if (specialtyIdParam) params.set('specialty', specialtyIdParam);
     if (procedureSlug)     params.set('procedureSlug', procedureSlug);
-    if (ratingFilter > 0)  params.set('rating', ratingFilter);
     if (providerNameParam) params.set('name', providerNameParam);
     if (mapBounds) {
       const { south, west, north, east } = mapBounds;
@@ -161,15 +163,15 @@ function SearchV2Content() {
     params.set('limit', limit);
     params.set('offset', offset);
     return `/api/clinics/search?${params.toString()}`;
-  }, [cityFilter, specialtySlug, specialtyIdParam, procedureSlug, ratingFilter, providerNameParam, mapBounds]);
+  }, [cityFilter, specialtySlug, specialtyIdParam, procedureSlug, providerNameParam, mapBounds]);
 
-  // When the user picks a different city / specialty / procedure / rating,
-  // wipe any map-driven bbox — those filters override the spatial scope.
-  // Insurance + sort live client-side and don't trigger a refetch, so they
-  // don't need to clear bounds.
+  // When the user picks a different city / specialty / procedure, wipe
+  // any map-driven bbox — those filters override the spatial scope.
+  // Insurance lives client-side and doesn't trigger a refetch, so it
+  // doesn't need to clear bounds.
   useEffect(() => {
     setMapBounds(null);
-  }, [cityFilter, specialtySlug, procedureSlug, ratingFilter]);
+  }, [cityFilter, specialtySlug, procedureSlug]);
 
   // Initial load / filter change — also reset slot state.
   // Bumps page size to 50 when a bbox is active so the map can show every
@@ -239,18 +241,17 @@ function SearchV2Content() {
         Array.isArray(p.acceptedInsurance) && p.acceptedInsurance.includes(insuranceFilter)
       );
     }
-    // Tiered comparator: Med Connect partners always sort first; ties
-    // fall through to the user-selected secondary sort. Without the
-    // partner tier the user picking "Mejor valorados" / "Más opiniones"
-    // would re-rank the list and bury the partner clinics.
+    // Partner-first stable sort. The API already returns the page in
+    // (is_preferential DESC → rating DESC → name ASC) order, so the
+    // only adjustment we make client-side is hoisting partner clinics
+    // (PARTNER_CLINIC_IDS) above non-partners regardless of the API's
+    // own ordering. Everything else stays in the server's order.
     list.sort((a, b) => {
       if (!!a.isPartner !== !!b.isPartner) return a.isPartner ? -1 : 1;
-      if (sortBy === 'rating')  return (b.rating || 0) - (a.rating || 0);
-      if (sortBy === 'reviews') return (b.reviewCount || 0) - (a.reviewCount || 0);
       return 0;
     });
     return list;
-  }, [baseProviders, insuranceFilter, sortBy]);
+  }, [baseProviders, insuranceFilter]);
 
   // Per-clinic tier visibility map after applying the user's tier filter
   // AND the per-tier caps. The map is keyed by clinic id; the value is a
@@ -513,28 +514,9 @@ function SearchV2Content() {
               </div>
             </div>
 
-            <div className="sv2-filter-group">
-              <label className="sv2-filter-label">Valoración</label>
-              <div className="sv2-rating-chips">
-                {[{ v: 0, label: 'Todos' }, { v: 3, label: '★ 3+' }, { v: 4, label: '★ 4+' }, { v: 4.5, label: '★ 4.5+' }].map(({ v, label }) => (
-                  <button
-                    key={v}
-                    className={`sv2-chip ${ratingFilter === v ? 'sv2-chip--active' : ''}`}
-                    onClick={() => setRatingFilter(v)}
-                  >
-                    {label}
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            <div className="sv2-filter-group">
-              <label className="sv2-filter-label">Ordenar</label>
-              <select className="sv2-select" value={sortBy} onChange={(e) => setSortBy(e.target.value)}>
-                <option value="rating">Mejor valorados</option>
-                <option value="reviews">Más opiniones</option>
-              </select>
-            </div>
+            {/* "Valoración" filter + "Ordenar" dropdown removed 2026-06.
+                Sort is partner-first → server default (rating DESC / name).
+                Reintroduce a user-facing sort if Clarity shows demand. */}
 
             <div className="sv2-filters-apply-wrap">
               <button type="button" className="sv2-filters-apply" onClick={() => setFiltersOpen(false)}>
@@ -604,7 +586,7 @@ function SearchV2Content() {
                   providers={cappedProviders.filter((p) => p.lat && p.lng)}
                   highlightedId={highlightedId}
                   city={cityFilter || cityParam}
-                  filterSignature={`${specialtySlug}|${procedureSlug}|${ratingFilter}|${insuranceFilter}`}
+                  filterSignature={`${specialtySlug}|${procedureSlug}|${insuranceFilter}`}
                   onPinClick={(p) => {
                     setHighlightedId(p.id);
                     setModalProvider(p);
