@@ -362,6 +362,54 @@ export function lockInReminder({ patientEmail, professionalEmail, clinicName, sp
 }
 
 // ─────────────────────────────────────────────
+// 14. Abandoned-hold recovery (15-min slot expired without conversion)
+// ─────────────────────────────────────────────
+//
+// Sent by the `*/15` cron after a /book hold expires without a
+// successful booking. The recovery link drops the patient back on
+// /book with `?restoredHoldId=` so the page re-acquires a fresh 15-min
+// hold and pre-fills whatever they typed before bailing.
+export function abandonedHoldRecovery({
+  clinicName, slotDate, slotTime, procedureName, fee, recoveryUrl, patientName,
+}) {
+  const fmtDate = slotDate
+    ? new Date(slotDate + 'T00:00:00').toLocaleDateString('es-ES', {
+        weekday: 'long', day: 'numeric', month: 'long', year: 'numeric',
+      })
+    : slotDate;
+  const html = baseWrapper(bodySection(`
+    <h2 style="margin:0 0 8px;font-size:22px;font-weight:800;color:#1a3c5e;">
+      Sigue habiendo disponibilidad — recupera tu hueco en 1 clic
+    </h2>
+    <p style="margin:0 0 16px;font-size:15px;color:#374151;line-height:1.55;">
+      ${patientName ? `Hola <strong>${patientName}</strong>, ` : ''}empezaste a reservar tu cita en
+      <strong>${clinicName || 'la clínica'}</strong> hace un rato y el hueco se liberó.
+      Aún hay disponibilidad — pulsa el botón y completamos lo que faltaba.
+    </p>
+    <table width="100%" cellpadding="0" cellspacing="0" style="margin-bottom:24px;border:1px solid #e5e7eb;border-radius:8px;overflow:hidden;">
+      <tr style="background:#f9fafb;"><th colspan="2" style="padding:12px 16px;text-align:left;font-size:13px;color:#6b7280;font-weight:600;text-transform:uppercase;">Cita que dejaste a medias</th></tr>
+      ${infoRow('Centro', clinicName || '—')}
+      ${procedureName ? infoRow('Acto médico', procedureName) : ''}
+      ${fmtDate     ? infoRow('Fecha', fmtDate) : ''}
+      ${slotTime    ? infoRow('Hora', slotTime) : ''}
+      ${fee         ? infoRow('Tarifa de prioridad', formatEUR(fee)) : ''}
+    </table>
+    <div style="text-align:center;margin:28px 0;">
+      ${ctaButton(recoveryUrl, '⚡ Recuperar mi hueco', '#c9a84c', '#1a3c5e')}
+    </div>
+    <p style="margin:0;font-size:13px;color:#9ca3af;text-align:center;line-height:1.55;">
+      Al pulsar el botón te llevamos a la misma pantalla, con los datos que ya tenías rellenados,
+      y reservamos el hueco otros 15 minutos.<br>
+      Si ya completaste la reserva en otra ventana, puedes ignorar este email.
+    </p>
+  `));
+  return {
+    subject: `Tu hueco con ${clinicName || 'la clínica'} sigue libre — recupéralo en 1 clic`,
+    html,
+  };
+}
+
+// ─────────────────────────────────────────────
 // 9. Operations Alert (→ Zendesk via email)
 // ─────────────────────────────────────────────
 export function operationsBookingAlert({

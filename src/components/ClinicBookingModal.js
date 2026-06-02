@@ -4,6 +4,7 @@ import { useRouter } from 'next/navigation';
 import { trackEvent } from '@/lib/analytics';
 import { formatEUR } from '@/lib/format';
 import Icon from '@/components/icons/Icon';
+import { fetchWithSession } from '@/lib/sessionId';
 import './ClinicBookingModal.css';
 
 function feeFromSlot(slot) {
@@ -116,9 +117,11 @@ export default function ClinicBookingModal({
     : [];
 
   const canBook = !!selectedSlot && !!procedureSlug;
+  const [holdError, setHoldError] = useState('');
+  const [holdLoading, setHoldLoading] = useState(false);
 
-  const handleBook = () => {
-    if (!canBook) return;
+  const handleBook = async () => {
+    if (!canBook || holdLoading) return;
     const fee = feeFromSlot(selectedSlot);
     // BUG FIX (ítem 1 del reporte): antes pasábamos `totalFee = procedurePrice
     // + fee.amount` y luego /book volvía a sumar `servicePrice + activeFee`,
@@ -127,6 +130,58 @@ export default function ClinicBookingModal({
     // `servicePrice + priority`. Para asegurado, `total = priority` (la
     // consulta corre por el seguro).
     const priorityFee = fee.amount;
+
+    // 2026-06 — claim a 15-minute slot hold before navigating to /book.
+    // The hold blocks any other browser session from booking the same
+    // (clinic, date, time) for 15 min (auto-extends to 30 on the payment
+    // step). On 409 we surface a toast + refresh the slot list. On any
+    // other failure (Redis down etc.) the route gracefully no-ops and
+    // we proceed without the hold — the patient still books, the
+    // exclusion just doesn't fire for other users until Redis is back.
+    setHoldError('');
+    setHoldLoading(true);
+    let holdResponse = { ok: true, expiresAt: null, isLastSlotThisWeek: false };
+    try {
+      const res = await fetchWithSession('/api/slot-holds', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          clinicId: provider.id,
+          providerName: provider.name,
+          date: selectedSlot.date,
+          time: selectedSlot.time,
+          procedureSlug,
+          procedureName: selectedProcedure?.name || null,
+          procedurePrice,
+          tier: fee.tier,
+          fee: priorityFee,
+          feeLabel: fee.label,
+          hasInsurance: !isSinSeguro,
+          insuranceCompany: initialInsurance || null,
+        }),
+      });
+      if (res.status === 409) {
+        setHoldLoading(false);
+        setHoldError('Este hueco se acaba de reservar. Hemos refrescado las opciones disponibles — elige otra hora.');
+        // Re-fetch slots so the listing reflects the new state.
+        try {
+          const refresh = await fetchWithSession(`/api/clinics/${provider.id}/available-slots`);
+          const data = await refresh.json();
+          if (data?.slots) setAllSlots((data.slots || []).filter((s) => s.available));
+        } catch {}
+        setSelectedSlot(null);
+        return;
+      }
+      if (res.ok) {
+        holdResponse = await res.json();
+      }
+    } catch (err) {
+      // Network hiccup — log and continue. Better to lose the lock than
+      // block the booking.
+      console.error('[ClinicBookingModal] hold acquisition failed (continuing)', err?.message);
+    } finally {
+      setHoldLoading(false);
+    }
 
     const params = new URLSearchParams({
       provider: provider.id,
@@ -147,6 +202,10 @@ export default function ClinicBookingModal({
       // Pro user / explicit derivation entry-point — /book pre-checks the
       // referral toggle and pre-fills the pro fields from Clerk on its end.
       ...(asProfessional ? { asProfessional: 'true' } : {}),
+      // 15-min hold context for /book. Empty when Redis is offline —
+      // /book degrades to today's behaviour (no timer).
+      ...(holdResponse.expiresAt ? { holdExpiresAt: holdResponse.expiresAt } : {}),
+      ...(holdResponse.isLastSlotThisWeek ? { lastSlot: '1' } : {}),
     });
     router.push(`/book?${params.toString()}`);
     onClose();
@@ -397,14 +456,31 @@ export default function ClinicBookingModal({
               </div>
               <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
                 <span className="cbm-footer-fee">{selectedFee > 0 ? formatEUR(selectedFee) : 'Gratis'}</span>
-                <button className="cbm-book-btn" onClick={handleBook}>
-                  Confirmar reserva →
+                <button className="cbm-book-btn" onClick={handleBook} disabled={holdLoading}>
+                  {holdLoading ? 'Reservando hueco…' : 'Confirmar reserva →'}
                 </button>
               </div>
             </div>
           ) : (
             <p className="cbm-footer-hint">
               {!procedureSlug ? 'Selecciona el acto médico' : 'Selecciona una fecha y horario para continuar'}
+            </p>
+          )}
+          {holdError && (
+            <p
+              role="alert"
+              style={{
+                margin: '8px 0 0',
+                padding: '8px 12px',
+                background: '#fef2f2',
+                border: '1px solid #fecaca',
+                borderRadius: 6,
+                color: '#991b1b',
+                fontSize: '0.85rem',
+                lineHeight: 1.4,
+              }}
+            >
+              {holdError}
             </p>
           )}
         </div>

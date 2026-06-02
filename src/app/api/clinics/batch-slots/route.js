@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { getPool, DB_AVAILABLE } from '@/lib/db';
 import { generateSlotsForClinic, PRICING_TIERS } from '@/lib/slot-validation';
+import { getHeldKeys } from '@/lib/slotHolds';
 
 // GET /api/clinics/batch-slots?ids=1,2,3,4,5&preview=true
 // Returns: { slots: { "1": [...], "2": [...] }, pricingTiers: [...] }
@@ -80,6 +81,19 @@ export async function GET(request) {
     } catch (err) {
       console.error('[batch-slots] DB error:', err);
     }
+  }
+
+  // Active Redis holds: merge into the booked-key set so the slot
+  // generator rotates past them exactly like a real booking.
+  // `excludeSessionId` keeps the holder's OWN held slot visible to
+  // them — so if they navigate back to the listing their picked time
+  // is still there. Best-effort: a Redis hiccup returns an empty Set.
+  try {
+    const sessionId = request.headers.get('x-mc-session') || null;
+    const heldKeys = await getHeldKeys(ids, sessionId);
+    for (const k of heldKeys) bookedKeys.add(k);
+  } catch (err) {
+    console.error('[batch-slots] held-keys lookup failed (continuing)', err?.message);
   }
 
   const result = {};

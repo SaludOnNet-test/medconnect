@@ -8,6 +8,7 @@ import { bookingsCreateSchema, formatZodError } from '@/lib/schemas';
 import { getClinicNotificationConfig, CHANNEL_LABELS } from '@/lib/clinicNotifications';
 import { sendEmail } from '@/lib/email';
 import { clinicSaleNotification } from '@/lib/emailTemplates';
+import { releaseHold, markHoldConverted } from '@/lib/slotHolds';
 import { notifyInternalWatcher } from '@/lib/internalWatcher';
 
 // Hard cap so a misbehaving admin UI can't pull every row at once. Combined
@@ -554,6 +555,18 @@ export async function POST(request) {
     const result = await pool.request()
       .input('id', sql.NVarChar(50), id)
       .query('SELECT * FROM bookings WHERE id = @id');
+
+    // 2026-06 — release the Redis slot hold (best-effort) and mark the
+    // mirror row as converted so the abandoned-cart cron skips it.
+    // Failures are logged but never block the booking response — the
+    // hold auto-expires within 15 min anyway.
+    if (providerId && slotDate && slotTime) {
+      const sessionId = request.headers.get('x-mc-session') || '';
+      Promise.all([
+        releaseHold({ clinicId: providerId, date: slotDate, time: slotTime, sessionId: sessionId || undefined }),
+        markHoldConverted({ sessionId, clinicId: providerId, slotDate, slotTime }),
+      ]).catch((e) => console.error('[bookings] slot-hold release/convert failed', e?.message));
+    }
 
     // F2 — surface the self-service token to the booking flow so the email
     // dispatcher can build the cancel/reschedule link. Returned only on POST

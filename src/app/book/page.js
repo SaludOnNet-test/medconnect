@@ -9,6 +9,8 @@ import { services, insuranceCompanies, createReferral, getConvenienceFee, REFERR
 import { trackEvent, trackConversion } from '@/lib/analytics';
 import { formatEUR } from '@/lib/format';
 import Icon from '@/components/icons/Icon';
+import { fetchWithSession } from '@/lib/sessionId';
+import { calculateExpirationTime } from '@/data/mock';
 import './book.css';
 
 // 2026-05-29 — PaymentForm is lazy-loaded so Stripe.js (~200 KB) doesn't
@@ -57,6 +59,61 @@ const ClerkProBridge = HAS_CLERK_KEYS
   ? dynamic(() => import('@/components/ClerkProBridge'), { ssr: false })
   : null;
 
+// Slim sticky countdown for the /book hold. Reuses `calculateExpirationTime`
+// from data/mock so the lock-in flow and this share the same math. Renders
+// in-line inside the header so we don't get the full LockInTimer card.
+function BookHoldBanner({ expiresAt, isLastSlot, onExpire }) {
+  const [remaining, setRemaining] = useState(() => calculateExpirationTime(expiresAt));
+  useEffect(() => {
+    const tick = () => setRemaining(calculateExpirationTime(expiresAt));
+    tick();
+    const id = setInterval(tick, 1000);
+    return () => clearInterval(id);
+  }, [expiresAt]);
+  useEffect(() => {
+    if (remaining?.isExpired && typeof onExpire === 'function') onExpire();
+  }, [remaining?.isExpired, onExpire]);
+  if (!remaining) return null;
+  const mm = String(remaining.displayMinutes ?? 0).padStart(2, '0');
+  const ss = String(remaining.displaySeconds ?? 0).padStart(2, '0');
+  const critical = !remaining.isExpired && remaining.remainingSeconds <= 60;
+  return (
+    <div
+      className="book-hold-header"
+      role="status"
+      aria-live="polite"
+      style={{
+        position: 'sticky',
+        top: 0,
+        zIndex: 50,
+        background: critical ? '#fef2f2' : '#fff7ed',
+        borderBottom: `1px solid ${critical ? '#fecaca' : '#fed7aa'}`,
+        color: critical ? '#991b1b' : '#7c2d12',
+        padding: '10px 16px',
+        fontSize: '0.9rem',
+        lineHeight: 1.45,
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        gap: '14px',
+        flexWrap: 'wrap',
+        fontFamily: 'var(--font-body)',
+        textAlign: 'center',
+      }}
+    >
+      {isLastSlot && (
+        <span>⏱ <strong>Última cita en este centro en menos de una semana</strong></span>
+      )}
+      <span>
+        Tu hueco está reservado:&nbsp;
+        <strong style={{ fontVariantNumeric: 'tabular-nums', fontSize: '1rem' }}>
+          {remaining.isExpired ? '00:00' : `${mm}:${ss}`}
+        </strong>
+      </span>
+    </div>
+  );
+}
+
 function BookContent() {
   const searchParams = useSearchParams();
   const router = useRouter();
@@ -83,6 +140,13 @@ function BookContent() {
 
   const lockInId = searchParams.get('lockInId') || '';
   const stepParam = searchParams.get('step') || '';
+
+  // 2026-06 — 15-minute slot hold context forwarded from the modal.
+  // Empty when the hold layer is offline or the URL is legacy / lock-in.
+  const holdExpiresAtParam = searchParams.get('holdExpiresAt') || '';
+  const isLastSlotParam = searchParams.get('lastSlot') === '1';
+  const tierParam = Number(searchParams.get('tier') || 0);
+  const restoredHoldIdParam = searchParams.get('restoredHoldId') || '';
 
   // Forwarded from search-v2 → ClinicBookingModal: the user already declared
   // their coverage situation by picking a filter, so pre-select the toggle
@@ -254,6 +318,208 @@ function BookContent() {
   const [formErrorHint, setFormErrorHint] = useState('');
   const [submitAttempted, setSubmitAttempted] = useState(false);
 
+  // 15-minute slot hold — countdown + auto-extend + pre-flight + release.
+  // `holdExpiresAt` starts from the URL param the modal forwarded and is
+  // updated to a fresh ISO when the payment step auto-extends. `null`
+  // means we're in fallback mode (legacy URL, lock-in flow, or Redis
+  // offline) and no header banner is rendered.
+  const [holdExpiresAt, setHoldExpiresAt] = useState(holdExpiresAtParam || null);
+  const [isLastSlot, setIsLastSlot] = useState(isLastSlotParam);
+  const [holdExpired, setHoldExpired] = useState(false);
+  // Capture the (clinicId, date, time) we acquired the hold for. We
+  // need this verbatim for PATCH (extend) and DELETE (release), and to
+  // build the redirect target when the timer hits zero.
+  const holdSlotRef = useRef({
+    clinicId: Number(providerId) || null,
+    date,
+    time,
+  });
+
+  // ── Recovery-email restoration ───────────────────────────────────
+  // When the patient clicks the "Recupera tu hueco" CTA in an
+  // abandoned-cart email we land on /book with `?restoredHoldId=`.
+  // Pull the persisted form snapshot, pre-fill the fields, and
+  // re-acquire a fresh 15-min hold for the same (clinic, date, time)
+  // so the patient picks up exactly where they left off.
+  useEffect(() => {
+    if (!restoredHoldIdParam || lockInId) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await fetchWithSession(`/api/slot-holds/state/${encodeURIComponent(restoredHoldIdParam)}`);
+        if (cancelled) return;
+        if (!res.ok) return; // 404 / 410 / 503 — silently skip pre-fill
+        const j = await res.json();
+        if (!j?.ok || !j?.slot) return;
+        const slot = j.slot;
+        // Hydrate the form fields from the snapshot.
+        if (j.snapshot && typeof j.snapshot === 'object') {
+          setForm((prev) => ({
+            ...prev,
+            name:        j.snapshot.name        || prev.name,
+            surname:     j.snapshot.surname     || prev.surname,
+            email:       j.snapshot.email       || prev.email,
+            age:         j.snapshot.age         || prev.age,
+            gender:      j.snapshot.gender      || prev.gender,
+            dateOfBirth: j.snapshot.dateOfBirth || prev.dateOfBirth,
+            nationalId:  j.snapshot.nationalId  || prev.nationalId,
+            phone:       j.snapshot.phone       || prev.phone,
+          }));
+          if (typeof j.snapshot.hasInsurance === 'boolean') setHasInsurance(j.snapshot.hasInsurance);
+          if (typeof j.snapshot.insuranceCompany === 'string') setSelectedInsurance(j.snapshot.insuranceCompany);
+        }
+        // Acquire a fresh 15-min hold for the same slot. If the slot
+        // is now taken (409) we fall back to no-banner mode — the
+        // pre-fill stays useful even without the timer.
+        try {
+          const ho = await fetchWithSession('/api/slot-holds', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              clinicId: slot.clinicId,
+              providerName: slot.clinicName,
+              date: slot.date,
+              time: slot.time,
+              procedureSlug: slot.procedureSlug,
+              procedureName: slot.procedureName,
+              procedurePrice: slot.procedurePrice,
+              tier: slot.tier,
+              fee: slot.fee,
+              feeLabel: slot.feeLabel,
+              hasInsurance: slot.hasInsurance,
+              insuranceCompany: slot.insuranceCompany,
+            }),
+          });
+          if (ho.ok) {
+            const data = await ho.json();
+            if (data?.expiresAt) setHoldExpiresAt(data.expiresAt);
+            if (data?.isLastSlotThisWeek) setIsLastSlot(true);
+          }
+        } catch {}
+      } catch (err) {
+        console.error('[book] restored-hold hydrate failed', err?.message);
+      }
+    })();
+    return () => { cancelled = true; };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [restoredHoldIdParam, lockInId]);
+
+  // ── Pre-flight hold check ────────────────────────────────────────
+  // Runs once on mount when the URL has `holdExpiresAt`. Confirms the
+  // session still owns the slot in Redis (or that Redis is offline, in
+  // which case we trust the URL). If ownership is gone, expire the
+  // banner so the LockInTimer fires `onExpire` and we redirect.
+  useEffect(() => {
+    if (!holdExpiresAtParam || lockInId) return; // lock-in flow has its own timer
+    const { clinicId, date: d, time: t } = holdSlotRef.current;
+    if (!clinicId || !d || !t) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await fetchWithSession(
+          `/api/slot-holds?clinicId=${encodeURIComponent(clinicId)}&date=${encodeURIComponent(d)}&time=${encodeURIComponent(t)}`,
+        );
+        if (cancelled || !res.ok) return;
+        const j = await res.json();
+        if (j?.ok && j?.ownedByThisSession === false) {
+          setHoldExpiresAt(null);
+          setHoldExpired(true);
+        } else if (j?.ok && j?.expiresAt) {
+          // Server-derived expiry is more authoritative than the URL.
+          setHoldExpiresAt(j.expiresAt);
+        }
+      } catch {}
+    })();
+    return () => { cancelled = true; };
+  }, [holdExpiresAtParam, lockInId]);
+
+  // ── beforeunload release ─────────────────────────────────────────
+  // Best-effort: if the patient closes the tab on /book, free the slot
+  // for the next visitor instead of waiting 15 minutes. `sendBeacon`
+  // because async fetch isn't allowed during unload.
+  useEffect(() => {
+    if (lockInId) return; // lock-in flow uses its own state machine
+    const onBeforeUnload = () => {
+      const { clinicId, date: d, time: t } = holdSlotRef.current;
+      if (!clinicId || !d || !t) return;
+      // Skip release once we've reached the success step — the booking
+      // server already cleared the Redis key.
+      if (step === 'success') return;
+      try {
+        const sid = (typeof window !== 'undefined' && window.localStorage)
+          ? window.localStorage.getItem('mc_sid') : null;
+        const url = `/api/slot-holds?clinicId=${encodeURIComponent(clinicId)}&date=${encodeURIComponent(d)}&time=${encodeURIComponent(t)}`;
+        const blob = new Blob(
+          [JSON.stringify({ clinicId, date: d, time: t, sessionId: sid })],
+          { type: 'application/json' },
+        );
+        // Most browsers don't expose method override on sendBeacon, so
+        // we POST a tiny payload to the DELETE endpoint via a custom
+        // URL param. The route accepts both methods.
+        navigator.sendBeacon?.(`${url}&_method=DELETE`, blob);
+      } catch {}
+    };
+    window.addEventListener('beforeunload', onBeforeUnload);
+    return () => window.removeEventListener('beforeunload', onBeforeUnload);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [lockInId]);
+
+  // ── Auto-extend on payment step ──────────────────────────────────
+  // Stripe round-trips can take 10-30 s. We extend the hold to a fresh
+  // 15-min window the moment the user enters the payment step.
+  const [didExtendForPayment, setDidExtendForPayment] = useState(false);
+  // Toast surfaced when the hold expires — drives the auto-redirect.
+  const [expiredToast, setExpiredToast] = useState('');
+
+  const handleHoldExpire = useCallback(() => {
+    setHoldExpired(true);
+    setExpiredToast('Tu reserva expiró. Te llevamos de vuelta a la búsqueda.');
+    // Small grace period so the toast is visible.
+    setTimeout(() => {
+      const params = new URLSearchParams();
+      if (searchParams.get('city'))         params.set('city', searchParams.get('city'));
+      if (searchParams.get('specialtySlug')) params.set('specialtySlug', searchParams.get('specialtySlug'));
+      router.push(`/search-v2${params.toString() ? `?${params.toString()}` : ''}`);
+    }, 1800);
+  }, [router, searchParams]);
+
+  // ── Sticky header banner — countdown + "última cita" ──────────────
+  // Rendered above every /book step (form + payment) when the patient
+  // arrived from the modal with a Redis-backed hold. Skips render in
+  // the lock-in flow (that has its own 60-min timer) and in the
+  // legacy-URL fallback (no holdExpiresAt → nothing to count down).
+  const renderHoldHeader = () => {
+    if (!holdExpiresAt || holdExpired || lockInId) return null;
+    return <BookHoldBanner expiresAt={holdExpiresAt} isLastSlot={isLastSlot} onExpire={handleHoldExpire} />;
+  };
+
+  // Toast for the post-expiration redirect grace window.
+  const renderExpiredToast = () => {
+    if (!expiredToast) return null;
+    return (
+      <div
+        role="alert"
+        style={{
+          position: 'fixed',
+          top: 16,
+          left: '50%',
+          transform: 'translateX(-50%)',
+          zIndex: 200,
+          background: '#fef2f2',
+          border: '1px solid #fecaca',
+          color: '#991b1b',
+          padding: '10px 16px',
+          borderRadius: 8,
+          fontSize: '0.9rem',
+          maxWidth: 360,
+          boxShadow: '0 8px 24px rgba(0,0,0,0.12)',
+        }}
+      >
+        {expiredToast}
+      </div>
+    );
+  };
+
   // 2026-06-01 — patient identity data collected AFTER payment.
   // The pre-payment form was reduced to 4 fields to cut abandonment; DOB
   // and DNI are now collected on the success page. `identityForm` holds
@@ -354,6 +620,55 @@ function BookContent() {
   const handleProChange = (field, value) => {
     setProData((prev) => ({ ...prev, [field]: value }));
   };
+
+  // ── Payment-step auto-extend ──────────────────────────────────────
+  // The first time the patient reaches the payment step we PATCH the
+  // hold with extendMinutes=15 so a slow Stripe round-trip doesn't kill
+  // it mid-card. Idempotent at the route level — repeat calls just
+  // refresh the TTL, capped at 30 min total by the server.
+  useEffect(() => {
+    if (step !== 'payment' || didExtendForPayment || !holdExpiresAt || lockInId) return;
+    const { clinicId, date: d, time: t } = holdSlotRef.current;
+    if (!clinicId || !d || !t) return;
+    setDidExtendForPayment(true);
+    fetchWithSession('/api/slot-holds', {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ clinicId, date: d, time: t, extendMinutes: 15 }),
+    })
+      .then((res) => res.ok ? res.json() : null)
+      .then((j) => { if (j?.expiresAt) setHoldExpiresAt(j.expiresAt); })
+      .catch(() => {});
+  }, [step, didExtendForPayment, holdExpiresAt, lockInId]);
+
+  // ── Form snapshot patcher ─────────────────────────────────────────
+  // Every time the patient changes a field we debounce-PATCH the slot
+  // hold row with the latest snapshot. The abandoned-cart cron reads
+  // `form_snapshot` + `patient_email` to send a recovery email if the
+  // hold expires without conversion. No-op when no Redis-backed hold
+  // is active (lock-in flow, legacy URL).
+  useEffect(() => {
+    if (!holdExpiresAt || lockInId) return;
+    const { clinicId, date: d, time: t } = holdSlotRef.current;
+    if (!clinicId || !d || !t) return;
+    const handle = setTimeout(() => {
+      fetchWithSession('/api/slot-holds', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          clinicId, date: d, time: t,
+          formSnapshot: {
+            ...form,
+            hasInsurance,
+            insuranceCompany: selectedInsurance || null,
+            isReferral,
+          },
+        }),
+      }).catch(() => {});
+    }, 500);
+    return () => clearTimeout(handle);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [form, hasInsurance, selectedInsurance, isReferral]);
 
   const activeFee = fee;
 
@@ -582,7 +897,11 @@ function BookContent() {
     let tier = null;
     let selfServiceToken = null;
     try {
-      const r = await fetch('/api/bookings', {
+      // 2026-06 — fetchWithSession attaches `x-mc-session` so the
+      // server can release the matching slot hold on successful insert
+      // (see slotHolds.releaseHold + markHoldConverted at the end of
+      // /api/bookings POST).
+      const r = await fetchWithSession('/api/bookings', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -890,6 +1209,8 @@ function BookContent() {
     return (
       <>
         <Header />
+        {renderHoldHeader()}
+        {renderExpiredToast()}
         <main className="book-page">
           <div className="book-container">
             <div className="book-header">
@@ -1252,6 +1573,8 @@ function BookContent() {
   return (
     <>
       <Header />
+      {renderHoldHeader()}
+      {renderExpiredToast()}
       {ClerkProBridge && <ClerkProBridge onSignedInPro={handleClerkPro} />}
       <main className="book-page">
         <div className="book-container">
