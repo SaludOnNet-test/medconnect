@@ -198,7 +198,14 @@ function pickTimeFromSchedules(clinicId, tier, salt, schedules, dbDay, period) {
 // ----- main -------------------------------------------------------------------
 
 // Picks up to 2 slots (1 morning + 1 afternoon) for a tier.
-function pickSlotsForTier(clinicId, schedules, tier, earliestSellable, hasDoctoralia, city) {
+//
+// `bookedKeys` (Set<string>) — keys of `${clinicId}|${date}|${time}` for
+// every booking that already holds a slot. The picker walks past any
+// candidate whose key is in the set, so a real booking is invisible to
+// the next viewer and the picker rotates to the next deterministic
+// candidate — that's the "open a fresh hueco when one is booked"
+// requirement from the 2026-06 listing review.
+function pickSlotsForTier(clinicId, schedules, tier, earliestSellable, hasDoctoralia, city, bookedKeys) {
   const now = earliestSellable; // already buffered
   const tierStart = startOfDay(addDaysUTC(now, tier.dayMin));
   const tierStartUsable = tierStart < earliestSellable ? startOfDay(earliestSellable) : tierStart;
@@ -210,9 +217,22 @@ function pickSlotsForTier(clinicId, schedules, tier, earliestSellable, hasDoctor
   const slots = [];
 
   const periods = ['morning', 'afternoon'];
+  // Per-clinic day offsets. Previously this was a constant
+  // [floor(len * 0.25), floor(len * 0.65)] for every clinic — every
+  // clinic in a tier landed on the same one or two days, which is what
+  // the 2026-06 review flagged as "siempre los mismos días". We seed the
+  // morning + afternoon starting offsets per (clinicId, tier, period) so
+  // different clinics spread across the full tier window
+  // deterministically. Same clinic + same tier still returns the same
+  // date, so the page stays stable for a returning patient.
+  // Salt 17 / 23 are arbitrary distinct integers — seededInt expects a
+  // numeric salt; passing a string poisons the seed via NaN and every
+  // clinic collapses to the same offset. Salts only need to differ
+  // between morning + afternoon (and across tiers, which the `tier.tier`
+  // input already gives us).
   const dayOffsets = [
-    Math.floor(businessDays.length * 0.25),
-    Math.floor(businessDays.length * 0.65),
+    seededInt(clinicId, tier.tier, 17, businessDays.length),
+    seededInt(clinicId, tier.tier, 23, businessDays.length),
   ];
 
   for (let i = 0; i < periods.length; i++) {
@@ -253,6 +273,9 @@ function pickSlotsForTier(clinicId, schedules, tier, earliestSellable, hasDoctor
       slotDateTime.setHours(th, tm, 0, 0);
       if (slotDateTime < earliestSellable) continue;
 
+      // skip slots that are already booked — see fn-doc comment.
+      if (bookedKeys && bookedKeys.has(`${clinicId}|${formatDate(day)}|${time}`)) continue;
+
       pickedDay = day;
       pickedTime = time;
       break;
@@ -286,12 +309,18 @@ function pickSlotsForTier(clinicId, schedules, tier, earliestSellable, hasDoctor
 export function generateSlotsForClinic(clinicId, schedules, options = {}) {
   const now = options.now || new Date();
   const city = options.city || null;
+  // `options.bookedKeys` is an optional Set<string> of
+  // `${clinicId}|${date}|${time}` keys for slots already taken by a
+  // confirmed/pending booking. Pre-filtered upstream in batch-slots so
+  // we don't query the DB per clinic. When omitted, no booking-aware
+  // rotation happens — slot picks are purely deterministic.
+  const bookedKeys = options.bookedKeys || null;
   const earliestSellable = applyBusinessHourBuffer(now, SLOT_RULES.BUFFER_BUSINESS_HOURS, city);
   const hasDoctoralia = Array.isArray(schedules) && schedules.length > 0;
 
   const allSlots = [];
   for (const tier of PRICING_TIERS) {
-    const tierSlots = pickSlotsForTier(clinicId, schedules || [], tier, earliestSellable, hasDoctoralia, city);
+    const tierSlots = pickSlotsForTier(clinicId, schedules || [], tier, earliestSellable, hasDoctoralia, city, bookedKeys);
     allSlots.push(...tierSlots);
   }
 
