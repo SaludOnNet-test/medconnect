@@ -9,6 +9,25 @@ import ClinicCardV2 from '@/components/ClinicCardV2';
 import ClinicBookingModal from '@/components/ClinicBookingModal';
 import { insuranceCompanies } from '@/data/mock';
 import { normalizeText } from '@/lib/text';
+import { PARTNER_CLINIC_IDS } from '@/lib/partnerClinics';
+
+// Caps per (specialty, city) search — how many non-partner clinics may
+// surface a slot in each tier window. Creates the scarcity feeling
+// requested in 2026-06. Partner clinics (Cea Bermúdez and any others in
+// PARTNER_CLINIC_IDS) bypass the cap entirely so they always show every
+// tier they have.
+const TIER_CAPS = { 1: 3, 2: 2, 3: 4, 4: 8 };
+
+// Tier-window filter chip definitions. The user picks one or more
+// windows; cards then only show slot chips whose tier is in the set.
+// dayMin/dayMax are documentation only — the actual mapping happens
+// via slot.tier in the slot generator.
+const TIER_CHIPS = [
+  { tier: 1, label: 'Esta semana' },
+  { tier: 2, label: '8-15 días' },
+  { tier: 3, label: '16-30 días' },
+  { tier: 4, label: 'Más adelante' },
+];
 
 // 2026-04-28 — Clerk auto-detection pulled. Deep-linking with
 // `?asProfessional=true` still flips the booking-modal flag, and once we
@@ -51,6 +70,14 @@ function SearchV2Content() {
   const [sortBy, setSortBy]                   = useState('rating');
   const [showMap, setShowMap]                 = useState(false);
   const [filtersOpen, setFiltersOpen]         = useState(false);
+  // Tier window filter (multi-select). Empty Set = no filter (show all).
+  // URL hydrates from `tier=1,2`; mirrors back on toggle so a shared link
+  // preserves the patient's "esta semana" choice. Set semantics are easier
+  // to .has() check against than an array.
+  const [tierFilter, setTierFilter] = useState(() => {
+    const raw = searchParams.get('tier') || '';
+    return new Set(raw.split(',').map((s) => parseInt(s, 10)).filter((n) => n >= 1 && n <= 4));
+  });
 
   // Desktop (>900px) opens the map by default; mobile keeps it hidden.
   useEffect(() => {
@@ -225,6 +252,72 @@ function SearchV2Content() {
     return list;
   }, [baseProviders, insuranceFilter, sortBy]);
 
+  // Per-clinic tier visibility map after applying the user's tier filter
+  // AND the per-tier caps. The map is keyed by clinic id; the value is a
+  // Set of tier numbers that clinic is allowed to surface on this view.
+  // A clinic absent from the map shows no tiers and gets filtered out
+  // of `cappedProviders` below.
+  //
+  // Cap walk order: providers are already partner-sorted (partner first,
+  // then rating/reviews). We iterate and consume the cap budget per
+  // tier; partner clinics bypass the cap entirely so Cea Bermúdez and
+  // any other entry in PARTNER_CLINIC_IDS always keep every tier.
+  const { visibleTiersByClinic, cappedProviders } = useMemo(() => {
+    const userTiers = tierFilter.size > 0 ? tierFilter : null;
+    const budget = { 1: TIER_CAPS[1], 2: TIER_CAPS[2], 3: TIER_CAPS[3], 4: TIER_CAPS[4] };
+    const tiersByClinic = new Map();
+    const result = [];
+    for (const p of displayProviders) {
+      const clinicSlots = slotsMap[p.id];
+      // Slots haven't loaded yet → assume the clinic has all 4 tiers so
+      // we don't accidentally hide it during the skeleton flash. Once
+      // batch-slots resolves the memo re-runs with the real tier bag.
+      const slotTiers = clinicSlots === undefined
+        ? new Set([1, 2, 3, 4])
+        : new Set((clinicSlots || []).filter((s) => s.available).map((s) => s.tier));
+      // Intersect with user's chosen tiers if any are selected.
+      const candidateTiers = userTiers
+        ? new Set([...slotTiers].filter((t) => userTiers.has(t)))
+        : slotTiers;
+      const isPartner = !!p.isPartner || PARTNER_CLINIC_IDS.has(p.id);
+      // Partners bypass cap. Non-partners consume budget tier-by-tier.
+      const allowedTiers = new Set();
+      for (const t of candidateTiers) {
+        if (isPartner) {
+          allowedTiers.add(t);
+        } else if (budget[t] > 0) {
+          allowedTiers.add(t);
+          budget[t] -= 1;
+        }
+      }
+      if (allowedTiers.size === 0) continue; // hide clinic entirely
+      tiersByClinic.set(p.id, allowedTiers);
+      result.push(p);
+    }
+    return { visibleTiersByClinic: tiersByClinic, cappedProviders: result };
+  }, [displayProviders, slotsMap, tierFilter]);
+
+  // Mirror tier filter back to URL so a shared link preserves it.
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const url = new URL(window.location.href);
+    if (tierFilter.size > 0 && tierFilter.size < 4) {
+      url.searchParams.set('tier', [...tierFilter].sort().join(','));
+    } else {
+      url.searchParams.delete('tier');
+    }
+    window.history.replaceState({}, '', url.toString());
+  }, [tierFilter]);
+
+  const toggleTier = (tier) => {
+    setTierFilter((prev) => {
+      const next = new Set(prev);
+      if (next.has(tier)) next.delete(tier);
+      else next.add(tier);
+      return next;
+    });
+  };
+
   // Load real slots for every card whenever the list changes.
   // We no longer pre-fill with deterministic fakes — cards show the
   // shimmer skeleton (built into ClinicCardV2 when slots === undefined)
@@ -323,7 +416,7 @@ function SearchV2Content() {
               ⚙ Filtros
             </button>
             <span className="sv2-count">
-              <strong>{dbClinics ? loadedCount : displayProviders.length}</strong>
+              <strong>{cappedProviders.length}</strong>
               {totalCount > 0 && dbClinics ? ` de ${totalCount}` : ''} centros
             </span>
             <button
@@ -401,6 +494,26 @@ function SearchV2Content() {
             </div>
 
             <div className="sv2-filter-group">
+              <label className="sv2-filter-label">Disponibilidad</label>
+              <div className="sv2-tier-chips" role="group" aria-label="Filtrar por ventana de disponibilidad">
+                {TIER_CHIPS.map(({ tier, label }) => {
+                  const active = tierFilter.has(tier);
+                  return (
+                    <button
+                      key={tier}
+                      type="button"
+                      aria-pressed={active}
+                      className={`sv2-tier-chip ${active ? 'sv2-tier-chip--active' : ''}`}
+                      onClick={() => toggleTier(tier)}
+                    >
+                      {label}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
+            <div className="sv2-filter-group">
               <label className="sv2-filter-label">Valoración</label>
               <div className="sv2-rating-chips">
                 {[{ v: 0, label: 'Todos' }, { v: 3, label: '★ 3+' }, { v: 4, label: '★ 4+' }, { v: 4.5, label: '★ 4.5+' }].map(({ v, label }) => (
@@ -444,8 +557,8 @@ function SearchV2Content() {
           {/* Left: results */}
           <div className="sv2-left">
             <div className="sv2-results">
-              {displayProviders.length > 0 ? (
-                displayProviders.map((provider, i) => (
+              {cappedProviders.length > 0 ? (
+                cappedProviders.map((provider, i) => (
                   <ClinicCardV2
                     key={provider.id}
                     provider={provider}
@@ -456,6 +569,7 @@ function SearchV2Content() {
                     highlighted={highlightedId === provider.id}
                     onOpenModal={(p, slot) => { setModalProvider(p); setModalInitialSlot(slot ?? null); }}
                     slots={slotsMap[provider.id]}
+                    visibleTiers={visibleTiersByClinic.get(provider.id) || null}
                   />
                 ))
               ) : isLoading ? (
@@ -487,7 +601,7 @@ function SearchV2Content() {
               <div className="sv2-map-wrap">
                 <ClinicMap
                   key={cityFilter || cityParam || 'all'}
-                  providers={displayProviders.filter((p) => p.lat && p.lng)}
+                  providers={cappedProviders.filter((p) => p.lat && p.lng)}
                   highlightedId={highlightedId}
                   city={cityFilter || cityParam}
                   filterSignature={`${specialtySlug}|${procedureSlug}|${ratingFilter}|${insuranceFilter}`}

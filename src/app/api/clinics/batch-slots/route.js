@@ -22,6 +22,12 @@ export async function GET(request) {
   const schedulesByClinic = {};
   const cityByClinic = {};
   ids.forEach((id) => { schedulesByClinic[id] = []; cityByClinic[id] = null; });
+  // bookedKeys: union Set across every clinic in this batch. The
+  // generator filters its own clinic out by checking `${clinicId}|…`
+  // so leaving them all in one set is correct and saves one allocation
+  // per clinic. Pre-filtered to status IN ('confirmed','pending',
+  // 'awaiting_voucher') and slot_date >= today.
+  const bookedKeys = new Set();
 
   if (DB_AVAILABLE) {
     try {
@@ -47,6 +53,30 @@ export async function GET(request) {
       for (const row of cityResult.recordset) {
         cityByClinic[row.id] = row.city || null;
       }
+      // Real-booking lookup. Any confirmed/pending/awaiting_voucher
+      // booking against a (clinic, date, time) tuple is invisible to the
+      // listing — the slot generator rotates to the next deterministic
+      // candidate in the same tier window. Cheap single query, scoped to
+      // the batch + future dates. Best-effort: if the query fails the
+      // generator falls back to "no bookings known" and may surface a
+      // slot that's actually taken (the booking modal will then re-check
+      // when the patient clicks through).
+      try {
+        const today = new Date().toISOString().slice(0, 10);
+        const bookingsResult = await pool.request().query(
+          `SELECT provider_id, slot_date, slot_time
+           FROM bookings
+           WHERE provider_id IN (${idList})
+             AND status IN ('confirmed','pending','awaiting_voucher')
+             AND slot_date >= '${today}'`
+        );
+        for (const row of bookingsResult.recordset) {
+          if (!row.provider_id || !row.slot_date || !row.slot_time) continue;
+          bookedKeys.add(`${row.provider_id}|${row.slot_date}|${row.slot_time}`);
+        }
+      } catch (bErr) {
+        console.error('[batch-slots] bookings lookup failed (continuing)', bErr?.message);
+      }
     } catch (err) {
       console.error('[batch-slots] DB error:', err);
     }
@@ -54,7 +84,7 @@ export async function GET(request) {
 
   const result = {};
   for (const id of ids) {
-    const { slots } = generateSlotsForClinic(id, schedulesByClinic[id], { city: cityByClinic[id] });
+    const { slots } = generateSlotsForClinic(id, schedulesByClinic[id], { city: cityByClinic[id], bookedKeys });
     // For preview, return only the cheapest 4 slots (1 per tier when present)
     if (preview) {
       const byTier = {};

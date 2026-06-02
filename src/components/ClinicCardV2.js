@@ -23,15 +23,37 @@ function formatSlotDate(dateStr) {
 //   undefined  → loading (show skeleton shimmer)
 //   []         → no availability
 //   [{...}]    → show chips
+//
+// visibleTiers prop:
+//   null / undefined → show every tier the clinic has (default).
+//   Set([1,2])       → hide slot chips outside the selected tier set,
+//                      so the patient's tier-filter chip is reflected
+//                      directly on the card.
 export default function ClinicCardV2({
   provider, index = 0, serviceId, basePrice = 0,
   isSinSeguro = false, onOpenModal, highlighted = false,
-  slots,
+  slots, visibleTiers = null,
 }) {
   const avatarColor = AVATAR_COLORS[index % AVATAR_COLORS.length];
-  const nextSlots = slots === undefined
+  // Pipeline: available → filter by tier (if visibleTiers passed) → cap at 3.
+  // Doing the tier filter BEFORE the cap means picking 3 tier-1 chips when
+  // the user only wants this-week slots, not 3 mixed-tier chips that
+  // happened to come first.
+  const availableSlots = slots === undefined
     ? undefined
-    : (slots || []).filter((s) => s.available).slice(0, 3);
+    : (slots || []).filter((s) => s.available);
+  const tierFilteredSlots = availableSlots === undefined
+    ? undefined
+    : (visibleTiers && visibleTiers.size > 0
+        ? availableSlots.filter((s) => visibleTiers.has(s.tier))
+        : availableSlots);
+  const nextSlots = tierFilteredSlots === undefined
+    ? undefined
+    : tierFilteredSlots.slice(0, 3);
+  // "Última cita" scarcity banner: shown when the card surfaces exactly
+  // one slot across the visible tiers — for the patient that IS the last
+  // cita available at this clinic on the current view.
+  const isLastSlot = tierFilteredSlots && tierFilteredSlots.length === 1;
 
   return (
     <div className={`cv2-card ${highlighted ? 'cv2-card--highlighted' : ''}`} id={`clinic-card-${provider.id}`}>
@@ -82,6 +104,11 @@ export default function ClinicCardV2({
         </div>
       ) : nextSlots.length > 0 ? (
         <div className="cv2-slots">
+          {isLastSlot && (
+            <div className="cv2-last-slot-banner">
+              ⏱ <strong>Última cita disponible</strong> para este centro · resérvala rápido
+            </div>
+          )}
           <span className="cv2-slots-label">
             Próximas citas
             {(() => {

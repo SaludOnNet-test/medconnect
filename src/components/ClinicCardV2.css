@@ -123,35 +123,54 @@
   margin-top: 8px;
 }
 
+/* Decorative labels — NOT buttons. The previous pill chrome (solid bg
+   + visible border + bold weight + rounded corners) read as "click me"
+   and produced a noticeable dead-click rate on Clarity sessions
+   (2026-06 review). Now rendered as a flat horizontal list of bullets
+   with explicit `cursor: default`. */
 .cv2-tag {
   font-family: var(--font-body);
-  font-size: var(--text-xs);
-  font-weight: 600;
-  padding: 3px 10px;
-  border-radius: var(--radius-pill);
-  background: var(--bone-200);
+  font-size: var(--text-2xs);
+  font-weight: 500;
+  padding: 2px 0;
   color: var(--fg-muted);
-  border: 1px solid var(--border);
+  background: transparent;
+  border: 0;
+  border-radius: 0;
   white-space: nowrap;
+  cursor: default;
 }
-
-.cv2-tag--more {
-  background: var(--clinical-100);
-  color: var(--clinical-700);
-  border-color: var(--clinical-300);
+.cv2-tag + .cv2-tag::before {
+  content: '·';
+  margin: 0 6px;
+  color: var(--fg-subtle);
+  font-weight: 400;
 }
-
-.cv2-tag--green {
-  background: var(--sage-100);
-  color: var(--sage-700);
-  border-color: var(--sage-200);
-}
+.cv2-tag--more { color: var(--clinical-700); }
+.cv2-tag--green { color: var(--sage-700); font-weight: 600; }
 
 /* ── Slot chips ───────────────────────────────────────────────────────── */
 .cv2-slots {
   border-top: 1px solid var(--border);
   padding-top: var(--space-3);
 }
+
+/* "Última cita disponible" scarcity banner. Shown only when the card
+   has exactly one future slot — see ClinicCardV2.js's `isLastSlot`.
+   Amber palette so it reads as urgency without crossing into alarm. */
+.cv2-last-slot-banner {
+  background: #fff7ed;
+  border: 1px solid #fed7aa;
+  color: #9a3412;
+  font-family: var(--font-body);
+  font-size: var(--text-xs);
+  font-weight: 500;
+  border-radius: 6px;
+  padding: 6px 10px;
+  margin-bottom: var(--space-2);
+  line-height: 1.4;
+}
+.cv2-last-slot-banner strong { color: #7c2d12; font-weight: 700; }
 
 .cv2-slots-label {
   font-family: var(--font-body);

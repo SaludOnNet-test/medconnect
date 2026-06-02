@@ -11,6 +11,11 @@ export async function GET(request, { params }) {
 
   let schedules = [];
   let city = null;
+  // Booking-aware slot rotation — mirror the batch-slots route. Any
+  // confirmed/pending booking on a (date, time) for this clinic is
+  // invisible to the listing; the generator rotates to the next
+  // deterministic candidate within the same tier window.
+  const bookedKeys = new Set();
   if (DB_AVAILABLE) {
     try {
       const result = await query(
@@ -39,9 +44,29 @@ export async function GET(request, { params }) {
     } catch (err) {
       console.error('available-slots city lookup error:', err);
     }
+    try {
+      const today = new Date().toISOString().slice(0, 10);
+      const bookingsResult = await query(
+        `SELECT slot_date, slot_time
+         FROM bookings
+         WHERE provider_id = @clinicId
+           AND status IN ('confirmed','pending','awaiting_voucher')
+           AND slot_date >= @today`,
+        {
+          clinicId: { type: sql.Int, value: clinicId },
+          today: { type: sql.NVarChar(20), value: today },
+        }
+      );
+      for (const row of bookingsResult.recordset) {
+        if (!row.slot_date || !row.slot_time) continue;
+        bookedKeys.add(`${clinicId}|${row.slot_date}|${row.slot_time}`);
+      }
+    } catch (err) {
+      console.error('available-slots bookings lookup error (continuing):', err?.message);
+    }
   }
 
-  const { slots, rule, earliestSellable } = generateSlotsForClinic(clinicId, schedules, { city });
+  const { slots, rule, earliestSellable } = generateSlotsForClinic(clinicId, schedules, { city, bookedKeys });
 
   return NextResponse.json({
     slots,

@@ -272,6 +272,66 @@
   color: var(--bone-100);
 }
 
+/* ── Especialistas hero "pills" — flat list, NOT buttons ───────────────
+   The previous look (rounded chips, accent border-left, bold weight)
+   was misread as clickable by patients on Clarity (2026-06 review).
+   Now rendered as a horizontal row of icon+label cells with
+   `cursor: default` so the affordance is purely informational. */
+.esp-hero__pills {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem 1.2rem;
+  font-size: 0.85rem;
+  color: var(--ink-900);
+  margin-top: var(--space-2);
+}
+.esp-hero__pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  background: transparent;
+  border: 0;
+  border-radius: 0;
+  padding: 0;
+  font-weight: 500;
+  cursor: default;
+}
+.esp-hero__pill-icon {
+  font-size: 1em;
+  line-height: 1;
+}
+
+/* ── Tier-window filter chips (Disponibilidad: Esta semana / 8-15d / …) */
+.sv2-tier-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.sv2-tier-chip {
+  padding: 6px 12px;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-pill);
+  background: var(--bone-50);
+  font-family: var(--font-body);
+  font-size: var(--text-xs);
+  font-weight: 600;
+  color: var(--fg);
+  cursor: pointer;
+  transition: border-color var(--duration-micro) var(--ease),
+              background var(--duration-micro) var(--ease),
+              color var(--duration-micro) var(--ease);
+  white-space: nowrap;
+}
+.sv2-tier-chip:hover {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+.sv2-tier-chip--active {
+  background: var(--ink-1000);
+  border-color: var(--ink-1000);
+  color: var(--bone-100);
+}
+
 /* ── Results count ────────────────────────────────────────────────────── */
 .sv2-count {
   font-family: var(--font-body);
@@ -461,13 +521,10 @@
     margin-bottom: 0.75rem !important;
   }
   .esp-hero__pills {
-    gap: 0.35rem !important;
+    gap: 0.35rem 0.9rem !important;
     font-size: 0.78rem !important;
   }
-  .esp-hero__pill {
-    padding: 0.3rem 0.7rem 0.3rem 0.5rem !important;
-  }
-  /* Hide the 2 less-distinctive pills on mobile (centros verificados, con/sin
+  /* Hide the 2 less-distinctive items on mobile (centros verificados, con/sin
      seguro) — they take a second line on small screens and aren't decisive
      for clicking. Keep "Sin lista de espera" + "Cita en 24-72 h" which carry
      the value prop. */

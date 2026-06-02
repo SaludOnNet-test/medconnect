@@ -28,7 +28,21 @@ import ClinicBookingModal from '@/components/ClinicBookingModal';
 import MobileStickyBar from '@/components/MobileStickyBar';
 import Icon from '@/components/icons/Icon';
 import { insuranceCompanies } from '@/data/mock';
+import { PARTNER_CLINIC_IDS } from '@/lib/partnerClinics';
 import '../../../search-v2/search-v2.css';
+
+// Per-(specialty, city) tier caps: how many non-partner clinics can
+// surface a slot in each tier window. Same caps as /search-v2 so the
+// scarcity feel is consistent across both listings. Partners
+// (PARTNER_CLINIC_IDS) bypass the cap.
+const TIER_CAPS = { 1: 3, 2: 2, 3: 4, 4: 8 };
+
+const TIER_CHIPS = [
+  { tier: 1, label: 'Esta semana' },
+  { tier: 2, label: '8-15 días' },
+  { tier: 3, label: '16-30 días' },
+  { tier: 4, label: 'Más adelante' },
+];
 
 // ssr:false so Leaflet (which touches window) never participates in SSG.
 const ClinicMap = dynamic(() => import('@/components/ClinicMap'), { ssr: false });
@@ -47,6 +61,11 @@ export default function SearchResults({ specialtySlug, city }) {
   const [insuranceFilter, setInsuranceFilter] = useState('');
   const [ratingFilter, setRatingFilter]       = useState(0);
   const [sortBy, setSortBy]                   = useState('rating');
+  // Tier window filter (multi-select). Empty Set = no filter (show all).
+  // SEO landings don't currently URL-sync this — they keep the patient
+  // on the same page after toggling. Add ?tier= sync later if it becomes
+  // a shared-link use case.
+  const [tierFilter, setTierFilter] = useState(new Set());
   // Desktop opens the map by default, mobile keeps it hidden until toggled.
   const [showMap, setShowMap] = useState(false);
   useEffect(() => {
@@ -132,6 +151,43 @@ export default function SearchResults({ specialtySlug, city }) {
     return list;
   }, [clinics, insuranceFilter, sortBy]);
 
+  // Tier filter + cap pass — mirrors /search-v2. See the comment block
+  // there for the full semantics. Partners bypass caps.
+  const { visibleTiersByClinic, cappedClinics } = useMemo(() => {
+    const userTiers = tierFilter.size > 0 ? tierFilter : null;
+    const budget = { 1: TIER_CAPS[1], 2: TIER_CAPS[2], 3: TIER_CAPS[3], 4: TIER_CAPS[4] };
+    const tiersByClinic = new Map();
+    const result = [];
+    for (const p of displayClinics) {
+      const cs = slotsMap[p.id];
+      const slotTiers = cs === undefined
+        ? new Set([1, 2, 3, 4])
+        : new Set((cs || []).filter((s) => s.available).map((s) => s.tier));
+      const candidateTiers = userTiers
+        ? new Set([...slotTiers].filter((t) => userTiers.has(t)))
+        : slotTiers;
+      const isPartner = !!p.isPartner || PARTNER_CLINIC_IDS.has(p.id);
+      const allowedTiers = new Set();
+      for (const t of candidateTiers) {
+        if (isPartner) allowedTiers.add(t);
+        else if (budget[t] > 0) { allowedTiers.add(t); budget[t] -= 1; }
+      }
+      if (allowedTiers.size === 0) continue;
+      tiersByClinic.set(p.id, allowedTiers);
+      result.push(p);
+    }
+    return { visibleTiersByClinic: tiersByClinic, cappedClinics: result };
+  }, [displayClinics, slotsMap, tierFilter]);
+
+  const toggleTier = (tier) => {
+    setTierFilter((prev) => {
+      const next = new Set(prev);
+      if (next.has(tier)) next.delete(tier);
+      else next.add(tier);
+      return next;
+    });
+  };
+
   // Batch-load slots for visible cards. Mirrors search-v2's pattern:
   // staggered batches of 10 (300 ms gap), no preview placeholders (cards
   // show their built-in shimmer until the real slot data lands).
@@ -196,6 +252,26 @@ export default function SearchResults({ specialtySlug, city }) {
           </div>
 
           <div className="sv2-filter-group">
+            <label className="sv2-filter-label">Disponibilidad</label>
+            <div className="sv2-tier-chips" role="group" aria-label="Filtrar por ventana de disponibilidad">
+              {TIER_CHIPS.map(({ tier, label }) => {
+                const active = tierFilter.has(tier);
+                return (
+                  <button
+                    key={tier}
+                    type="button"
+                    aria-pressed={active}
+                    className={`sv2-tier-chip ${active ? 'sv2-tier-chip--active' : ''}`}
+                    onClick={() => toggleTier(tier)}
+                  >
+                    {label}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
+          <div className="sv2-filter-group">
             <label className="sv2-filter-label">Valoración</label>
             <div className="sv2-rating-chips">
               {[
@@ -230,7 +306,7 @@ export default function SearchResults({ specialtySlug, city }) {
 
           <div className="sv2-filter-group sv2-filter-group--right">
             <span className="sv2-count">
-              <strong>{displayClinics.length}</strong> centros
+              <strong>{cappedClinics.length}</strong> centros
             </span>
             <button
               type="button"
@@ -260,8 +336,8 @@ export default function SearchResults({ specialtySlug, city }) {
             roughly one viewport on mobile so we don't over-reserve. */}
         <div className="sv2-left">
           <div className="sv2-results" style={{ minHeight: clinics === null ? '1800px' : undefined }}>
-            {displayClinics.length > 0 ? (
-              displayClinics.map((provider, i) => (
+            {cappedClinics.length > 0 ? (
+              cappedClinics.map((provider, i) => (
                 <ClinicCardV2
                   key={provider.id}
                   provider={provider}
@@ -274,6 +350,7 @@ export default function SearchResults({ specialtySlug, city }) {
                     setModalInitialSlot(slot ?? null);
                   }}
                   slots={slotsMap[provider.id]}
+                  visibleTiers={visibleTiersByClinic.get(provider.id) || null}
                 />
               ))
             ) : isLoading ? (
@@ -310,7 +387,7 @@ export default function SearchResults({ specialtySlug, city }) {
             <div className="sv2-map-wrap" style={{ minHeight: '500px' }}>
               <ClinicMap
                 key={city || 'all'}
-                providers={displayClinics.filter((p) => p.lat && p.lng)}
+                providers={cappedClinics.filter((p) => p.lat && p.lng)}
                 highlightedId={highlightedId}
                 city={city}
                 onPinClick={(p) => {
@@ -345,7 +422,7 @@ export default function SearchResults({ specialtySlug, city }) {
           the dynamic ClinicMap panel that's hidden by default on mobile. */}
       <MobileStickyBar
         filterCount={
-          (insuranceFilter ? 1 : 0) + (ratingFilter > 0 ? 1 : 0) + (sortBy !== 'rating' ? 1 : 0)
+          (insuranceFilter ? 1 : 0) + (ratingFilter > 0 ? 1 : 0) + (sortBy !== 'rating' ? 1 : 0) + (tierFilter.size > 0 ? 1 : 0)
         }
         onOpenFilters={() => {
           const anchor = document.getElementById('esp-filters-anchor');

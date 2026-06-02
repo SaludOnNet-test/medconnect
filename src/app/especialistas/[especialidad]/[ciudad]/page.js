@@ -219,18 +219,14 @@ export default async function EspecialistasCiudadPage({ params }) {
             {specialty.shortDesc(city)}
           </p>
 
-          {/* Key stats — brass-accented pill chips. Emojis kept for
-              scanability, framed in a brand-tokened pill so they don't
-              read as a free-floating emoji row. */}
-          <div
-            className="esp-hero__pills"
-            style={{
-              display: 'flex',
-              gap: '0.6rem',
-              flexWrap: 'wrap',
-              fontSize: '0.85rem',
-            }}
-          >
+          {/* Key stats — flat icon + label list. Earlier this was a
+              row of pill-shaped chips (rounded border, accent stripe,
+              bold font) that read as buttons; Clarity recorded a
+              meaningful dead-click rate on them. Rendered now as a
+              horizontal line of labels with cursor:default so the
+              affordance matches the (lack of) behaviour. Styles live
+              in `.esp-hero__pill` inside search-v2.css. */}
+          <div className="esp-hero__pills">
             {[
               ['✅', 'Sin lista de espera', 'keep-mobile'],
               ['📅', 'Cita en 24-72 h', 'keep-mobile'],
@@ -240,20 +236,8 @@ export default async function EspecialistasCiudadPage({ params }) {
               <span
                 key={label}
                 className={`esp-hero__pill esp-hero__pill--${mobileClass}`}
-                style={{
-                  display: 'inline-flex',
-                  alignItems: 'center',
-                  gap: '0.4rem',
-                  background: 'var(--bone-50)',
-                  color: 'var(--ink-900)',
-                  padding: '0.4rem 0.85rem 0.4rem 0.6rem',
-                  borderRadius: '999px',
-                  border: '1px solid var(--border)',
-                  borderLeft: '3px solid var(--brass-500)',
-                  fontWeight: 600,
-                }}
               >
-                <span aria-hidden="true">{icon}</span>
+                <span className="esp-hero__pill-icon" aria-hidden="true">{icon}</span>
                 {label}
               </span>
             ))}
