@@ -50,14 +50,20 @@ export default function ClinicCardV2({
   const nextSlots = tierFilteredSlots === undefined
     ? undefined
     : tierFilteredSlots.slice(0, 3);
-  // "Última cita" scarcity banner: only fires when the clinic surfaces
-  // exactly one slot AND that slot is in tier 1 (≤ 7 días). Tier-3 / 4
-  // last-of-month cases don't get the urgency banner — the patient isn't
-  // racing the clock when the next opening is a month away.
-  const isLastSlotThisWeek =
-    tierFilteredSlots
-    && tierFilteredSlots.length === 1
-    && tierFilteredSlots[0].tier === 1;
+  // "Última cita" scarcity banner: fires when the clinic has exactly one
+  // tier-1 (≤ 7 días) slot left across its FULL inventory — not just the
+  // 3-slot preview the card displays. The previous version checked
+  // `tierFilteredSlots.length === 1`, which is the post-slice preview,
+  // so the banner never appeared unless almost the whole clinic was
+  // already booked. We now count tier-1 hits over `availableSlots` (all
+  // future, available slots from /api/clinics/batch-slots).
+  //
+  // Tier-3 / 4 "last-of-month" cases stay silent — no urgency when the
+  // next opening is a month away.
+  const tierOneCount = availableSlots === undefined
+    ? null
+    : availableSlots.filter((s) => s.tier === 1).length;
+  const isLastSlotThisWeek = tierOneCount === 1;
 
   return (
     <div className={`cv2-card ${highlighted ? 'cv2-card--highlighted' : ''}`} id={`clinic-card-${provider.id}`}>
