@@ -169,6 +169,12 @@
   padding: 6px 10px;
   margin-bottom: var(--space-2);
   line-height: 1.4;
+  /* Pure status pill — not interactive. Cursor stays as default and
+     iOS Safari skips the tap-highlight flash so it doesn't read as a
+     button (2026-06 Clarity sessions logged dead-clicks here). */
+  cursor: default;
+  -webkit-tap-highlight-color: transparent;
+  user-select: none;
 }
 .cv2-last-slot-banner strong { color: #7c2d12; font-weight: 700; }
 
