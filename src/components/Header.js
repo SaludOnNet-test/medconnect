@@ -83,20 +83,40 @@ function SignedInArea() {
       </button>
       {open && (
         <div className="header-account-menu" role="menu">
+          {/* Navegación principal — same reason as the signed-out
+              dropdown: mobile users lose the top-bar nav and need a
+              way to reach Inicio / Aseguradoras / FAQ from the
+              header. */}
+          <div className="header-account-menu-section">Navegación</div>
+          {NAV.map((item) => (
+            <Link
+              key={item.href}
+              href={item.href}
+              className="header-account-menu-item"
+              role="menuitem"
+              onClick={() => setOpen(false)}
+            >
+              {item.label}
+            </Link>
+          ))}
           {/* "Panel profesional" only makes sense for users with a
               professional / admin role — patients see only "Cerrar
               sesión". The middleware on /pro/dashboard would bounce
               them out anyway, but hiding the link avoids confusion. */}
           {(role === 'professional' || role === 'admin') && (
-            <Link
-              href="/pro/dashboard"
-              className="header-account-menu-item"
-              role="menuitem"
-              onClick={() => setOpen(false)}
-            >
-              Panel profesional
-            </Link>
+            <>
+              <div className="header-account-menu-section">Profesional</div>
+              <Link
+                href="/pro/dashboard"
+                className="header-account-menu-item"
+                role="menuitem"
+                onClick={() => setOpen(false)}
+              >
+                Panel profesional
+              </Link>
+            </>
           )}
+          <div className="header-account-menu-section">Cuenta</div>
           <button
             type="button"
             className="header-account-menu-item header-account-menu-item--danger"
@@ -227,6 +247,25 @@ export default function Header() {
                 </button>
                 {accountOpen && (
                   <div className="header-account-menu" role="menu">
+                    {/* Navegación principal — hidden as a top-bar on
+                        mobile (`.header-nav { display: none }` < 900px)
+                        which produced Clarity dead-clicks: users tapped
+                        where they expected Inicio / Aseguradoras / FAQ
+                        and nothing happened. We surface the same NAV
+                        here so mobile patients can reach every page
+                        without a separate burger menu. */}
+                    <div className="header-account-menu-section">Navegación</div>
+                    {NAV.map((item) => (
+                      <Link
+                        key={item.href}
+                        href={item.href}
+                        className="header-account-menu-item"
+                        role="menuitem"
+                        onClick={() => setAccountOpen(false)}
+                      >
+                        {item.label}
+                      </Link>
+                    ))}
                     <div className="header-account-menu-section">Paciente</div>
                     <Link
                       href="/sign-up"
