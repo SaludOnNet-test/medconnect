@@ -205,7 +205,7 @@ function pickTimeFromSchedules(clinicId, tier, salt, schedules, dbDay, period) {
 // the next viewer and the picker rotates to the next deterministic
 // candidate — that's the "open a fresh hueco when one is booked"
 // requirement from the 2026-06 listing review.
-function pickSlotsForTier(clinicId, schedules, tier, earliestSellable, hasDoctoralia, city, bookedKeys) {
+function pickSlotsForTier(clinicId, schedules, tier, earliestSellable, hasDoctoralia, city, bookedKeys, opts = {}) {
   const now = earliestSellable; // already buffered
   const tierStart = startOfDay(addDaysUTC(now, tier.dayMin));
   const tierStartUsable = tierStart < earliestSellable ? startOfDay(earliestSellable) : tierStart;
@@ -216,7 +216,20 @@ function pickSlotsForTier(clinicId, schedules, tier, earliestSellable, hasDoctor
 
   const slots = [];
 
-  const periods = ['morning', 'afternoon'];
+  // Per-tier slot cap. Tier 1 is capped tighter for partner / top-ranked
+  // clinics so the "Última cita en este centro en menos de una semana"
+  // pill stays visible across the booking flow (option B from the 2026-06
+  // scarcity review). Default behaviour for other tiers + non-cap'd
+  // clinics is the historical 2-slots-per-tier — keeps the listing
+  // showing morning + afternoon variety.
+  const morningAfternoon = ['morning', 'afternoon'];
+  const tierOneCap = typeof opts.tierOneMaxSlots === 'number' && opts.tierOneMaxSlots > 0
+    ? Math.min(opts.tierOneMaxSlots, 2)
+    : 2;
+  const periodsForThisTier = (tier.tier === 1 && tierOneCap < 2)
+    ? morningAfternoon.slice(0, tierOneCap)
+    : morningAfternoon;
+  const periods = periodsForThisTier;
   // Per-clinic day offsets. Previously this was a constant
   // [floor(len * 0.25), floor(len * 0.65)] for every clinic — every
   // clinic in a tier landed on the same one or two days, which is what
@@ -315,12 +328,19 @@ export function generateSlotsForClinic(clinicId, schedules, options = {}) {
   // we don't query the DB per clinic. When omitted, no booking-aware
   // rotation happens — slot picks are purely deterministic.
   const bookedKeys = options.bookedKeys || null;
+  // Scarcity cap for tier 1: when present and < 2, the picker only
+  // produces that many tier-1 slots (vs 2 by default). Used to make
+  // the "última cita" pill always visible for partner clinics and
+  // for the top-ranked non-partner clinics in each search.
+  const tierOneMaxSlots = typeof options.tierOneMaxSlots === 'number'
+    ? options.tierOneMaxSlots
+    : 2;
   const earliestSellable = applyBusinessHourBuffer(now, SLOT_RULES.BUFFER_BUSINESS_HOURS, city);
   const hasDoctoralia = Array.isArray(schedules) && schedules.length > 0;
 
   const allSlots = [];
   for (const tier of PRICING_TIERS) {
-    const tierSlots = pickSlotsForTier(clinicId, schedules || [], tier, earliestSellable, hasDoctoralia, city, bookedKeys);
+    const tierSlots = pickSlotsForTier(clinicId, schedules || [], tier, earliestSellable, hasDoctoralia, city, bookedKeys, { tierOneMaxSlots });
     allSlots.push(...tierSlots);
   }
 

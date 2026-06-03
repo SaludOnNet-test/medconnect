@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { getPool, DB_AVAILABLE } from '@/lib/db';
 import { generateSlotsForClinic, PRICING_TIERS } from '@/lib/slot-validation';
 import { getHeldKeys } from '@/lib/slotHolds';
+import { isPartnerClinic } from '@/lib/partnerClinics';
 
 // GET /api/clinics/batch-slots?ids=1,2,3,4,5&preview=true
 // Returns: { slots: { "1": [...], "2": [...] }, pricingTiers: [...] }
@@ -15,6 +16,22 @@ export async function GET(request) {
     .map((s) => parseInt(s.trim(), 10))
     .filter((n) => !isNaN(n) && n > 0)
     .slice(0, 20);
+
+  // Optional `topRankedIds=<id>,<id>,<id>` — caller-supplied list of
+  // clinic ids that the search view considers "top-ranked" for the
+  // active filter (typically the first 3 non-partner ids in the
+  // partner-first → rating DESC ordering). Those clinics get tier-1
+  // capped to 1 slot so the "última cita en menos de una semana"
+  // scarcity pill fires on their card. Partners are always capped
+  // separately via `isPartnerClinic`.
+  const rawTopRanked = searchParams.get('topRankedIds') || '';
+  const topRankedIds = new Set(
+    rawTopRanked
+      .split(',')
+      .map((s) => parseInt(s.trim(), 10))
+      .filter((n) => Number.isFinite(n) && n > 0)
+      .slice(0, 8),
+  );
 
   if (ids.length === 0) {
     return NextResponse.json({ slots: {}, pricingTiers: PRICING_TIERS });
@@ -98,7 +115,16 @@ export async function GET(request) {
 
   const result = {};
   for (const id of ids) {
-    const { slots } = generateSlotsForClinic(id, schedulesByClinic[id], { city: cityByClinic[id], bookedKeys });
+    // Tier-1 scarcity cap: partner clinics + caller-supplied "top
+    // ranked" clinics surface a single tier-1 slot → the card / modal
+    // banner "Última cita en este centro en menos de una semana" fires.
+    // Other clinics keep the historical 2-slots-per-tier behaviour.
+    const tierOneMaxSlots = (isPartnerClinic(id) || topRankedIds.has(id)) ? 1 : 2;
+    const { slots } = generateSlotsForClinic(
+      id,
+      schedulesByClinic[id],
+      { city: cityByClinic[id], bookedKeys, tierOneMaxSlots },
+    );
     // For preview, return only the cheapest 4 slots (1 per tier when present)
     if (preview) {
       const byTier = {};
