@@ -5,6 +5,9 @@
 // on browser-data wipe. Sent as the `x-mc-session` request header on
 // booking-flow fetches.
 //
+// Build tag: 2026-06-slot-holds-v2 (force Vercel rebuild to invalidate
+// edge cache for the booking-flow chunks).
+//
 // The id is opaque — the only thing it gates is "does this browser own
 // this slot hold?". A 15-minute window doesn't unlock anything that
 // would benefit from forgery, so we keep this simple (no HMAC, no
