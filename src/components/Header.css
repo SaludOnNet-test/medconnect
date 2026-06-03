@@ -316,14 +316,34 @@
 @media (max-width: 640px) {
   .header-inner {
     padding: 14px var(--gutter-mobile);
-    gap: var(--space-3);
+    gap: var(--space-2);
   }
 
+  /* Shrink the wordmark so logo + phone-number + Acceder all fit on a
+     360-414 px screen. Aspect ratio is preserved via width:auto on
+     the image. */
+  .header-logo-img {
+    height: 24px;
+  }
+
+  /* Keep the phone number visible on mobile — patients shouldn't have
+     to tap to discover the helpline exists. The "¿Necesitas cita
+     antes?" label is hidden (already by the 1100 px breakpoint above)
+     to save horizontal space, so what stays is icon + number. The
+     whole row stays a `tel:` link so a tap still initiates the call. */
   .header-phone-block {
-    display: none;
+    display: inline-flex;
   }
   .header-phone-icon {
-    color: var(--fg-muted);
+    color: var(--accent);
+  }
+  .header-phone-number {
+    font-size: 0.78rem;
+    white-space: nowrap;
+  }
+  .header-phone {
+    gap: 6px;
+    min-width: 0;
   }
 
   .header-auth {
