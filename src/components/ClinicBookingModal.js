@@ -120,6 +120,17 @@ export default function ClinicBookingModal({
   const [holdError, setHoldError] = useState('');
   const [holdLoading, setHoldLoading] = useState(false);
 
+  // Client-side scarcity flag — true when the clinic has exactly one
+  // tier-1 (≤7 días) slot left in its FULL inventory. Used to render
+  // the amber banner inside the modal AND to forward `lastSlot=1` to
+  // /book without depending on the server-side probe (which fails
+  // silently if Upstash/DB are slow on a cold Lambda).
+  const tierOneAvailableCount = useMemo(
+    () => (allSlots || []).filter((s) => s.tier === 1 && s.available).length,
+    [allSlots],
+  );
+  const isLastSlotThisWeekClient = tierOneAvailableCount === 1;
+
   const handleBook = async () => {
     if (!canBook || holdLoading) return;
     const fee = feeFromSlot(selectedSlot);
@@ -202,10 +213,17 @@ export default function ClinicBookingModal({
       // Pro user / explicit derivation entry-point — /book pre-checks the
       // referral toggle and pre-fills the pro fields from Clerk on its end.
       ...(asProfessional ? { asProfessional: 'true' } : {}),
-      // 15-min hold context for /book. Empty when Redis is offline —
-      // /book degrades to today's behaviour (no timer).
-      ...(holdResponse.expiresAt ? { holdExpiresAt: holdResponse.expiresAt } : {}),
-      ...(holdResponse.isLastSlotThisWeek ? { lastSlot: '1' } : {}),
+      // 15-min hold context for /book. We ALWAYS forward an expiresAt
+      // so the timer is visible even when the server-side hold layer
+      // is having a bad day — the server-issued value when we got one,
+      // otherwise a local synthetic now+15min that drives the UI alone
+      // (no enforcement, but the visible countdown still works and the
+      // patient understands the window).
+      holdExpiresAt: holdResponse.expiresAt || new Date(Date.now() + 15 * 60 * 1000).toISOString(),
+      // "Última cita" pill. Client-side scarcity is the source of
+      // truth — server probe is a confirmation, not a gate. Either
+      // signal flipping it on lights the banner on /book.
+      ...((holdResponse.isLastSlotThisWeek || isLastSlotThisWeekClient) ? { lastSlot: '1' } : {}),
     });
     router.push(`/book?${params.toString()}`);
     onClose();
@@ -333,6 +351,28 @@ export default function ClinicBookingModal({
             </p>
           )}
         </div>
+
+        {/* Scarcity banner — mirrors the one on the clinic card so the
+            urgency message follows the patient into the modal. Fires
+            from `tierOneAvailableCount === 1` over the FULL slot
+            inventory (not the 3-slot preview the card displays), same
+            criterion as ClinicCardV2's last-slot banner. */}
+        {!slotsLoading && isLastSlotThisWeekClient && (
+          <div
+            style={{
+              margin: '0 var(--space-5)',
+              padding: '8px 12px',
+              background: '#fff7ed',
+              border: '1px solid #fed7aa',
+              borderRadius: 8,
+              color: '#7c2d12',
+              fontSize: '0.9rem',
+              lineHeight: 1.4,
+            }}
+          >
+            ⏱ <strong>Última cita en este centro en menos de una semana</strong>
+          </div>
+        )}
 
         {/* Date picker */}
         <div className="cbm-section">
