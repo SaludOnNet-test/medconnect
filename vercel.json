@@ -14,7 +14,7 @@
     },
     {
       "path": "/api/slot-holds/recover-abandoned",
-      "schedule": "*/15 * * * *"
+      "schedule": "0 10 * * *"
     }
   ]
 }
