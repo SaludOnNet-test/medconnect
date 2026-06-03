@@ -332,9 +332,24 @@ function SearchV2Content() {
     let cancelled = false;
     const ids = unloaded.map((p) => p.id);
 
+    // "Top ranked" non-partner ids in the current search ordering →
+    // those get tier-1 capped to 1 slot at the batch-slots route so the
+    // "última cita en menos de una semana" pill fires on their card.
+    // Partners always have the cap regardless (handled server-side via
+    // PARTNER_CLINIC_IDS). We take the first 3 non-partner ids from the
+    // partner-first display order — matches the user's intent of
+    // "primeros 2 o 3 resultados de cada búsqueda" (2026-06 review).
+    const topRankedIds = displayProviders
+      .filter((p) => !p.isPartner)
+      .slice(0, 3)
+      .map((p) => p.id);
+    const topRankedQs = topRankedIds.length
+      ? `&topRankedIds=${topRankedIds.join(',')}`
+      : '';
+
     const fetchBatch = (batchIds, delayMs) =>
       new Promise((resolve) => setTimeout(resolve, delayMs))
-        .then(() => { if (cancelled) return null; return fetch(`/api/clinics/batch-slots?ids=${batchIds.join(',')}&preview=true&days=7`); })
+        .then(() => { if (cancelled) return null; return fetch(`/api/clinics/batch-slots?ids=${batchIds.join(',')}&preview=true&days=7${topRankedQs}`); })
         .then((r) => (r ? r.json() : null))
         .then((data) => { if (cancelled || !data?.slots) return; setSlotsMap((prev) => ({ ...prev, ...data.slots })); })
         .catch(() => {});
@@ -610,6 +625,17 @@ function SearchV2Content() {
           initialSpecialtySlug={specialtySlug}
           initialInsurance={isSinSeguro ? '' : insuranceFilter}
           asProfessional={isPro}
+          /* Forward the scarcity-cap signal from the listing rank so
+             the modal's slot fetch keeps tier-1 capped to 1. Partner
+             clinics are always capped server-side, so the prop only
+             matters for the top-3 non-partner clinics whose card
+             showed the "última cita…" pill. Without this prop the
+             modal would surface 2 tier-1 slots and the pill would
+             disappear in step 2 — confusing the patient. */
+          isTopRanked={
+            !modalProvider.isPartner
+            && displayProviders.filter((p) => !p.isPartner).slice(0, 3).some((p) => p.id === modalProvider.id)
+          }
           onClose={() => { setModalProvider(null); setModalInitialSlot(null); }}
         />
       )}

@@ -192,11 +192,22 @@ export default function SearchResults({ specialtySlug, city }) {
     let cancelled = false;
     const ids = unloaded.map((p) => p.id);
 
+    // "Top ranked" non-partner ids — first 3 non-partner clinics in
+    // the partner-first display order. Mirror of search-v2; these get
+    // tier-1 capped to 1 slot so the "última cita…" pill fires.
+    const topRankedIds = displayClinics
+      .filter((p) => !p.isPartner)
+      .slice(0, 3)
+      .map((p) => p.id);
+    const topRankedQs = topRankedIds.length
+      ? `&topRankedIds=${topRankedIds.join(',')}`
+      : '';
+
     const fetchBatch = (batchIds, delayMs) =>
       new Promise((resolve) => setTimeout(resolve, delayMs))
         .then(() => {
           if (cancelled) return null;
-          return fetch(`/api/clinics/batch-slots?ids=${batchIds.join(',')}&preview=true&days=7`);
+          return fetch(`/api/clinics/batch-slots?ids=${batchIds.join(',')}&preview=true&days=7${topRankedQs}`);
         })
         .then((r) => (r ? r.json() : null))
         .then((data) => {
@@ -372,6 +383,11 @@ export default function SearchResults({ specialtySlug, city }) {
           initialSlot={modalInitialSlot}
           initialSpecialtySlug={specialtySlug}
           initialInsurance={isSinSeguro ? '' : insuranceFilter}
+          /* Same scarcity-cap forward as /search-v2 — see comment there. */
+          isTopRanked={
+            !modalProvider.isPartner
+            && displayClinics.filter((p) => !p.isPartner).slice(0, 3).some((p) => p.id === modalProvider.id)
+          }
           onClose={() => {
             setModalProvider(null);
             setModalInitialSlot(null);

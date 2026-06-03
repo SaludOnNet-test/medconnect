@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { query, sql, DB_AVAILABLE } from '@/lib/db';
 import { generateSlotsForClinic, PRICING_TIERS } from '@/lib/slot-validation';
 import { getHeldKeys } from '@/lib/slotHolds';
+import { isPartnerClinic } from '@/lib/partnerClinics';
 
 export async function GET(request, { params }) {
   const { id } = await params;
@@ -78,7 +79,19 @@ export async function GET(request, { params }) {
     console.error('available-slots held-keys lookup error (continuing):', err?.message);
   }
 
-  const { slots, rule, earliestSellable } = generateSlotsForClinic(clinicId, schedules, { city, bookedKeys });
+  // Tier-1 scarcity cap. Two paths fold the cap in:
+  //   - Partner clinics (PARTNER_CLINIC_IDS): always 1 tier-1 slot so the
+  //     "Última cita…" pill fires on every step of the booking flow.
+  //   - Top-ranked non-partner clinics in a search context: the listing
+  //     calls the modal with the `isTopRanked` prop, which appends
+  //     `?asTopRanked=true` here. Keeps the pill consistent between the
+  //     card and the modal for top-3 non-partner clinics.
+  // Deep-linked / direct-navigation opens (no listing context) only see
+  // the partner rule — those clinics show 2 tier-1 slots and no pill.
+  const url = new URL(request.url);
+  const asTopRanked = url.searchParams.get('asTopRanked') === 'true';
+  const tierOneMaxSlots = (isPartnerClinic(clinicId) || asTopRanked) ? 1 : 2;
+  const { slots, rule, earliestSellable } = generateSlotsForClinic(clinicId, schedules, { city, bookedKeys, tierOneMaxSlots });
 
   return NextResponse.json({
     slots,

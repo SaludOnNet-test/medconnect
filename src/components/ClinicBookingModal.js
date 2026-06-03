@@ -37,6 +37,12 @@ export default function ClinicBookingModal({
   // a Clerk pro user is signed in OR when ?asProfessional=true was
   // deep-linked from a "derivar un paciente" entry-point.
   asProfessional = false,
+  // Scarcity-cap forward from the listing rank. When true the slot
+  // fetch appends `?asTopRanked=true` so /api/clinics/[id]/available-slots
+  // caps tier-1 to 1 — keeps the "última cita…" pill consistent between
+  // the card and the modal for top-3 non-partner clinics. Partners are
+  // always capped server-side via PARTNER_CLINIC_IDS regardless.
+  isTopRanked = false,
   onClose,
 }) {
   const router = useRouter();
@@ -60,14 +66,15 @@ export default function ClinicBookingModal({
   // Fetch real slots from API
   useEffect(() => {
     setSlotsLoading(true);
-    fetch(`/api/clinics/${provider.id}/available-slots`)
+    const qs = isTopRanked ? '?asTopRanked=true' : '';
+    fetch(`/api/clinics/${provider.id}/available-slots${qs}`)
       .then((r) => r.json())
       .then((data) => {
         setAllSlots((data.slots || []).filter((s) => s.available));
       })
       .catch(() => setAllSlots([]))
       .finally(() => setSlotsLoading(false));
-  }, [provider.id]);
+  }, [provider.id, isTopRanked]);
 
   // Fetch procedures for this clinic (filtered by specialty if available).
   useEffect(() => {
@@ -176,7 +183,7 @@ export default function ClinicBookingModal({
         setHoldError('Este hueco se acaba de reservar. Hemos refrescado las opciones disponibles — elige otra hora.');
         // Re-fetch slots so the listing reflects the new state.
         try {
-          const refresh = await fetchWithSession(`/api/clinics/${provider.id}/available-slots`);
+          const refresh = await fetchWithSession(`/api/clinics/${provider.id}/available-slots${isTopRanked ? '?asTopRanked=true' : ''}`);
           const data = await refresh.json();
           if (data?.slots) setAllSlots((data.slots || []).filter((s) => s.available));
         } catch {}
