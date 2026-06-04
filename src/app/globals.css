@@ -1452,6 +1452,146 @@ a.contact-row-value:hover {
     font-size: 0.82rem;
   }
 }
+/* Match the parent FAB button styling — the element is a <button> now
+   (was an <a>), so reset its native chrome. */
+button.wa-fab {
+  border: none;
+  cursor: pointer;
+  font: inherit;
+  font-family: var(--font-body, system-ui);
+  font-weight: 600;
+}
+
+/* 2026-06-04 v2 — WhatsApp greeting modal.
+   wa.me cannot show a message FROM us before the user types. So we
+   render our own greeting + hours panel on FAB click. One extra tap,
+   but lets the patient know when to expect a reply and reduces the
+   "did they get my message?" anxiety on first contact. */
+.wa-modal-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  background: rgba(10, 20, 40, 0.55);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+  animation: wa-fade-in 0.15s ease-out;
+}
+@keyframes wa-fade-in { from { opacity: 0; } to { opacity: 1; } }
+.wa-modal-content {
+  background: #fff;
+  border-radius: 16px;
+  max-width: 420px;
+  width: 100%;
+  padding: 28px 24px 20px;
+  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.25);
+  position: relative;
+  font-family: var(--font-body, system-ui);
+  color: var(--ink-1000, #0a1428);
+  animation: wa-slide-up 0.2s ease-out;
+}
+@keyframes wa-slide-up {
+  from { transform: translateY(20px); opacity: 0; }
+  to { transform: translateY(0); opacity: 1; }
+}
+.wa-modal-close {
+  position: absolute;
+  top: 10px;
+  right: 14px;
+  background: none;
+  border: none;
+  font-size: 1.6rem;
+  line-height: 1;
+  color: var(--muted, #6b7280);
+  cursor: pointer;
+  padding: 4px 8px;
+  border-radius: 6px;
+}
+.wa-modal-close:hover { background: var(--bone-100, #f8f5ef); }
+.wa-modal-header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 12px;
+}
+.wa-modal-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+.wa-modal-title {
+  margin: 0;
+  font-size: 1.1rem;
+  font-weight: 700;
+  color: var(--ink-1000, #0a1428);
+  line-height: 1.3;
+}
+.wa-modal-body {
+  margin: 0 0 14px;
+  font-size: 0.92rem;
+  line-height: 1.55;
+  color: var(--fg, #1f2937);
+}
+.wa-modal-hours {
+  background: #f0f7f0;
+  border: 1px solid #c7e8d0;
+  color: #1b4332;
+  border-radius: 10px;
+  padding: 10px 14px;
+  font-size: 0.85rem;
+  line-height: 1.5;
+  margin-bottom: 18px;
+}
+.wa-modal-hours strong { color: #14532d; }
+.wa-modal-hours-fineprint {
+  display: inline-block;
+  margin-top: 4px;
+  font-size: 0.78rem;
+  font-style: italic;
+  opacity: 0.85;
+}
+.wa-modal-cta {
+  width: 100%;
+  background: #25d366;
+  color: #fff;
+  border: none;
+  border-radius: 999px;
+  padding: 13px 18px;
+  font-size: 1rem;
+  font-weight: 700;
+  font-family: var(--font-body, system-ui);
+  cursor: pointer;
+  box-shadow: 0 4px 12px rgba(37, 211, 102, 0.32);
+  transition: transform 0.1s ease, box-shadow 0.1s ease;
+}
+.wa-modal-cta:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 6px 16px rgba(37, 211, 102, 0.4);
+}
+.wa-modal-cancel {
+  display: block;
+  width: 100%;
+  text-align: center;
+  background: none;
+  border: none;
+  margin-top: 6px;
+  padding: 10px;
+  font-size: 0.85rem;
+  color: var(--muted, #6b7280);
+  cursor: pointer;
+  font-family: var(--font-body, system-ui);
+}
+.wa-modal-cancel:hover { color: var(--ink-1000, #0a1428); }
+@media (max-width: 480px) {
+  .wa-modal-content {
+    padding: 24px 18px 16px;
+    border-radius: 14px;
+  }
+  .wa-modal-title { font-size: 1rem; }
+  .wa-modal-body { font-size: 0.88rem; }
+}
 
 /* 2026-06-04 — A5 PatientTestimonials
    Three-card strip on /especialistas/* landing pages. Honest mode:

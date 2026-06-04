@@ -210,13 +210,15 @@ export default async function EspecialistasCiudadPage({ params }) {
             {specialty.plural} privados en {city}
           </h1>
 
-          {/* 2026-06-04 — A4: live social-proof bar. Hidden when count is 0
-              so the patient never sees a placeholder that would read as
-              scammy. specialty.id is the URL slug (e.g. "ginecologia") and
-              maps 1:1 to the `specialty` column in bookings. */}
+          {/* 2026-06-04 — A4: live social-proof bar. Hidden when count is 0.
+              `especialidad` is the URL slug (e.g. "ginecologia") and maps
+              1:1 to the bookings.specialty column. The earlier draft of
+              this prop passed `specialty.id` which is the numeric
+              SPECIALTY_MAP id (3 for gineco) — that failed the endpoint's
+              slug-regex and silently 400'd. */}
           <div style={{ marginBottom: 'var(--space-3)' }}>
             <RecentBookingsBar
-              specialty={specialty.id}
+              specialty={especialidad}
               city={city}
               specialtyLabel={specialty.plural}
             />
@@ -387,7 +389,7 @@ export default async function EspecialistasCiudadPage({ params }) {
       <section style={{ padding: '0 0', borderTop: '1px solid var(--border)' }}>
         <div className="container">
           <PatientTestimonials
-            specialty={specialty.id}
+            specialty={especialidad}
             specialtyLabel={specialty.plural}
           />
         </div>
