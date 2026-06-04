@@ -500,6 +500,40 @@
   box-shadow: 0 0 0 1px var(--gold, #c8a96a);
 }
 
+/* 2026-06-04 — A1: Apple Pay / Google Pay button section.
+   Only shown when stripe.paymentRequest.canMakePayment() returns truthy.
+   The "o paga con tarjeta" divider sets expectation that the card field
+   below is the fallback, not the primary path, for users with a wallet. */
+.payment-wallet-section {
+  margin-bottom: var(--space-lg);
+}
+.payment-or-divider {
+  position: relative;
+  text-align: center;
+  margin: var(--space-md) 0 0;
+  font-size: 0.75rem;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+.payment-or-divider::before,
+.payment-or-divider::after {
+  content: '';
+  position: absolute;
+  top: 50%;
+  width: calc(50% - 90px);
+  height: 1px;
+  background: var(--border);
+}
+.payment-or-divider::before { left: 0; }
+.payment-or-divider::after { right: 0; }
+.payment-or-divider span {
+  background: #fff;
+  padding: 0 12px;
+  position: relative;
+  z-index: 1;
+}
+
 /* ═══════════════════════════════════════
    SUCCESS STATE
 ═══════════════════════════════════════ */

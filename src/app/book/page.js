@@ -5,7 +5,9 @@ import dynamic from 'next/dynamic';
 import Link from 'next/link';
 import Header from '@/components/Header';
 import Footer from '@/components/Footer';
+import TrustStrip from '@/components/TrustStrip';
 import { services, insuranceCompanies, createReferral, getConvenienceFee, REFERRAL_STATES } from '@/data/mock';
+import { isLikelyCovered } from '@/data/insuranceCoverage';
 import { trackEvent, trackConversion } from '@/lib/analytics';
 import { formatEUR } from '@/lib/format';
 import Icon from '@/components/icons/Icon';
@@ -1610,6 +1612,15 @@ function BookContent() {
             </div>
           </div>
 
+          {/* 2026-06-04 — A2: trust strip on /book form step. The same 3
+              chips already on landing + modal + Stripe step. Stacked variant
+              here because the form column is narrower; sits between the
+              slot summary and the form fields so it is read before the
+              patient starts typing. */}
+          <div style={{ marginBottom: 'var(--space-md)' }}>
+            <TrustStrip variant="stacked" />
+          </div>
+
           <form onSubmit={handlePay} className={submitAttempted ? 'book-form-submitted' : ''}>
             
             {/* Professional Referral Toggle */}
@@ -1802,6 +1813,63 @@ function BookContent() {
                 </div>
               )}
 
+              {/* 2026-06-04 — A7: insurance coverage clarifier.
+                  Mitigates the "I have insurance but I'm not sure my plan
+                  covers this specialty" bailout. We never claim
+                  "not covered" — only "usually covered" (green) or
+                  "we'll confirm before charging" (grey). Ops always
+                  verifies regardless. */}
+              {hasInsurance === true && selectedInsurance && (() => {
+                const specialtyForLookup =
+                  service?.id ||
+                  searchParams.get('specialty') ||
+                  searchParams.get('specialtySlug') ||
+                  '';
+                if (!specialtyForLookup) return null;
+                const covered = isLikelyCovered(selectedInsurance, specialtyForLookup);
+                if (covered) {
+                  return (
+                    <div
+                      role="status"
+                      style={{
+                        marginTop: 'var(--space-md)',
+                        padding: '10px 14px',
+                        background: '#eef6f0',
+                        border: '1px solid #c7e8d0',
+                        color: '#1b4332',
+                        borderRadius: 8,
+                        fontSize: '0.88rem',
+                        lineHeight: 1.45,
+                      }}
+                    >
+                      <strong>✅ {selectedInsurance} suele cubrir esta especialidad.</strong>{' '}
+                      Confirmaremos la cobertura con la clínica antes de cobrarte. Si no
+                      hay cobertura, te devolvemos el cargo íntegro en 72 h.
+                    </div>
+                  );
+                }
+                return (
+                  <div
+                    role="status"
+                    style={{
+                      marginTop: 'var(--space-md)',
+                      padding: '10px 14px',
+                      background: '#f3f4f6',
+                      border: '1px solid #e5e7eb',
+                      color: '#374151',
+                      borderRadius: 8,
+                      fontSize: '0.88rem',
+                      lineHeight: 1.45,
+                    }}
+                  >
+                    <strong>ℹ️ Confirmamos la cobertura antes de cobrar.</strong>{' '}
+                    No tenemos confirmado al 100% si tu {selectedInsurance} cubre esta
+                    consulta. Te avisamos en 24 h — si no hay cobertura, devolución
+                    íntegra en 72 h.
+                  </div>
+                );
+              })()}
+
               {hasInsurance === true && (
                 <p style={{ marginTop: 'var(--space-md)', fontSize: '0.85rem', color: 'var(--muted)', fontStyle: 'italic' }}>
                   * Te hemos reservado este hueco con prioridad. Acude con tu tarjeta de asegurado y la clínica te atenderá bajo tu póliza, como cualquier otra cita concertada.
@@ -1841,6 +1909,20 @@ function BookContent() {
                     {totalPrice > 0 ? formatEUR(totalPrice) : 'Gratis'}
                   </span>
                 </div>
+
+                {/* 2026-06-04 — A3: price anchor on the form step price
+                    breakdown. Helps reframe €29 from "another fee" to "a
+                    saving vs the private-pay alternative" right when the
+                    patient is reviewing what they will be charged. */}
+                {totalPrice > 0 && (
+                  <p style={{ marginTop: 'var(--space-md)', fontSize: '0.78rem', color: 'var(--ink-1000, #0e1a2b)', lineHeight: 1.55, fontWeight: 500 }}>
+                    💡 Una consulta privada equivalente sin seguro cuesta
+                    típicamente entre <strong>€60 y €120</strong> en Madrid.
+                    {hasInsurance === true
+                      ? ' Aquí solo pagas la tarifa de prioridad — el resto lo cubre tu póliza.'
+                      : ' Lo nuestro incluye tanto la consulta como la prioridad por conseguirte hueco urgente.'}
+                  </p>
+                )}
 
                 {hasInsurance === true && (
                   <p style={{ marginTop: 'var(--space-md)', fontSize: '0.8rem', color: 'var(--muted)', lineHeight: 1.6 }}>

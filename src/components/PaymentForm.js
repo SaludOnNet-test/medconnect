@@ -2,7 +2,12 @@
 
 import { useState, useEffect } from 'react';
 import { loadStripe } from '@stripe/stripe-js';
-import { CardElement, Elements, ElementsConsumer } from '@stripe/react-stripe-js';
+import {
+  CardElement,
+  Elements,
+  ElementsConsumer,
+  PaymentRequestButtonElement,
+} from '@stripe/react-stripe-js';
 import { formatEUR } from '@/lib/format';
 
 /**
@@ -52,6 +57,16 @@ function PaymentFormContent({ totalPrice, providerName, slotDate, slotTime, pati
   // so the user never sees a stale error after they edit the card.
   const [paymentError, setPaymentError] = useState(null);
 
+  // 2026-06-04 — A1: Apple Pay / Google Pay support.
+  // `paymentRequest` is a Stripe-side object that abstracts iOS/Android
+  // native wallets. We only render the button when canMakePayment() returns
+  // truthy — Stripe handles the detection of whether the device + browser
+  // combo has a usable wallet authed. `walletAvailable` is the gate.
+  // The single biggest mobile-friction gain in this sprint: bypass the
+  // keyboard for cardholders who already auth'd a card with Apple/Google.
+  const [paymentRequest, setPaymentRequest] = useState(null);
+  const [walletAvailable, setWalletAvailable] = useState(false);
+
   // Map Stripe error codes → user-facing recovery copy in Spanish.
   // Codes come from https://stripe.com/docs/error-codes; we cover the ones
   // most likely to surface for Madrid retail card traffic. Anything not in
@@ -85,6 +100,141 @@ function PaymentFormContent({ totalPrice, providerName, slotDate, slotTime, pati
       recovery: recoveryByCode[code] || 'Revisa los datos de tu tarjeta y vuelve a intentarlo. Si el problema persiste, prueba con otra tarjeta.',
     };
   };
+
+  // 2026-06-04 — A1: build the paymentRequest object once stripe.js loads.
+  // We re-create it whenever the amount, provider or slot changes — Stripe's
+  // PaymentRequest API is amount-bound, so a stale object would charge the
+  // wrong total. The button only mounts once canMakePayment() resolves
+  // truthy (most desktops + non-wallet browsers return false). The
+  // `paymentmethod` event fires AFTER the user authenticates with Face ID /
+  // fingerprint and gives us a Stripe-tokenized paymentMethod we can pass
+  // straight to /api/payments — same backend code path as the card form.
+  useEffect(() => {
+    if (!stripePromise || !totalPrice || totalPrice <= 0) return;
+    let cancelled = false;
+
+    stripePromise.then(async (stripe) => {
+      if (!stripe || cancelled) return;
+
+      const pr = stripe.paymentRequest({
+        country: 'ES',
+        currency: 'eur',
+        total: {
+          label: `Med Connect — ${providerName || 'reserva'}`,
+          amount: Math.round(totalPrice * 100),
+        },
+        requestPayerName: true,
+        requestPayerEmail: true,
+      });
+
+      const result = await pr.canMakePayment();
+      if (cancelled) return;
+
+      if (!result) {
+        setWalletAvailable(false);
+        setPaymentRequest(null);
+        return;
+      }
+
+      pr.on('paymentmethod', async (ev) => {
+        setIsLoading(true);
+        setPaymentError(null);
+        try {
+          const response = await fetch('/api/payments', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              amount: totalPrice,
+              paymentMethodId: ev.paymentMethod.id,
+              email: ev.payerEmail || patientEmail || undefined,
+              description: `Med Connect - ${providerName} on ${slotDate} at ${slotTime}`,
+              name: ev.payerName || patientName || cardName || '',
+              ...(bookingId ? { bookingId } : {}),
+            }),
+          });
+          const data = await response.json();
+
+          if (data.error) {
+            ev.complete('fail');
+            setPaymentError(
+              buildPaymentError({
+                code: data.code || 'processing_error',
+                message: data.error,
+              }),
+            );
+            setIsLoading(false);
+            return;
+          }
+
+          if (data.requiresAction) {
+            // Dismiss the wallet UI before launching the 3DS flow — Stripe
+            // requires the wallet to be 'complete'd before confirmCardPayment
+            // can take over. The 3DS challenge then shows in the page.
+            ev.complete('success');
+            const confirmResult = await stripe.confirmCardPayment(data.clientSecret);
+            if (confirmResult.error) {
+              setPaymentError(
+                buildPaymentError({
+                  code: confirmResult.error.code || 'authentication_required',
+                  message: confirmResult.error.message,
+                }),
+              );
+              setIsLoading(false);
+              return;
+            }
+            if (confirmResult.paymentIntent.status === 'succeeded') {
+              const reference = data.id || 'MC-WALLET-' + Date.now().toString(36).toUpperCase();
+              onPaymentSuccess({
+                last4: data.last4 || 'xxxx',
+                reference,
+                stripeId: data.id,
+                isMock: false,
+                paymentMethod: 'wallet',
+              });
+              return;
+            }
+          } else if (data.success) {
+            ev.complete('success');
+            const reference = data.id || 'MC-WALLET-' + Date.now().toString(36).toUpperCase();
+            onPaymentSuccess({
+              last4: data.last4 || 'xxxx',
+              reference,
+              stripeId: data.id,
+              isMock: false,
+              paymentMethod: 'wallet',
+            });
+            return;
+          } else {
+            ev.complete('fail');
+            setPaymentError(
+              buildPaymentError({
+                code: data.code || 'processing_error',
+                message: data.error || 'Hubo un problema con el pago.',
+              }),
+            );
+            setIsLoading(false);
+          }
+        } catch (error) {
+          ev.complete('fail');
+          setPaymentError(
+            buildPaymentError({
+              code: 'processing_error',
+              message: error?.message || 'Error inesperado durante el pago.',
+            }),
+          );
+          setIsLoading(false);
+        }
+      });
+
+      setPaymentRequest(pr);
+      setWalletAvailable(true);
+    });
+
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [totalPrice, providerName, slotDate, slotTime, patientName, patientEmail, bookingId]);
 
   const formattedDate = slotDate
     ? new Date(slotDate + 'T00:00:00').toLocaleDateString('es-ES', { weekday: 'short', day: 'numeric', month: 'short' })
@@ -299,6 +449,33 @@ function PaymentFormContent({ totalPrice, providerName, slotDate, slotTime, pati
                     handleStripePay(stripe, elements);
                   }}
                 >
+                  {/* 2026-06-04 — A1: Apple Pay / Google Pay button.
+                      Only mounts when stripe.paymentRequest.canMakePayment()
+                      resolves truthy (device + browser + paired card). On
+                      desktop Chrome the divider line and CardElement are the
+                      only thing visible; on iOS/Android Safari/Chrome with a
+                      paired wallet, the user sees the wallet button on top
+                      and can skip the keyboard entirely. */}
+                  {walletAvailable && paymentRequest && (
+                    <div className="payment-wallet-section">
+                      <PaymentRequestButtonElement
+                        options={{
+                          paymentRequest,
+                          style: {
+                            paymentRequestButton: {
+                              type: 'default',
+                              theme: 'dark',
+                              height: '48px',
+                            },
+                          },
+                        }}
+                      />
+                      <div className="payment-or-divider" aria-hidden="true">
+                        <span>o paga con tarjeta</span>
+                      </div>
+                    </div>
+                  )}
+
                   <div className="payment-field">
                     <label className="payment-label">Tarjeta de crédito</label>
                     <div className="payment-stripe-element">

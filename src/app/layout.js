@@ -1,6 +1,7 @@
 import { Fraunces, Inter_Tight, JetBrains_Mono } from 'next/font/google';
 import './globals.css';
 import CookieBanner from '@/components/CookieBanner';
+import WhatsAppFAB from '@/components/WhatsAppFAB';
 
 // Brand 2026 typography. Variables here flow into `var(--font-display)`,
 // `--font-body`, and `--font-mono` declared in globals.css. Fraunces is loaded
@@ -116,6 +117,7 @@ export default async function RootLayout({ children }) {
             {children}
           </ClerkProvider>
           <CookieBanner />
+          <WhatsAppFAB />
         </body>
       </html>
     );
@@ -129,6 +131,7 @@ export default async function RootLayout({ children }) {
       <body>
         {children}
         <CookieBanner />
+        <WhatsAppFAB />
       </body>
     </html>
   );
