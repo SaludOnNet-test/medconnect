@@ -474,11 +474,12 @@ export default function ClinicBookingModal({
           {/* 2026-06-04 — A2: trust strip just above the Confirmar button.
               The patient is about to commit; we restate the 3 reassurances
               at the moment of highest friction in the modal flow. Hidden if
-              there is no actionable booking yet (no clutter when the user
-              hasn't picked a slot). */}
+              there is no actionable booking yet. Inline variant so the
+              slot picker stays above the fold on mobile — the v1 chip row
+              pushed slots out of view. */}
           {canBook && (
-            <div style={{ marginBottom: 12 }}>
-              <TrustStrip variant="compact" />
+            <div style={{ marginBottom: 8 }}>
+              <TrustStrip variant="inline" />
             </div>
           )}
           {canBook ? (
