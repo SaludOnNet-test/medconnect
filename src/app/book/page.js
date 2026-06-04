@@ -1356,6 +1356,24 @@ function BookContent() {
               </div>
             )}
 
+            {/* 2026-06-04 — Restate the refund + insurance value-prop at the
+                moment of highest commitment friction. The same line lives in
+                the price-breakdown box on the form step, but by the time the
+                patient reaches the Stripe field they have forgotten it. We
+                show this above PaymentForm so the trust frame is fresh
+                when they reach for their card. */}
+            {hasInsurance !== null && (
+              <div
+                className="book-info-box book-info-box--green"
+                style={{ marginBottom: 'var(--space-md)' }}
+              >
+                Cargo único de <strong>{totalPrice > 0 ? formatEUR(totalPrice) : '0 €'}</strong>.
+                Reembolso íntegro en 72&nbsp;h si no encontramos hueco con tu
+                seguro. La consulta sigue cubierta por tu póliza — solo pagas
+                nuestra tarifa de prioridad.
+              </div>
+            )}
+
             {/* PaymentForm — only mounts once hasInsurance is resolved.
                 Until then the patient sees the toggle above. Without this
                 gate the Stripe form would mount with totalPrice=0 and look

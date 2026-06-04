@@ -43,6 +43,49 @@ function PaymentFormContent({ totalPrice, providerName, slotDate, slotTime, pati
   const [stripeAvailable, setStripeAvailable] = useState(!!stripePromise);
   const stripe = stripeAvailable ? null : null; // Will be set by ElementsConsumer
 
+  // 2026-06-04 — Stripe step abandonment fix.
+  // Replaces the prior `alert(...)` flow on Stripe / 3DS / backend errors.
+  // Browser alerts on mobile read as scammy + are non-recoverable. We now
+  // surface the failure inline as a state-driven card with copy keyed off
+  // Stripe's `code` so the user always gets an actionable recovery hint
+  // (e.g. "tarjeta rechazada → prueba con otra"). Set to `null` on retry
+  // so the user never sees a stale error after they edit the card.
+  const [paymentError, setPaymentError] = useState(null);
+
+  // Map Stripe error codes → user-facing recovery copy in Spanish.
+  // Codes come from https://stripe.com/docs/error-codes; we cover the ones
+  // most likely to surface for Madrid retail card traffic. Anything not in
+  // the map falls back to Stripe's own message (already localized).
+  const buildPaymentError = (error) => {
+    const code = error?.code || error?.decline_code || 'unknown';
+    const message = error?.message || 'Hubo un problema con el pago.';
+    const recoveryByCode = {
+      card_declined:
+        'Tu banco rechazó la tarjeta. Prueba con otra tarjeta o llama a tu banco para autorizar el cargo.',
+      insufficient_funds:
+        'Fondos insuficientes en esta tarjeta. Prueba con otra tarjeta.',
+      expired_card:
+        'La tarjeta ha caducado. Usa una tarjeta con fecha de caducidad válida.',
+      incorrect_cvc:
+        'El código CVV es incorrecto. Revisa los 3 dígitos del reverso de tu tarjeta.',
+      incorrect_number:
+        'El número de tarjeta no es correcto. Revísalo y vuelve a intentarlo.',
+      processing_error:
+        'Error de procesamiento temporal. Vuelve a intentarlo en unos segundos.',
+      authentication_required:
+        'Tu banco pide verificación adicional. Sigue las instrucciones del SMS o la app de tu banco.',
+      email_invalid:
+        'El email no es válido. Vuelve al paso anterior y corrígelo.',
+      generic_decline:
+        'Tu banco rechazó el pago. Prueba con otra tarjeta o contacta a tu banco.',
+    };
+    return {
+      code,
+      message,
+      recovery: recoveryByCode[code] || 'Revisa los datos de tu tarjeta y vuelve a intentarlo. Si el problema persiste, prueba con otra tarjeta.',
+    };
+  };
+
   const formattedDate = slotDate
     ? new Date(slotDate + 'T00:00:00').toLocaleDateString('es-ES', { weekday: 'short', day: 'numeric', month: 'short' })
     : slotDate;
@@ -72,6 +115,7 @@ function PaymentFormContent({ totalPrice, providerName, slotDate, slotTime, pati
     if (!stripe || !elements) return;
 
     setIsLoading(true);
+    setPaymentError(null); // clear stale errors on each new attempt
     const cardElement = elements.getElement(CardElement);
 
     try {
@@ -94,10 +138,11 @@ function PaymentFormContent({ totalPrice, providerName, slotDate, slotTime, pati
       const trimmedEmail = typeof patientEmail === 'string' ? patientEmail.trim() : '';
       const emailLooksValid = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(trimmedEmail);
       if (!emailLooksValid) {
-        alert(
-          'El email del paciente no es válido (' +
-            (trimmedEmail || 'vacío') +
-            '). Vuelve al paso anterior y corrige el campo "Email" antes de pagar.'
+        setPaymentError(
+          buildPaymentError({
+            code: 'email_invalid',
+            message: `Email no válido (${trimmedEmail || 'vacío'}).`,
+          })
         );
         setIsLoading(false);
         return;
@@ -113,7 +158,7 @@ function PaymentFormContent({ totalPrice, providerName, slotDate, slotTime, pati
       });
 
       if (error) {
-        alert(`Stripe error: ${error.message}`);
+        setPaymentError(buildPaymentError(error));
         setIsLoading(false);
         return;
       }
@@ -145,7 +190,12 @@ function PaymentFormContent({ totalPrice, providerName, slotDate, slotTime, pati
       const data = await response.json();
 
       if (data.error) {
-        alert(`Payment failed: ${data.error}`);
+        setPaymentError(
+          buildPaymentError({
+            code: data.code || 'processing_error',
+            message: data.error,
+          })
+        );
         setIsLoading(false);
         return;
       }
@@ -154,7 +204,12 @@ function PaymentFormContent({ totalPrice, providerName, slotDate, slotTime, pati
         // Handle 3D Secure
         const confirmResult = await stripe.confirmCardPayment(data.clientSecret);
         if (confirmResult.error) {
-          alert(`3D Secure failed: ${confirmResult.error.message}`);
+          setPaymentError(
+            buildPaymentError({
+              code: confirmResult.error.code || 'authentication_required',
+              message: confirmResult.error.message,
+            })
+          );
           setIsLoading(false);
           return;
         }
@@ -177,11 +232,21 @@ function PaymentFormContent({ totalPrice, providerName, slotDate, slotTime, pati
           isMock: false,
         });
       } else {
-        alert(`Payment failed: ${data.error || 'Unknown error'}`);
+        setPaymentError(
+          buildPaymentError({
+            code: data.code || 'processing_error',
+            message: data.error || 'Hubo un problema con el pago.',
+          })
+        );
         setIsLoading(false);
       }
     } catch (error) {
-      alert(`Payment error: ${error.message}`);
+      setPaymentError(
+        buildPaymentError({
+          code: 'processing_error',
+          message: error?.message || 'Error inesperado durante el pago.',
+        })
+      );
       setIsLoading(false);
     }
   };
@@ -204,6 +269,24 @@ function PaymentFormContent({ totalPrice, providerName, slotDate, slotTime, pati
             <span className="payment-lock-icon">🔒</span>
             <span className="payment-secure-label">{stripeAvailable ? 'Stripe Seguro' : 'Pago seguro (test)'}</span>
             <span className="payment-cards-label">VISA · Mastercard · Amex</span>
+          </div>
+
+          {/* 2026-06-04 — Pre-form reassurance card. Addresses the top three
+              bailout reasons measured Mon→Thu (0/4 reserved bookings ever
+              attempted payment): unclear who holds the card, 3DS popup
+              looking suspicious, and no visible refund safety net. Placed
+              above the card field so it is the FIRST thing the patient
+              reads at the payment step. */}
+          <div className="payment-trust-card" role="note" aria-label="Información de seguridad">
+            <div className="payment-trust-title">
+              <span aria-hidden="true">🔒</span>
+              <span>Pago 100% seguro con Stripe</span>
+            </div>
+            <ul className="payment-trust-list">
+              <li>Tu tarjeta nunca pasa por servidores de Med Connect.</li>
+              <li>Tu banco pedirá confirmar el pago por SMS o por la app (~10&nbsp;segundos).</li>
+              <li>Si no encontramos hueco con tu seguro, te devolvemos el cargo íntegro en 72&nbsp;h.</li>
+            </ul>
           </div>
 
           {/* Stripe Elements or Mock Form */}
@@ -235,6 +318,53 @@ function PaymentFormContent({ totalPrice, providerName, slotDate, slotTime, pati
                     />
                   </div>
 
+                  {/* 2026-06-04 — Micro trust signals row. Same brand tokens
+                      as the rest of the payment card so it reads as an
+                      official block, not a marketing add-on. */}
+                  <div className="payment-trust-signals" aria-hidden="true">
+                    <span>✓ Cifrado SSL/TLS</span>
+                    <span>·</span>
+                    <span>✓ Verificado por Stripe</span>
+                    <span>·</span>
+                    <span>✓ PCI DSS</span>
+                    <span>·</span>
+                    <span>✓ Reembolsable 72h</span>
+                  </div>
+
+                  {paymentError && (
+                    <div
+                      className="payment-error-card"
+                      role="alert"
+                      aria-live="assertive"
+                    >
+                      <div className="payment-error-title">
+                        <span aria-hidden="true">⚠️</span>
+                        <span>No pudimos completar el pago</span>
+                      </div>
+                      <div className="payment-error-message">{paymentError.message}</div>
+                      <div className="payment-error-recovery">{paymentError.recovery}</div>
+                      <div className="payment-error-actions">
+                        <button
+                          type="button"
+                          className="payment-error-link"
+                          onClick={() => setPaymentError(null)}
+                        >
+                          Cerrar y volver a intentar
+                        </button>
+                        <button
+                          type="button"
+                          className="payment-error-link payment-error-link-muted"
+                          onClick={() => {
+                            setPaymentError(null);
+                            onBack && onBack();
+                          }}
+                        >
+                          ← Volver al paso anterior
+                        </button>
+                      </div>
+                    </div>
+                  )}
+
                   <div className="payment-actions">
                     <button
                       type="button"
@@ -246,13 +376,14 @@ function PaymentFormContent({ totalPrice, providerName, slotDate, slotTime, pati
                     </button>
                     <button
                       type="submit"
-                      className="payment-btn payment-btn-primary"
+                      className={`payment-btn payment-btn-primary${isLoading ? ' payment-btn-primary-loading' : ''}`}
                       disabled={isLoading}
+                      aria-busy={isLoading}
                     >
                       {isLoading ? (
                         <>
-                          <span className="payment-spinner"></span>
-                          Procesando...
+                          <span className="payment-spinner payment-spinner-lg"></span>
+                          Procesando pago…
                         </>
                       ) : (
                         `Pagar ${formatEUR(totalPrice)}`
@@ -332,13 +463,14 @@ function PaymentFormContent({ totalPrice, providerName, slotDate, slotTime, pati
                 </button>
                 <button
                   type="submit"
-                  className="payment-btn payment-btn-primary"
+                  className={`payment-btn payment-btn-primary${isLoading ? ' payment-btn-primary-loading' : ''}`}
                   disabled={isLoading}
+                  aria-busy={isLoading}
                 >
                   {isLoading ? (
                     <>
-                      <span className="payment-spinner"></span>
-                      Procesando...
+                      <span className="payment-spinner payment-spinner-lg"></span>
+                      Procesando pago…
                     </>
                   ) : (
                     `Pagar ${formatEUR(totalPrice)}`
