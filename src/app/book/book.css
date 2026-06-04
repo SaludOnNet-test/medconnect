@@ -397,6 +397,109 @@
 .payment-back-link { display: block; width: 100%; text-align: center; background: none; border: none; color: var(--muted); font-size: 0.85rem; cursor: pointer; padding: var(--space-sm); text-decoration: underline; }
 .payment-back-link:hover { color: var(--navy); }
 
+/* 2026-06-04 — Stripe step trust + error handling.
+   Pre-form reassurance card, micro trust signals, inline error card,
+   and enlarged loading spinner. Same colour palette as the existing
+   .book-info-box so the new chrome reads as part of the form, not
+   a marketing overlay. */
+.payment-trust-card {
+  background: #f0f4f8;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  padding: var(--space-md) var(--space-lg);
+  margin-bottom: var(--space-lg);
+  color: var(--navy);
+}
+.payment-trust-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-weight: 700;
+  font-size: 0.95rem;
+  margin-bottom: 8px;
+}
+.payment-trust-list {
+  margin: 0;
+  padding-left: 1.2em;
+  font-size: 0.85rem;
+  line-height: 1.45;
+  color: var(--text);
+}
+.payment-trust-list li { margin-bottom: 4px; }
+.payment-trust-list li:last-child { margin-bottom: 0; }
+
+.payment-trust-signals {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 10px;
+  justify-content: center;
+  align-items: center;
+  margin-top: var(--space-md);
+  padding: 8px 4px;
+  font-size: 0.7rem;
+  color: var(--muted);
+  letter-spacing: 0.02em;
+}
+.payment-trust-signals span { white-space: nowrap; }
+
+.payment-error-card {
+  margin-top: var(--space-md);
+  padding: var(--space-md) var(--space-lg);
+  background: #fff5f5;
+  border: 1px solid #fecaca;
+  border-left: 4px solid #dc2626;
+  border-radius: var(--radius-md);
+  color: #7f1d1d;
+}
+.payment-error-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-weight: 700;
+  font-size: 0.95rem;
+  margin-bottom: 6px;
+}
+.payment-error-message {
+  font-size: 0.85rem;
+  font-weight: 600;
+  margin-bottom: 6px;
+  color: #991b1b;
+}
+.payment-error-recovery {
+  font-size: 0.85rem;
+  line-height: 1.45;
+  color: #7f1d1d;
+  margin-bottom: 10px;
+}
+.payment-error-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  align-items: center;
+}
+.payment-error-link {
+  background: none;
+  border: none;
+  padding: 0;
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: #991b1b;
+  text-decoration: underline;
+  cursor: pointer;
+}
+.payment-error-link:hover { color: #7f1d1d; }
+.payment-error-link-muted { color: var(--muted); font-weight: 500; }
+.payment-error-link-muted:hover { color: var(--navy); }
+
+.payment-spinner-lg {
+  width: 20px;
+  height: 20px;
+  border-width: 2.5px;
+}
+.payment-btn-primary-loading {
+  box-shadow: 0 0 0 1px var(--gold, #c8a96a);
+}
+
 /* ═══════════════════════════════════════
    SUCCESS STATE
 ═══════════════════════════════════════ */
