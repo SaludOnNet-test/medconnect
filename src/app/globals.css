@@ -1299,6 +1299,43 @@ a.contact-row-value:hover {
   gap: 8px;
   font-family: var(--font-body, system-ui);
 }
+/* 2026-06-04 v2 — inline ultra-compact variant.
+   Single thin line, ~22 px tall, no chips, no background. Used on
+   landing hero + booking modal so the clinic list / slot picker stays
+   above the fold on mobile. The label still announces each claim
+   individually thanks to the per-item span wrappers (a11y intact). */
+.trust-strip--inline {
+  display: block;
+  font-size: 0.78rem;
+  line-height: 1.4;
+  color: var(--fg-muted, #4b5563);
+  font-weight: 500;
+}
+.trust-strip-inline-item {
+  display: inline;
+  white-space: nowrap;
+}
+.trust-strip-inline-item .trust-strip-icon {
+  margin-right: 3px;
+  font-size: 0.85rem;
+  vertical-align: -1px;
+}
+.trust-strip-sep {
+  display: inline-block;
+  margin: 0 6px;
+  color: var(--border, #d1d5db);
+}
+@media (max-width: 520px) {
+  .trust-strip--inline {
+    font-size: 0.7rem;
+    /* On the narrowest viewports, allow the three items to wrap to
+       two lines but keep each item itself unbroken (nowrap above).
+       Better than horizontal scroll and still much shorter than the
+       chip variant. */
+    white-space: normal;
+  }
+  .trust-strip-sep { margin: 0 4px; }
+}
 .trust-strip--compact {
   flex-direction: row;
   flex-wrap: wrap;

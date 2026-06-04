@@ -16,7 +16,11 @@ import { trackEvent } from '@/lib/analytics';
  * consent has already been granted).
  */
 
-const WA_NUMBER = '34911977052'; // E.164 (no + per wa.me)
+// E.164 (no + per wa.me convention).
+// 2026-06-04 v2 — switched from the landline (91 197 70 52) to the
+// dedicated ops mobile so WhatsApp routes to a number that actually
+// receives messages. The header still shows the landline for voice.
+const WA_NUMBER = '34677348588';
 const DEFAULT_TEXT = 'Hola, necesito ayuda para reservar una cita en Med Connect.';
 
 export default function WhatsAppFAB() {

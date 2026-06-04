@@ -281,10 +281,11 @@ export default async function EspecialistasCiudadPage({ params }) {
           {/* 2026-06-04 — A2: trust strip replicated upstream. Same 3 claims
               that appear at the Stripe step (commit f2dc34a) so the patient
               sees the reassurance immediately on the SEM landing, not only
-              at the moment of being charged. Identical wording on all 4
-              surfaces is intentional — consistency builds familiarity. */}
-          <div style={{ marginTop: 'var(--space-3)' }}>
-            <TrustStrip variant="compact" />
+              at the moment of being charged. Inline variant (single thin
+              line, ~22 px) keeps the first ClinicCard above the fold on
+              mobile — the v1 compact chip row pushed it below. */}
+          <div style={{ marginTop: 'var(--space-2)' }}>
+            <TrustStrip variant="inline" />
           </div>
 
           {/* 2026-05-29 — Search escape hatch. A Clarity-recorded session
