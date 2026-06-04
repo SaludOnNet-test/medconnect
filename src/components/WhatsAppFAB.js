@@ -30,7 +30,7 @@ const DEFAULT_TEXT = 'Hola, necesito ayuda para reservar una cita en Med Connect
 
 // Ops attention hours — surfaced to the patient in the greeting modal.
 // Edit here if hours change.
-const HOURS_LABEL = 'Lunes a viernes de 9:00 a 19:00, sábados de 10:00 a 14:00';
+const HOURS_LABEL = 'Lunes a viernes de 10:00 a 18:00';
 
 export default function WhatsAppFAB() {
   const pathname = usePathname() || '/';
