@@ -1465,6 +1465,15 @@ a.contact-row-value:hover {
   font-weight: 600;
   color: var(--muted, #6b7280);
 }
+.patient-testimonials-footnote {
+  margin: var(--space-3, 20px) auto 0;
+  max-width: 1100px;
+  text-align: center;
+  font-size: 0.72rem;
+  color: var(--muted, #6b7280);
+  font-style: italic;
+  line-height: 1.4;
+}
 @media (max-width: 640px) {
   .patient-testimonials { padding: var(--space-5, 28px) 0; }
   .patient-testimonials-grid { grid-template-columns: 1fr; }

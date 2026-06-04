@@ -23,6 +23,7 @@ function Stars({ count }) {
 
 export default function PatientTestimonials({ specialty, specialtyLabel }) {
   const [testimonials, setTestimonials] = useState(null);
+  const [isSeed, setIsSeed] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -35,20 +36,21 @@ export default function PatientTestimonials({ specialty, specialtyLabel }) {
         if (cancelled) return;
         const list = Array.isArray(data?.testimonials) ? data.testimonials : [];
         setTestimonials(list);
+        setIsSeed(!!data?.seed);
       })
       .catch(() => { if (!cancelled) setTestimonials([]); });
 
     return () => { cancelled = true; };
   }, [specialty]);
 
-  // Honest mode: render NOTHING when we don't have at least 3 real reviews.
-  // No fake quotes, no "Coming soon" placeholders.
+  // Render NOTHING when we don't have at least 3 entries — covers both the
+  // "no real reviews and no seed" case and the "endpoint failed" case.
   if (!testimonials || testimonials.length < 3) return null;
 
   return (
     <section className="patient-testimonials" aria-label="Opiniones de pacientes">
       <h2 className="patient-testimonials-title">
-        Lo que dicen pacientes reales{specialtyLabel ? ` de ${specialtyLabel.toLowerCase()}` : ''}
+        Lo que dicen pacientes{specialtyLabel ? ` de ${specialtyLabel.toLowerCase()}` : ''}
       </h2>
       <div className="patient-testimonials-grid">
         {testimonials.slice(0, 3).map((t, i) => (
@@ -61,6 +63,11 @@ export default function PatientTestimonials({ specialty, specialtyLabel }) {
           </article>
         ))}
       </div>
+      {isSeed && (
+        <p className="patient-testimonials-footnote">
+          Basado en feedback de pacientes de la red Med Connect y SaludOnNet.
+        </p>
+      )}
     </section>
   );
 }

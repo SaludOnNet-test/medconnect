@@ -65,9 +65,34 @@ export default function ClinicCardV2({
     : availableSlots.filter((s) => s.tier === 1).length;
   const isLastSlotThisWeek = tierOneCount === 1;
 
+  // 2026-06-04 — Dead-click fix.
+  // Clarity recorded heavy dead-click activity on the clinic name, logo
+  // avatar, address and insurance tags. Patients expected the card to be
+  // clickable as a unit; the slot chips were the only interactive area.
+  // The upper "card body" (avatar + name + rating + insurance tags) now
+  // opens the booking modal in browse mode (no preselected slot), same
+  // as the "Ver todos los horarios →" CTA. Slot chips are SIBLINGS of
+  // this container, not children, so their click handlers are unaffected.
+  const openBrowseMode = () => {
+    if (onOpenModal) onOpenModal(provider, null);
+  };
+  const handleBodyKey = (e) => {
+    if (e.key === 'Enter' || e.key === ' ') {
+      e.preventDefault();
+      openBrowseMode();
+    }
+  };
+
   return (
     <div className={`cv2-card ${highlighted ? 'cv2-card--highlighted' : ''}`} id={`clinic-card-${provider.id}`}>
-      <div className="cv2-card-body">
+      <div
+        className="cv2-card-body cv2-card-body--clickable"
+        role="button"
+        tabIndex={0}
+        onClick={openBrowseMode}
+        onKeyDown={handleBodyKey}
+        aria-label={`Ver disponibilidad de ${provider.name}`}
+      >
         <div className="cv2-avatar" style={provider.imageUrl ? {} : { background: avatarColor }}>
           {provider.imageUrl
             ? <img src={provider.imageUrl} alt={provider.name} className="cv2-avatar-img" />
