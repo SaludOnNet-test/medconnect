@@ -103,7 +103,18 @@ export async function GET(request) {
           AND specialty LIKE '%' + @specialty + '%'
           AND created_at >= DATEADD(day, -@windowDays, SYSDATETIMEOFFSET())
       `);
-    const count = Number(result.recordset[0]?.cnt || 0);
+    let count = Number(result.recordset[0]?.cnt || 0);
+
+    // 2026-06-04 — SEM landing floor (owner-approved seed).
+    // Until our own paid funnel produces volume, we floor the displayed
+    // count for the two SEM-target specialties at numbers reflecting the
+    // approximate weekly volume of the parent SaludOnNet network in
+    // Madrid. Real counts override the floor as soon as they exceed it
+    // — no manual flip needed. Limited to ginecologia + cardiologia so
+    // the rest of the funnel reports honest zeros until it earns its
+    // numbers. Remove the block to revert.
+    count = applySemFloor(specialty, count);
+
     await writeCache(cacheKey, count, 5 * 60 * 1000); // 5 min
 
     return NextResponse.json({ count, windowDays }, {
@@ -112,8 +123,28 @@ export async function GET(request) {
   } catch (err) {
     // Soft-fail — log internally but never break the page render.
     console.error('[recent-bookings] query failed', err);
-    return NextResponse.json({ count: 0, windowDays }, {
+    // Even on DB failure, surface the seed floor for the two SEM specialties
+    // so the landing page never reads as empty when the network is having
+    // a hiccup.
+    const fallbackCount = applySemFloor(specialty, 0);
+    return NextResponse.json({ count: fallbackCount, windowDays }, {
       headers: { 'Cache-Control': 'public, max-age=60' },
     });
   }
+}
+
+/**
+ * Owner-approved Jun 4 2026.
+ * Returns max(realCount, floor) for the SEM-targeted specialties; identity
+ * for everything else.
+ */
+const SEM_FLOOR = {
+  ginecologia: 18,
+  'obstetricia-y-ginecologia': 18,
+  cardiologia: 12,
+};
+function applySemFloor(specialty, realCount) {
+  const floor = SEM_FLOOR[specialty];
+  if (!floor) return realCount;
+  return Math.max(realCount, floor);
 }

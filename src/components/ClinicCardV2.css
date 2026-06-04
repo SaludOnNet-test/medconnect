@@ -34,6 +34,35 @@
   margin-bottom: 1rem;
 }
 
+/* 2026-06-04 — dead-click fix.
+   The body (avatar + name + rating + insurance tags) is now an
+   interactive control that opens the booking modal in browse mode
+   (no preselected slot). Slot chips below are siblings, unaffected. */
+.cv2-card-body--clickable {
+  cursor: pointer;
+  border-radius: 10px;
+  margin: -8px -8px 8px;
+  padding: 8px;
+  transition: background-color 0.15s ease;
+  outline: none;
+}
+.cv2-card-body--clickable:hover {
+  background-color: var(--bone-100, #f8f5ef);
+}
+.cv2-card-body--clickable:focus-visible {
+  background-color: var(--bone-100, #f8f5ef);
+  box-shadow: 0 0 0 2px var(--brass-500, #c8a96a);
+}
+.cv2-card-body--clickable .cv2-name {
+  text-decoration: none;
+}
+.cv2-card-body--clickable:hover .cv2-name {
+  text-decoration: underline;
+  text-decoration-color: var(--brass-500, #c8a96a);
+  text-decoration-thickness: 2px;
+  text-underline-offset: 3px;
+}
+
 /* ── Avatar ───────────────────────────────────────────────────────────── */
 .cv2-avatar {
   width: 56px;
