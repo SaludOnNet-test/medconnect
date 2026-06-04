@@ -236,24 +236,28 @@ export default async function EspecialistasCiudadPage({ params }) {
             {specialty.shortDesc(city)}
           </p>
 
-          {/* 2026-06-04 — A3: price anchor. €29 alone reads as "a fee".
-              Anchored against €60-120 (Spanish private-consult market rate
-              for first visits in cardiology / dermatology / gynecology),
-              the same number reads as a deal. */}
+          {/* 2026-06-04 — A3 v2: price anchor compressed.
+              The v1 copy ran ~3 lines and pushed clinic listings below
+              the fold on mobile. The "tu seguro cubre el resto" half is
+              redundant — the trust strip immediately below already says
+              "Tu seguro cubre la consulta". We keep only the unique
+              info (the price comparison) in a single line that visually
+              reads as fine-print + bold numbers — same tone as the
+              inline trust strip so the two stack tidily. */}
           <p
             className="esp-hero__anchor"
             style={{
-              color: 'var(--ink-1000)',
-              fontSize: '1rem',
+              fontSize: '0.85rem',
+              color: 'var(--fg-muted)',
+              lineHeight: 1.45,
               maxWidth: '640px',
-              lineHeight: 1.55,
-              marginBottom: 'var(--space-5)',
+              marginBottom: 'var(--space-2)',
             }}
           >
-            Reserva {specialty.plural.toLowerCase()} en {city}{' '}
-            <strong>desde €5</strong>. Una primera consulta privada cuesta
-            entre <strong>€60 y €120</strong>; aquí solo pagas la tarifa de
-            prioridad — <strong>tu seguro cubre el resto</strong>.
+            Reserva{' '}
+            <strong style={{ color: 'var(--ink-1000)' }}>desde €5</strong>
+            {' '}— una consulta privada equivalente cuesta{' '}
+            <strong style={{ color: 'var(--ink-1000)' }}>€60-120</strong>.
           </p>
 
           {/* Key stats — flat icon + label list. Earlier this was a
