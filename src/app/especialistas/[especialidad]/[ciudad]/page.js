@@ -1,6 +1,9 @@
 import Link from 'next/link';
 import Header from '@/components/Header';
 import Footer from '@/components/Footer';
+import TrustStrip from '@/components/TrustStrip';
+import RecentBookingsBar from '@/components/RecentBookingsBar';
+import PatientTestimonials from '@/components/PatientTestimonials';
 import SearchResults from './SearchResults';
 import {
   SPECIALTY_MAP,
@@ -206,6 +209,18 @@ export default async function EspecialistasCiudadPage({ params }) {
           >
             {specialty.plural} privados en {city}
           </h1>
+
+          {/* 2026-06-04 — A4: live social-proof bar. Hidden when count is 0
+              so the patient never sees a placeholder that would read as
+              scammy. specialty.id is the URL slug (e.g. "ginecologia") and
+              maps 1:1 to the `specialty` column in bookings. */}
+          <div style={{ marginBottom: 'var(--space-3)' }}>
+            <RecentBookingsBar
+              specialty={specialty.id}
+              city={city}
+              specialtyLabel={specialty.plural}
+            />
+          </div>
           <p
             className="esp-hero__intro"
             style={{
@@ -213,10 +228,30 @@ export default async function EspecialistasCiudadPage({ params }) {
               fontSize: '1.05rem',
               maxWidth: '640px',
               lineHeight: 1.6,
-              marginBottom: 'var(--space-5)',
+              marginBottom: 'var(--space-3)',
             }}
           >
             {specialty.shortDesc(city)}
+          </p>
+
+          {/* 2026-06-04 — A3: price anchor. €29 alone reads as "a fee".
+              Anchored against €60-120 (Spanish private-consult market rate
+              for first visits in cardiology / dermatology / gynecology),
+              the same number reads as a deal. */}
+          <p
+            className="esp-hero__anchor"
+            style={{
+              color: 'var(--ink-1000)',
+              fontSize: '1rem',
+              maxWidth: '640px',
+              lineHeight: 1.55,
+              marginBottom: 'var(--space-5)',
+            }}
+          >
+            Reserva {specialty.plural.toLowerCase()} en {city}{' '}
+            <strong>desde €5</strong>. Una primera consulta privada cuesta
+            entre <strong>€60 y €120</strong>; aquí solo pagas la tarifa de
+            prioridad — <strong>tu seguro cubre el resto</strong>.
           </p>
 
           {/* Key stats — flat icon + label list. Earlier this was a
@@ -241,6 +276,15 @@ export default async function EspecialistasCiudadPage({ params }) {
                 {label}
               </span>
             ))}
+          </div>
+
+          {/* 2026-06-04 — A2: trust strip replicated upstream. Same 3 claims
+              that appear at the Stripe step (commit f2dc34a) so the patient
+              sees the reassurance immediately on the SEM landing, not only
+              at the moment of being charged. Identical wording on all 4
+              surfaces is intentional — consistency builds familiarity. */}
+          <div style={{ marginTop: 'var(--space-3)' }}>
+            <TrustStrip variant="compact" />
           </div>
 
           {/* 2026-05-29 — Search escape hatch. A Clarity-recorded session
@@ -331,6 +375,20 @@ export default async function EspecialistasCiudadPage({ params }) {
               <li>Recibe confirmación por email con todos los detalles de tu cita.</li>
             </ol>
           </div>
+        </div>
+      </section>
+
+      {/* 2026-06-04 — A5: real patient testimonials.
+          Honest by construction: this section renders NOTHING when fewer
+          than 3 qualifying reviews exist. As reviews accumulate via the
+          post-booking review flow, the strip starts populating on its
+          own. No owner content step needed. */}
+      <section style={{ padding: '0 0', borderTop: '1px solid var(--border)' }}>
+        <div className="container">
+          <PatientTestimonials
+            specialty={specialty.id}
+            specialtyLabel={specialty.plural}
+          />
         </div>
       </section>
 

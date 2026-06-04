@@ -4,6 +4,7 @@ import { useRouter } from 'next/navigation';
 import { trackEvent } from '@/lib/analytics';
 import { formatEUR } from '@/lib/format';
 import Icon from '@/components/icons/Icon';
+import TrustStrip from '@/components/TrustStrip';
 import { fetchWithSession } from '@/lib/sessionId';
 import './ClinicBookingModal.css';
 
@@ -470,6 +471,16 @@ export default function ClinicBookingModal({
 
         {/* Footer CTA */}
         <div className="cbm-footer">
+          {/* 2026-06-04 — A2: trust strip just above the Confirmar button.
+              The patient is about to commit; we restate the 3 reassurances
+              at the moment of highest friction in the modal flow. Hidden if
+              there is no actionable booking yet (no clutter when the user
+              hasn't picked a slot). */}
+          {canBook && (
+            <div style={{ marginBottom: 12 }}>
+              <TrustStrip variant="compact" />
+            </div>
+          )}
           {canBook ? (
             <div className="cbm-footer-selected">
               <div>
@@ -497,6 +508,12 @@ export default function ClinicBookingModal({
                     <strong>{formatEUR(selectedTotalNoInsurance)}</strong> sin seguro
                     <span style={{ display: 'block', fontSize: '0.72rem', opacity: 0.85, marginTop: '2px' }}>
                       Sin seguro pagas también la consulta ({formatEUR(procedurePrice)}). Con seguro solo la prioridad.
+                    </span>
+                    {/* 2026-06-04 — A3: price anchor in modal. Restates the
+                        deal against the private-pay reference range so the
+                        user understands €5-29 in context, not in isolation. */}
+                    <span style={{ display: 'block', fontSize: '0.72rem', opacity: 0.85, marginTop: '4px', color: 'var(--ink-1000, #0a1428)' }}>
+                      Una consulta privada equivalente cuesta €60-120.
                     </span>
                   </p>
                 )}
