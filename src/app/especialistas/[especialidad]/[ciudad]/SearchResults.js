@@ -220,7 +220,31 @@ export default function SearchResults({ specialtySlug, city }) {
       fetchBatch(ids.slice(i, i + BATCH), i === 0 ? 0 : 300);
     }
 
-    return () => { cancelled = true; };
+    // 2026-06-04 — watchdog. Same fix as search-v2: if a clinic's batch
+    // gets cancelled mid-delay (300 ms gap on 2nd+ batches) and never
+    // fires its fetch, the card stays on shimmer forever. After 8 s,
+    // mark any still-missing id as empty array so the card stops
+    // shimmering and shows "Sin disponibilidad próxima · Ver opciones"
+    // instead of looking broken.
+    const watchdog = setTimeout(() => {
+      if (cancelled) return;
+      setSlotsMap((prev) => {
+        const next = { ...prev };
+        let touched = false;
+        for (const id of ids) {
+          if (!(id in next)) {
+            next[id] = [];
+            touched = true;
+          }
+        }
+        return touched ? next : prev;
+      });
+    }, 8000);
+
+    return () => {
+      cancelled = true;
+      clearTimeout(watchdog);
+    };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [displayClinics]);
 
