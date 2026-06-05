@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { loadStripe } from '@stripe/stripe-js';
 import {
   CardElement,
@@ -9,6 +9,7 @@ import {
   PaymentRequestButtonElement,
 } from '@stripe/react-stripe-js';
 import { formatEUR } from '@/lib/format';
+import { trackEvent } from '@/lib/analytics';
 
 /**
  * Real Stripe payment form using Stripe Elements.
@@ -66,6 +67,13 @@ function PaymentFormContent({ totalPrice, providerName, slotDate, slotTime, pati
   // keyboard for cardholders who already auth'd a card with Apple/Google.
   const [paymentRequest, setPaymentRequest] = useState(null);
   const [walletAvailable, setWalletAvailable] = useState(false);
+
+  // 2026-06-05 — Track wallet detection rate exactly once per /book
+  // payment-step session. We can then divide `wallet_check available=true`
+  // by `wallet_check` total to decide whether A1 (Apple Pay / Google Pay)
+  // actually carries weight with our paid traffic. Ref-gate so we only
+  // emit once even if totalPrice / providerName change mid-step.
+  const walletCheckFired = useRef(false);
 
   // Map Stripe error codes → user-facing recovery copy in Spanish.
   // Codes come from https://stripe.com/docs/error-codes; we cover the ones
@@ -133,7 +141,29 @@ function PaymentFormContent({ totalPrice, providerName, slotDate, slotTime, pati
       if (!result) {
         setWalletAvailable(false);
         setPaymentRequest(null);
+        if (!walletCheckFired.current) {
+          walletCheckFired.current = true;
+          try {
+            trackEvent('wallet_check', { available: false, kind: 'none' });
+          } catch { /* analytics is fire-and-forget */ }
+        }
         return;
+      }
+
+      if (!walletCheckFired.current) {
+        walletCheckFired.current = true;
+        // Stripe's canMakePayment returns { applePay?: true, googlePay?: true,
+        // link?: true } or null. Pick the dominant kind for analytics.
+        const kind = result.applePay
+          ? 'apple'
+          : result.googlePay
+          ? 'google'
+          : result.link
+          ? 'link'
+          : 'other';
+        try {
+          trackEvent('wallet_check', { available: true, kind });
+        } catch { /* */ }
       }
 
       pr.on('paymentmethod', async (ev) => {
