@@ -86,11 +86,19 @@ export default function ClinicBookingModal({
       .then((data) => {
         const list = data.procedures || [];
         setProcedures(list);
-        // If we have a preselected procedure slug, keep it; otherwise default to
-        // the first one so the user always lands on a valid pick.
-        if (!procedureSlug && list.length > 0) {
-          const preselect = initialProcedureSlug && list.find((p) => p.slug === initialProcedureSlug);
-          setProcedureSlug(preselect ? preselect.slug : list[0].slug);
+        // 2026-06-04 — Only honor an EXPLICITLY-preselected procedure slug
+        // (came through the URL / search context). When the patient lands
+        // here from the dead-click fix (click on the clinic card without
+        // a specialty in context), `initialProcedureSlug` is '' and we
+        // intentionally leave procedureSlug empty so the dropdown shows
+        // "Selecciona el acto médico" and the patient picks. Previously
+        // we defaulted to list[0], which on Cea Bermúdez happens to be
+        // "Aumento de labios con ácido hialurónico" — a 1000€ aesthetic
+        // procedure that surfaced as the price preview and pushed the
+        // slot picker off-screen on mobile.
+        if (!procedureSlug && initialProcedureSlug && list.length > 0) {
+          const preselect = list.find((p) => p.slug === initialProcedureSlug);
+          if (preselect) setProcedureSlug(preselect.slug);
         }
       })
       .catch(() => setProcedures([]))
@@ -484,42 +492,35 @@ export default function ClinicBookingModal({
           )}
           {canBook ? (
             <div className="cbm-footer-selected">
-              <div>
+              <div className="cbm-footer-info">
                 <p className="cbm-footer-label">Cita seleccionada</p>
                 <p className="cbm-footer-summary">
                   {new Date(selectedSlot.date + 'T00:00:00').toLocaleDateString('es-ES', { weekday: 'long', day: 'numeric', month: 'long' })}
                   {' · '}{selectedSlot.time}
-                  {selectedProcedure ? ` · ${selectedProcedure.name}` : ''}
+                  {selectedProcedure && (
+                    <span className="cbm-footer-procedure" title={selectedProcedure.name}>
+                      {' · '}{selectedProcedure.name}
+                    </span>
+                  )}
                 </p>
-                {/* Show BOTH prices upfront to avoid the price-shock at /book
-                    when the user toggles "No tengo seguro". When the user
-                    came via the sin-seguro flow (isSinSeguro=true) we know
-                    the full total already and only show that. Otherwise we
-                    show "Con seguro: €X · Sin seguro: €Y" so the user has
-                    full information before committing. */}
+                {/* Show BOTH prices upfront to avoid price-shock when the
+                    user toggles "No tengo seguro". When sin-seguro flow,
+                    we know the total already and show only that. Otherwise
+                    "Con seguro: €X · Sin seguro: €Y" + a single-line note.
+                    2026-06-04 v2 — dropped the "consulta privada €60-120"
+                    line from the modal: the landing-hero anchor already
+                    sets that frame, and the modal needs vertical room for
+                    the slot picker to stay above the fold on mobile. */}
                 {!isSinSeguro && procedurePrice > 0 && selectedPriorityFee > 0 && (
-                  <p className="cbm-footer-pricehint" style={{
-                    fontSize: '0.78rem',
-                    color: 'var(--muted, #6b7280)',
-                    marginTop: '4px',
-                    lineHeight: 1.4,
-                  }}>
-                    <strong>{formatEUR(selectedPriorityFee)}</strong> con tu seguro
+                  <p className="cbm-footer-pricehint">
+                    <strong>{formatEUR(selectedPriorityFee)}</strong> con seguro
                     {' · '}
                     <strong>{formatEUR(selectedTotalNoInsurance)}</strong> sin seguro
-                    <span style={{ display: 'block', fontSize: '0.72rem', opacity: 0.85, marginTop: '2px' }}>
-                      Sin seguro pagas también la consulta ({formatEUR(procedurePrice)}). Con seguro solo la prioridad.
-                    </span>
-                    {/* 2026-06-04 — A3: price anchor in modal. Restates the
-                        deal against the private-pay reference range so the
-                        user understands €5-29 in context, not in isolation. */}
-                    <span style={{ display: 'block', fontSize: '0.72rem', opacity: 0.85, marginTop: '4px', color: 'var(--ink-1000, #0a1428)' }}>
-                      Una consulta privada equivalente cuesta €60-120.
-                    </span>
+                    {' '}<span className="cbm-footer-pricehint-note">(consulta {formatEUR(procedurePrice)} + prioridad)</span>
                   </p>
                 )}
               </div>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+              <div className="cbm-footer-cta">
                 <span className="cbm-footer-fee">{selectedFee > 0 ? formatEUR(selectedFee) : 'Gratis'}</span>
                 <button className="cbm-book-btn" onClick={handleBook} disabled={holdLoading}>
                   {holdLoading ? 'Reservando hueco…' : 'Confirmar reserva →'}

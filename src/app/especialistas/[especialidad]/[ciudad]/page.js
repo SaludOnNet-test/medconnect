@@ -330,6 +330,22 @@ export default async function EspecialistasCiudadPage({ params }) {
           accepts `specialtySlug` natively, no slug→id round-trip needed. */}
       <SearchResults specialtySlug={especialidad} city={city} />
 
+      {/* 2026-06-04 — A5 repositioned: real + seeded patient testimonials.
+          Originally placed below the FAQ; user reported "tampoco veo
+          comentarios" because that was 3 scrolls deep. Moved to right
+          after the clinic listing — the patient sees them at the natural
+          end of the listing scroll, before the SEO content fold.
+          Honest by construction: renders nothing when fewer than 3
+          qualifying reviews exist. */}
+      <section style={{ borderTop: '1px solid var(--border)', background: '#fff' }}>
+        <div className="container">
+          <PatientTestimonials
+            specialty={especialidad}
+            specialtyLabel={specialty.plural}
+          />
+        </div>
+      </section>
+
       {/* ── SEO content: about section ───────────────────────────────── */}
       <section
         style={{
@@ -382,20 +398,6 @@ export default async function EspecialistasCiudadPage({ params }) {
               <li>Recibe confirmación por email con todos los detalles de tu cita.</li>
             </ol>
           </div>
-        </div>
-      </section>
-
-      {/* 2026-06-04 — A5: real patient testimonials.
-          Honest by construction: this section renders NOTHING when fewer
-          than 3 qualifying reviews exist. As reviews accumulate via the
-          post-booking review flow, the strip starts populating on its
-          own. No owner content step needed. */}
-      <section style={{ padding: '0 0', borderTop: '1px solid var(--border)' }}>
-        <div className="container">
-          <PatientTestimonials
-            specialty={especialidad}
-            specialtyLabel={specialty.plural}
-          />
         </div>
       </section>
 

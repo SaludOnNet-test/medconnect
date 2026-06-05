@@ -211,8 +211,16 @@ function SearchV2Content() {
       .then((data) => {
         if (data.clinics) {
           setDbClinics((prev) => [...(prev || []), ...data.clinics]);
-          setLoadedCount((c) => c + data.clinics.length);
-          setHasMore((data.total || 0) > loadedCount + data.clinics.length);
+          // 2026-06-04 — single functional update that computes both the
+          // new loadedCount and the corresponding hasMore in lock-step.
+          // The previous code used `loadedCount` from closure when setting
+          // hasMore, which after rapid scroll could be off by one PAGE_SIZE
+          // and lock the listing at "no more" while real results remained.
+          setLoadedCount((c) => {
+            const next = c + data.clinics.length;
+            setHasMore((data.total || 0) > next);
+            return next;
+          });
         }
       })
       .catch(() => {})
@@ -358,7 +366,35 @@ function SearchV2Content() {
       fetchBatch(ids.slice(i, i + BATCH), i === 0 ? 0 : 300);
     }
 
-    return () => { cancelled = true; };
+    // 2026-06-04 — safety net. The 300 ms delay on the 2nd+ batch means
+    // a fast scroll (which mutates displayProviders) can trigger the
+    // effect cleanup BEFORE the delayed batch fires its fetch. That
+    // clinic then never gets an entry in slotsMap and its card stays
+    // on the shimmer skeleton forever (user-reported on the bottom of
+    // the listing). If after 8 s an id we kicked off is still missing
+    // from slotsMap, mark it as an empty array so the card stops
+    // shimmering and renders "Sin disponibilidad próxima · Ver opciones"
+    // — better than a hanging spinner. The follow-up effect tick will
+    // re-request real slots if the clinic remains visible.
+    const watchdog = setTimeout(() => {
+      if (cancelled) return;
+      setSlotsMap((prev) => {
+        const next = { ...prev };
+        let touched = false;
+        for (const id of ids) {
+          if (!(id in next)) {
+            next[id] = [];
+            touched = true;
+          }
+        }
+        return touched ? next : prev;
+      });
+    }, 8000);
+
+    return () => {
+      cancelled = true;
+      clearTimeout(watchdog);
+    };
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [displayProviders]);
 
