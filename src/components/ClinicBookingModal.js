@@ -86,20 +86,57 @@ export default function ClinicBookingModal({
       .then((data) => {
         const list = data.procedures || [];
         setProcedures(list);
-        // 2026-06-04 — Only honor an EXPLICITLY-preselected procedure slug
-        // (came through the URL / search context). When the patient lands
-        // here from the dead-click fix (click on the clinic card without
-        // a specialty in context), `initialProcedureSlug` is '' and we
-        // intentionally leave procedureSlug empty so the dropdown shows
-        // "Selecciona el acto médico" and the patient picks. Previously
-        // we defaulted to list[0], which on Cea Bermúdez happens to be
-        // "Aumento de labios con ácido hialurónico" — a 1000€ aesthetic
-        // procedure that surfaced as the price preview and pushed the
-        // slot picker off-screen on mobile.
-        if (!procedureSlug && initialProcedureSlug && list.length > 0) {
+
+        if (procedureSlug || list.length === 0) return;
+
+        // (1) Explicit slug wins — came through the search context.
+        if (initialProcedureSlug) {
           const preselect = list.find((p) => p.slug === initialProcedureSlug);
-          if (preselect) setProcedureSlug(preselect.slug);
+          if (preselect) { setProcedureSlug(preselect.slug); return; }
         }
+
+        // (2) 2026-06-08 — When the modal opens from a SEM landing
+        // (/especialistas/[especialidad]/[ciudad]), pre-select the
+        // STANDARD CONSULTATION for that specialty so the patient
+        // doesn't have to scroll through niche aesthetic procedures
+        // first. Match heuristic, in order:
+        //   a. name contains "consulta" + the specialty keyword
+        //      (e.g. "Consulta de Cardiología", "Consulta Cardio")
+        //   b. name STARTS with the specialty keyword and is the
+        //      shortest such match (proxy for "the basic one")
+        //   c. cheapest procedure as last resort
+        // Without an initialSpecialtySlug (= patient came in via
+        // clinic-card click without context), we leave the dropdown
+        // on the placeholder.
+        if (initialSpecialtySlug) {
+          const slugTokens = initialSpecialtySlug
+            .toLowerCase()
+            .replace(/-/g, ' ')
+            .split(/\s+/)
+            .filter((t) => t.length >= 4); // drop "y", "de", etc.
+          const matches = (name) => {
+            const n = (name || '').toLowerCase();
+            return slugTokens.some((t) => n.includes(t.slice(0, 5))); // stem match
+          };
+          const withConsulta = list
+            .filter((p) => /consulta/i.test(p.name || '') && matches(p.name))
+            .sort((a, b) => (a.price || 0) - (b.price || 0));
+          if (withConsulta.length > 0) {
+            setProcedureSlug(withConsulta[0].slug);
+            return;
+          }
+          const startsWithSpecialty = list
+            .filter((p) => matches(p.name))
+            .sort((a, b) => (a.name || '').length - (b.name || '').length);
+          if (startsWithSpecialty.length > 0) {
+            setProcedureSlug(startsWithSpecialty[0].slug);
+            return;
+          }
+        }
+
+        // (3) No specialty context — leave empty so dropdown shows
+        // "Selecciona el acto médico" placeholder and the new
+        // clickable hint guides the patient to pick.
       })
       .catch(() => setProcedures([]))
       .finally(() => setProceduresLoading(false));
@@ -344,6 +381,7 @@ export default function ClinicBookingModal({
             </p>
           ) : (
             <select
+              id="cbm-procedure-select"
               className="cbm-procedure-select"
               value={procedureSlug}
               onChange={(e) => setProcedureSlug(e.target.value)}
@@ -527,9 +565,28 @@ export default function ClinicBookingModal({
                 </button>
               </div>
             </div>
+          ) : !procedureSlug ? (
+            // 2026-06-08 — Clarity rage clicks recorded on this text:
+            // patients tapped the "Selecciona el acto médico" hint
+            // expecting it to open the dropdown. Now it does. We also
+            // scroll the select into view + focus it so the native
+            // picker can open on mobile with one extra tap.
+            <button
+              type="button"
+              className="cbm-footer-hint cbm-footer-hint--clickable"
+              onClick={() => {
+                const sel = document.getElementById('cbm-procedure-select');
+                if (sel) {
+                  sel.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                  sel.focus();
+                }
+              }}
+            >
+              Selecciona el acto médico →
+            </button>
           ) : (
             <p className="cbm-footer-hint">
-              {!procedureSlug ? 'Selecciona el acto médico' : 'Selecciona una fecha y horario para continuar'}
+              Selecciona una fecha y horario para continuar
             </p>
           )}
           {holdError && (

@@ -381,7 +381,20 @@
 .payment-card-brand { display: flex; align-items: center; gap: var(--space-sm); margin-bottom: var(--space-xl); padding-bottom: var(--space-md); border-bottom: 1px solid var(--border); }
 .payment-lock-icon { font-size: 1.1rem; }
 .payment-secure-label { font-size: 0.85rem; font-weight: 700; color: var(--navy); }
-.payment-cards-label { font-size: 0.75rem; color: var(--muted); margin-left: auto; }
+/* 2026-06-08 — explicitly non-interactive. A Clarity session showed a
+   patient clicking on the word "MASTERCARD" inside this label expecting
+   it to act as an alternative payment-method tab. user-select:none +
+   cursor:default + pointer-events:none kill the affordance without
+   removing the brand reassurance. */
+.payment-cards-label {
+  font-size: 0.75rem;
+  color: var(--muted);
+  margin-left: auto;
+  cursor: default;
+  user-select: none;
+  pointer-events: none;
+  -webkit-tap-highlight-color: transparent;
+}
 .payment-field { margin-bottom: var(--space-md); }
 .payment-field-row { display: grid; grid-template-columns: 1fr 1fr; gap: var(--space-md); margin-bottom: var(--space-md); }
 .payment-label { display: block; font-size: 0.75rem; font-weight: 600; color: var(--navy); text-transform: uppercase; letter-spacing: 0.06em; margin-bottom: 6px; }
