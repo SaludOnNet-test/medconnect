@@ -1,7 +1,9 @@
+import { Suspense } from 'react';
 import { Fraunces, Inter_Tight, JetBrains_Mono } from 'next/font/google';
 import './globals.css';
 import CookieBanner from '@/components/CookieBanner';
 import WhatsAppFAB from '@/components/WhatsAppFAB';
+import PageViewTracker from '@/components/PageViewTracker';
 
 // Brand 2026 typography. Variables here flow into `var(--font-display)`,
 // `--font-body`, and `--font-mono` declared in globals.css. Fraunces is loaded
@@ -118,6 +120,12 @@ export default async function RootLayout({ children }) {
           </ClerkProvider>
           <CookieBanner />
           <WhatsAppFAB />
+          {/* 2026-06-08 — fires page_viewed on every route change.
+              useSearchParams forces Suspense in Next 16. The tracker
+              is no-op until consent is granted. */}
+          <Suspense fallback={null}>
+            <PageViewTracker />
+          </Suspense>
         </body>
       </html>
     );
@@ -132,6 +140,9 @@ export default async function RootLayout({ children }) {
         {children}
         <CookieBanner />
         <WhatsAppFAB />
+        <Suspense fallback={null}>
+          <PageViewTracker />
+        </Suspense>
       </body>
     </html>
   );

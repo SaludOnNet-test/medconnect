@@ -1756,7 +1756,14 @@ function BookContent() {
                   color: '#0c4a6e',
                   lineHeight: 1.6,
                 }}>
-                  <strong>Antes de continuar:</strong> el acto médico lo paga tu seguro a la clínica. A nosotros solo nos pagas la <strong>tarifa de prioridad</strong> por gestionarte la reserva prioritaria.
+                  {/* 2026-06-08 — Compressed from 4 lines to 2.
+                      The previous wording ("acto médico", "gestionarte la
+                      reserva prioritaria") read as legalese on first
+                      contact; a Clarity session bailed in 9 s after
+                      reading it. Same idea, half the words, one bold to
+                      anchor the value. */}
+                  Tu seguro paga la consulta a la clínica.
+                  {' '}<strong>Tú solo pagas la tarifa de prioridad</strong> por la cita urgente.
                 </div>
                 <label className="form-label">¿{isReferral ? 'El paciente tiene' : 'Tienes'} seguro médico privado?</label>
                 <div className="book-insurance-toggle">
@@ -1910,19 +1917,15 @@ function BookContent() {
                   </span>
                 </div>
 
-                {/* 2026-06-04 — A3: price anchor on the form step price
-                    breakdown. Helps reframe €29 from "another fee" to "a
-                    saving vs the private-pay alternative" right when the
-                    patient is reviewing what they will be charged. */}
-                {totalPrice > 0 && (
-                  <p style={{ marginTop: 'var(--space-md)', fontSize: '0.78rem', color: 'var(--ink-1000, #0e1a2b)', lineHeight: 1.55, fontWeight: 500 }}>
-                    💡 Una consulta privada equivalente sin seguro cuesta
-                    típicamente entre <strong>€60 y €120</strong> en Madrid.
-                    {hasInsurance === true
-                      ? ' Aquí solo pagas la tarifa de prioridad — el resto lo cubre tu póliza.'
-                      : ' Lo nuestro incluye tanto la consulta como la prioridad por conseguirte hueco urgente.'}
-                  </p>
-                )}
+                {/* 2026-06-08 — A3 anchor REMOVED from /book.
+                    Clarity Session 3 (Jun 5 09:19) read this twice, then
+                    abandoned. The anchor works as a gancho on the
+                    /especialistas hero (entry-point persuasion) but at
+                    the price-review moment it triggers a comparison
+                    loop ("¿por qué tan barato? ¿qué hay raro?") instead
+                    of confidence. The hero anchor stays — that's where
+                    it earns its keep — and /book stays focused on the
+                    transactional summary. */}
 
                 {hasInsurance === true && (
                   <p style={{ marginTop: 'var(--space-md)', fontSize: '0.8rem', color: 'var(--muted)', lineHeight: 1.6 }}>

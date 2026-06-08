@@ -87,6 +87,63 @@ export function trackEvent(name, params = {}) {
 }
 
 /**
+ * Track a page view. Fires once per pathname change.
+ *
+ * 2026-06-08 — The Vie-Dom Jun 5-7 diagnostic surfaced an 18% mismatch:
+ * Clarity logged 65 human sessions while analytics_events stored 12. The
+ * delta was real users who landed, looked, and bounced WITHOUT triggering
+ * any interaction event. Our funnel events (clinic_viewed, slot_selected,
+ * book_started, search_performed) all require a click — bounces never
+ * landed in the DB and we were blind to them.
+ *
+ * trackPageView is consent-gated to mirror /api/analytics/event's privacy
+ * posture: only fires when the patient has accepted cookies. Reads the
+ * same `mc_cookie_consent` localStorage key that CookieBanner writes.
+ */
+export function trackPageView() {
+  if (typeof window === 'undefined') return;
+  // Consent gate — same key/values as CookieBanner.
+  // Accepted states: 'accepted', 'accepted-no-commercial', 'custom'.
+  try {
+    const consent = window.localStorage.getItem('mc_cookie_consent');
+    if (
+      consent !== 'accepted' &&
+      consent !== 'accepted-no-commercial' &&
+      consent !== 'custom'
+    ) {
+      return;
+    }
+  } catch {
+    return; // localStorage unavailable → skip silently
+  }
+
+  const params = {
+    path: window.location.pathname,
+    search: window.location.search || '',
+    referrer: typeof document !== 'undefined' ? document.referrer || '' : '',
+  };
+
+  // GA4 page_view
+  if (typeof window.gtag === 'function') {
+    try {
+      window.gtag('event', 'page_view', {
+        page_path: params.path + params.search,
+        page_location: window.location.href,
+        page_referrer: params.referrer,
+      });
+    } catch {}
+  }
+
+  // Clarity page event
+  if (typeof window.clarity === 'function') {
+    try { window.clarity('event', 'page_viewed'); } catch {}
+  }
+
+  // Azure SQL
+  recordDbEvent('page_viewed', params);
+}
+
+/**
  * Hash a string with SHA-256 and return lowercase hex.
  * Used for Google Ads Enhanced Conversions: email + phone must be SHA-256
  * hashed client-side before being passed to gtag('set', 'user_data', ...).
