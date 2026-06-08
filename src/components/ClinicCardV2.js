@@ -139,11 +139,34 @@ export default function ClinicCardV2({
         </div>
       ) : nextSlots.length > 0 ? (
         <div className="cv2-slots">
-          {isLastSlotThisWeek && (
-            <div className="cv2-last-slot-banner">
-              ⏱ <strong>Última cita en este centro en menos de una semana</strong>
-            </div>
-          )}
+          {isLastSlotThisWeek && (() => {
+            // 2026-06-08 — Clarity recorded rage clicks on this banner: users
+            // expected the urgency message to be actionable. Now clicking
+            // teleports them to the booking modal with the single
+            // remaining tier-1 slot pre-selected → 1 click away from book.
+            const firstTier1 = availableSlots?.find((s) => s.tier === 1);
+            const handleBannerClick = () => {
+              if (firstTier1 && onOpenModal) onOpenModal(provider, firstTier1);
+            };
+            return (
+              <div
+                className="cv2-last-slot-banner cv2-last-slot-banner--clickable"
+                role="button"
+                tabIndex={0}
+                onClick={handleBannerClick}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' || e.key === ' ') {
+                    e.preventDefault();
+                    handleBannerClick();
+                  }
+                }}
+                aria-label={firstTier1 ? `Reservar la última cita disponible (${firstTier1.date} ${firstTier1.time})` : 'Última cita disponible'}
+              >
+                ⏱ <strong>Última cita en este centro en menos de una semana</strong>
+                {firstTier1 && <span className="cv2-last-slot-banner-cta"> · Reservar →</span>}
+              </div>
+            );
+          })()}
           <span className="cv2-slots-label">
             Próximas citas
             {(() => {

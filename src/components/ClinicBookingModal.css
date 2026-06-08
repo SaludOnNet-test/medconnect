@@ -454,6 +454,27 @@
   margin: 0;
 }
 
+/* 2026-06-08 — Clickable variant of the hint when there's an action
+   the user can take by clicking it (open the procedure dropdown). */
+button.cbm-footer-hint--clickable {
+  width: 100%;
+  background: var(--bone-100, #f8f5ef);
+  border: 1px dashed var(--border, #d1d5db);
+  color: var(--ink-1000, #0a1428);
+  font-family: inherit;
+  font-size: 0.9rem;
+  font-weight: 600;
+  padding: 12px 16px;
+  border-radius: 10px;
+  cursor: pointer;
+  transition: background 0.15s ease, border-color 0.15s ease;
+}
+button.cbm-footer-hint--clickable:hover {
+  background: var(--bone-200, #f1ecdc);
+  border-color: var(--brass-500, #c8a96a);
+  border-style: solid;
+}
+
 .cbm-procedure-select {
   width: 100%;
   border: 1.5px solid #e5e7eb;

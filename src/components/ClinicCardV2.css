@@ -198,14 +198,34 @@
   padding: 6px 10px;
   margin-bottom: var(--space-2);
   line-height: 1.4;
-  /* Pure status pill — not interactive. Cursor stays as default and
-     iOS Safari skips the tap-highlight flash so it doesn't read as a
-     button (2026-06 Clarity sessions logged dead-clicks here). */
+  /* Pure status pill by default. The --clickable modifier is added when
+     a tier-1 slot is available — banner becomes a one-tap shortcut to
+     the booking modal (2026-06-08, after Clarity rage clicks). */
   cursor: default;
   -webkit-tap-highlight-color: transparent;
   user-select: none;
 }
 .cv2-last-slot-banner strong { color: #7c2d12; font-weight: 700; }
+
+/* Clickable variant — when we can deep-link to the one remaining tier-1 slot. */
+.cv2-last-slot-banner--clickable {
+  cursor: pointer;
+  user-select: none;
+  outline: none;
+  transition: background 0.15s ease, border-color 0.15s ease;
+}
+.cv2-last-slot-banner--clickable:hover {
+  background: #ffedd5;
+  border-color: #fb923c;
+}
+.cv2-last-slot-banner--clickable:focus-visible {
+  box-shadow: 0 0 0 2px rgba(251, 146, 60, 0.5);
+}
+.cv2-last-slot-banner-cta {
+  color: #7c2d12;
+  font-weight: 700;
+  white-space: nowrap;
+}
 
 .cv2-slots-label {
   font-family: var(--font-body);
