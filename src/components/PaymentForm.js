@@ -40,7 +40,7 @@ const CARD_ELEMENT_OPTIONS = {
   },
 };
 
-function PaymentFormContent({ totalPrice, providerName, slotDate, slotTime, patientName, patientEmail, bookingId, onPaymentSuccess, onBack }) {
+function PaymentFormContent({ totalPrice, standardTotalPrice = 0, providerName, slotDate, slotTime, patientName, patientEmail, bookingId, onPaymentSuccess, onBack }) {
   const [cardNumber, setCardNumber] = useState('4242 4242 4242 4242'); // Mock fallback
   const [expiry, setExpiry] = useState('12/28');
   const [cvv, setCvv] = useState('123');
@@ -439,7 +439,15 @@ function PaymentFormContent({ totalPrice, providerName, slotDate, slotTime, pati
           <span className="payment-summary-provider">{providerName}</span>
           <span className="payment-summary-slot">{formattedDate} · {slotTime}</span>
         </div>
-        <div className="payment-summary-amount">{formatEUR(totalPrice)}</div>
+        <div className="payment-summary-amount-group">
+          {/* 2026-06-08 — Strikethrough "tarifa habitual" sits above
+              the active amount when /book passes one. Cheaper visually
+              than a full row so the bar stays compact on mobile. */}
+          {standardTotalPrice > totalPrice && standardTotalPrice > 0 && (
+            <span className="payment-summary-amount-old">{formatEUR(standardTotalPrice)}</span>
+          )}
+          <div className="payment-summary-amount">{formatEUR(totalPrice)}</div>
+        </div>
       </div>
 
       {/* Card form */}
@@ -692,11 +700,12 @@ function PaymentFormContent({ totalPrice, providerName, slotDate, slotTime, pati
   );
 }
 
-export default function PaymentForm({ totalPrice, providerName, slotDate, slotTime, patientName, patientEmail, bookingId, onPaymentSuccess, onBack }) {
+export default function PaymentForm({ totalPrice, standardTotalPrice, providerName, slotDate, slotTime, patientName, patientEmail, bookingId, onPaymentSuccess, onBack }) {
   return stripePromise ? (
     <Elements stripe={stripePromise}>
       <PaymentFormContent
         totalPrice={totalPrice}
+        standardTotalPrice={standardTotalPrice}
         providerName={providerName}
         slotDate={slotDate}
         slotTime={slotTime}
@@ -710,6 +719,7 @@ export default function PaymentForm({ totalPrice, providerName, slotDate, slotTi
   ) : (
     <PaymentFormContent
       totalPrice={totalPrice}
+      standardTotalPrice={standardTotalPrice}
       providerName={providerName}
       slotDate={slotDate}
       slotTime={slotTime}

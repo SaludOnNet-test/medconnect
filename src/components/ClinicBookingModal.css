@@ -402,6 +402,40 @@
   opacity: 0.85;
 }
 
+/* 2026-06-08 — strikethrough anchor + partner highlight in the footer
+   price-hint row. */
+.cbm-price-old {
+  text-decoration: line-through;
+  text-decoration-thickness: 1px;
+  color: var(--muted, #6b7280);
+  font-weight: 500;
+  font-size: 0.9em;
+  margin-right: 2px;
+}
+.cbm-partner-savings {
+  color: #1b4332;
+  font-weight: 600;
+  font-size: 0.75rem;
+}
+
+/* Time-slot button: stacked strikethrough above active fee. The two
+   numbers live in cbm-time-fee-group so they share vertical alignment
+   without the strikethrough pushing the whole button taller. */
+.cbm-time-fee-group {
+  display: inline-flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0;
+  line-height: 1.1;
+}
+.cbm-time-fee-old {
+  font-size: 0.65rem;
+  color: var(--muted, #6b7280);
+  text-decoration: line-through;
+  text-decoration-thickness: 1px;
+  font-weight: 500;
+}
+
 /* On narrow viewports, stack the info above the CTA so each piece has
    its own row and the price hint can wrap cleanly without squeezing
    the slot picker out of the viewport. */

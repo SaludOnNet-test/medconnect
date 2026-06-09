@@ -5,6 +5,8 @@ import { trackEvent } from '@/lib/analytics';
 import { formatEUR } from '@/lib/format';
 import Icon from '@/components/icons/Icon';
 import TrustStrip from '@/components/TrustStrip';
+import { getPricingDisplay, applyPartnerDiscount } from '@/lib/pricing';
+import { isPartnerClinic } from '@/lib/partnerClinics';
 import { fetchWithSession } from '@/lib/sessionId';
 import './ClinicBookingModal.css';
 
@@ -299,12 +301,20 @@ export default function ClinicBookingModal({
   // that toggle on 05/29). Now the modal exposes BOTH the "with insurance"
   // and "without insurance" totals upfront so the user is informed before
   // committing.
-  const selectedPriorityFee = selectedSlot ? feeFromSlot(selectedSlot).amount : 0;
+  // 2026-06-08 — Apply partner discount (30% off) directly to the
+  // priority fee for display + charge. The discount is the SINGLE
+  // source via applyPartnerDiscount(); the same call is mirrored on
+  // the server in /api/payments via computeChargeAmount() so a tampered
+  // client can't bypass it.
+  const rawPriorityFee = selectedSlot ? feeFromSlot(selectedSlot).amount : 0;
+  const selectedPriorityFee = applyPartnerDiscount(rawPriorityFee, provider.id);
   const selectedTotalNoInsurance = selectedPriorityFee + procedurePrice;
-  // Backwards-compatible single number for callers that still expect it
-  // (used in fragment summaries elsewhere). For sin-seguro users we keep
-  // showing the full total; for the rest we expose the priority fee here
-  // and surface the no-insurance total separately in the footer JSX.
+  // Pricing display bag for the selected slot — strikethrough labels
+  // come from here. We compute once and reuse across the footer row.
+  const selectedPricingDisplay = selectedSlot
+    ? getPricingDisplay(selectedSlot, provider.id)
+    : null;
+  // Backwards-compatible single number for callers that still expect it.
   const selectedFee = isSinSeguro ? selectedTotalNoInsurance : selectedPriorityFee;
 
   // Date strip horizontal scroll affordances. The row is `overflow-x: auto`
@@ -487,7 +497,16 @@ export default function ClinicBookingModal({
               <div className="cbm-times">
                 {slotsForDate.map((slot, i) => {
                   const f = feeFromSlot(slot);
-                  const fee = isSinSeguro ? procedurePrice + f.amount : f.amount;
+                  // 2026-06-08 — apply partner discount + strikethrough.
+                  // The slot button now shows both the standard price
+                  // (struck out) and the active price the patient will
+                  // actually be charged.
+                  const display = getPricingDisplay(
+                    { tier: f.tier, price: f.amount },
+                    provider.id,
+                  );
+                  const activeFee = isSinSeguro ? procedurePrice + display.active : display.active;
+                  const standardFee = isSinSeguro ? procedurePrice + display.standard : display.standard;
                   const isActive = selectedSlot?.time === slot.time;
                   return (
                     <button
@@ -503,7 +522,14 @@ export default function ClinicBookingModal({
                       title={f.label || ''}
                     >
                       <span className="cbm-time">{slot.time}</span>
-                      {f.amount > 0 && <span className="cbm-time-fee">{formatEUR(fee)}</span>}
+                      {f.amount > 0 && (
+                        <span className="cbm-time-fee-group">
+                          {display.showStrikethrough && (
+                            <span className="cbm-time-fee-old">{formatEUR(standardFee)}</span>
+                          )}
+                          <span className="cbm-time-fee">{formatEUR(activeFee)}</span>
+                        </span>
+                      )}
                     </button>
                   );
                 })}
@@ -551,10 +577,18 @@ export default function ClinicBookingModal({
                     the slot picker to stay above the fold on mobile. */}
                 {!isSinSeguro && procedurePrice > 0 && selectedPriorityFee > 0 && (
                   <p className="cbm-footer-pricehint">
+                    {selectedPricingDisplay?.showStrikethrough && (
+                      <span className="cbm-price-old">{selectedPricingDisplay.standardLabel}</span>
+                    )}{' '}
                     <strong>{formatEUR(selectedPriorityFee)}</strong> con seguro
                     {' · '}
                     <strong>{formatEUR(selectedTotalNoInsurance)}</strong> sin seguro
                     {' '}<span className="cbm-footer-pricehint-note">(consulta {formatEUR(procedurePrice)} + prioridad)</span>
+                    {selectedPricingDisplay?.isPartner && (
+                      <span className="cbm-partner-savings">
+                        {' '}· ✨ −30% centro destacado
+                      </span>
+                    )}
                   </p>
                 )}
               </div>
