@@ -1,6 +1,8 @@
 'use client';
 import Icon from '@/components/icons/Icon';
 import { formatEUR } from '@/lib/format';
+import { getPricingDisplay, applyPartnerDiscount, STANDARD_TIERS, PARTNER_DISCOUNT_PCT } from '@/lib/pricing';
+import { isPartnerClinic } from '@/lib/partnerClinics';
 import './ClinicCardV2.css';
 
 function getInitials(name) {
@@ -117,6 +119,16 @@ export default function ClinicCardV2({
           </div>
 
           <div className="cv2-tags">
+            {/* 2026-06-08 — Partner badge. Cea Bermúdez (and any future
+                PARTNER_CLINIC_IDS member) earns a visible green chip
+                advertising the extra -30% discount applied to all its
+                slots. Sits FIRST in the row so it reads as the headline
+                differentiator. */}
+            {isPartnerClinic(provider.id) && (
+              <span className="cv2-tag cv2-tag--partner" title="Tarifa de prioridad con descuento adicional del 30%">
+                ✨ Centro destacado · −{Math.round(PARTNER_DISCOUNT_PCT * 100)}%
+              </span>
+            )}
             {(provider.acceptedInsurance || []).slice(0, 3).map((ins) => (
               <span key={ins} className="cv2-tag">{ins}</span>
             ))}
@@ -170,10 +182,27 @@ export default function ClinicCardV2({
           <span className="cv2-slots-label">
             Próximas citas
             {(() => {
+              // 2026-06-08 — header label now shows the strikethrough
+              // "tarifa habitual" anchor alongside the active min price.
+              // Uses the cheapest tier in nextSlots; if all slots are
+              // partner-discounted the active number already reflects it.
               const priced = nextSlots.filter((s) => s.tier && Number(s.price) > 0);
               if (priced.length === 0) return null;
-              const min = priced.reduce((m, s) => Math.min(m, Number(s.price)), Infinity);
-              return <> · tarifa de prioridad <strong>desde {formatEUR(min)}</strong></>;
+              const cheapest = priced.reduce(
+                (best, s) => (Number(s.price) < Number(best.price) ? s : best),
+                priced[0],
+              );
+              const display = getPricingDisplay(cheapest, provider.id);
+              return (
+                <> · tarifa de prioridad{' '}
+                  {display.showStrikethrough && (
+                    <>
+                      <s className="cv2-price-old">desde {display.standardLabel}</s>{' '}
+                    </>
+                  )}
+                  <strong>desde {display.activeLabel}</strong>
+                </>
+              );
             })()}
             {!isSinSeguro && (
               <span className="cv2-slots-coverage"> · tu seguro cubre la consulta</span>
@@ -183,8 +212,28 @@ export default function ClinicCardV2({
           <div className="cv2-slots-row">
             {nextSlots.map((slot, i) => {
               const hasTier = slot.tier && Number(slot.price) > 0;
-              const slotPrice = Number(slot.price ?? 0);
-              const fee = isSinSeguro ? basePrice + slotPrice : slotPrice;
+              if (!hasTier) {
+                return (
+                  <button
+                    key={i}
+                    className={`cv2-slot-chip tier-${slot.tier ?? 0}`}
+                    onClick={() => onOpenModal && onOpenModal(provider, slot)}
+                    title={slot.tierLabel || ''}
+                  >
+                    <span className="cv2-slot-date">{formatSlotDate(slot.date)} · {slot.time}</span>
+                  </button>
+                );
+              }
+              // 2026-06-08 — Strikethrough display for each slot chip.
+              // Sin-seguro path still includes the consultation cost
+              // (basePrice) on top of the discounted priority fee.
+              const display = getPricingDisplay(slot, provider.id);
+              const activeWithService = isSinSeguro
+                ? display.active + Number(basePrice || 0)
+                : display.active;
+              const standardWithService = isSinSeguro
+                ? display.standard + Number(basePrice || 0)
+                : display.standard;
               return (
                 <button
                   key={i}
@@ -193,9 +242,12 @@ export default function ClinicCardV2({
                   title={slot.tierLabel || ''}
                 >
                   <span className="cv2-slot-date">{formatSlotDate(slot.date)} · {slot.time}</span>
-                  {hasTier && (
-                    <span className="cv2-slot-fee">{formatEUR(fee)}</span>
-                  )}
+                  <span className="cv2-slot-fee-group">
+                    {display.showStrikethrough && (
+                      <span className="cv2-slot-fee-old">{formatEUR(standardWithService)}</span>
+                    )}
+                    <span className="cv2-slot-fee">{formatEUR(activeWithService)}</span>
+                  </span>
                 </button>
               );
             })}

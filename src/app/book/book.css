@@ -376,6 +376,22 @@
 .payment-summary-provider { font-weight: 700; font-size: 0.95rem; }
 .payment-summary-slot { font-size: 0.8rem; opacity: 0.75; }
 .payment-summary-amount { font-size: 1.5rem; font-weight: 800; color: var(--gold); }
+/* 2026-06-08 — Strikethrough anchor above the active amount in the
+   Stripe summary bar. Same right-aligned column, smaller + muted. */
+.payment-summary-amount-group {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  line-height: 1.1;
+}
+.payment-summary-amount-old {
+  font-size: 0.85rem;
+  color: rgba(255,255,255,0.55);
+  text-decoration: line-through;
+  text-decoration-thickness: 1px;
+  font-weight: 500;
+  font-family: var(--font-mono, monospace);
+}
 .payment-card { background: #fff; border: 1px solid var(--border); border-radius: var(--radius-xl); box-shadow: 0 4px 20px rgba(0,0,0,0.08); overflow: hidden; }
 .payment-card-inner { padding: var(--space-xl); }
 .payment-card-brand { display: flex; align-items: center; gap: var(--space-sm); margin-bottom: var(--space-xl); padding-bottom: var(--space-md); border-bottom: 1px solid var(--border); }

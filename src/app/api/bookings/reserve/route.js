@@ -3,6 +3,9 @@ import crypto from 'crypto';
 import { getPool, sql, DB_AVAILABLE } from '@/lib/db';
 import { internalError, clientError } from '@/lib/errors';
 import { bookingsReserveSchema, formatZodError } from '@/lib/schemas';
+import { computeChargeAmount, applyPartnerDiscount } from '@/lib/pricing';
+import { isPartnerClinic } from '@/lib/partnerClinics';
+import { getConvenienceFee } from '@/data/mock';
 
 const SELF_SERVICE_TOKEN_TTL_DAYS = 90;
 
@@ -52,6 +55,37 @@ export async function POST(request) {
     hasInsurance, insuranceCompany,
   } = parsed.data;
 
+  // 2026-06-08 — Server-side enforcement of partner discount.
+  // For partner clinics (currently {1: Cea Bermúdez}), the active price
+  // must be ≤ priority-fee × 0.7. A tampered client that submits a
+  // higher amount gets clamped down silently. A client that submits
+  // less than the discounted floor is treated as a "deal" and accepted
+  // (the worst case for us is the patient pays less; not exploitable
+  // upward). If we can't compute the expected fee (no slotDate), we
+  // accept the client amount as-is.
+  let safeAmount = Number(amount) || 0;
+  try {
+    if (slotDate && providerId && isPartnerClinic(providerId)) {
+      const tierFee = getConvenienceFee(slotDate); // { amount, tier, label }
+      const expectedPriority = applyPartnerDiscount(tierFee.amount, providerId);
+      // Hard cap: priority fee never exceeds the partner-discounted rate.
+      // For sin-seguro the rest is service price; we don't validate that
+      // here (it varies per procedure). For seguro, the whole amount is
+      // the priority fee.
+      const cap = hasInsurance ? expectedPriority : expectedPriority + safeAmount; // sin-seguro: service portion not capped
+      if (safeAmount > cap + 0.50) {
+        // 0.50 tolerance for rounding. Log + clamp.
+        console.warn('[reserve] partner amount mismatch', {
+          providerId, submitted: safeAmount, expected: cap, slotDate,
+        });
+        safeAmount = cap;
+      }
+    }
+  } catch (e) {
+    // Pricing helper failed — accept the client value defensively.
+    console.error('[reserve] pricing recompute failed', e?.message);
+  }
+
   try {
     const pool = await getPool();
 
@@ -90,7 +124,7 @@ export async function POST(request) {
       .input('specialty', sql.NVarChar(100), specialty || null)
       .input('slot_date', sql.NVarChar(20), slotDate || null)
       .input('slot_time', sql.NVarChar(10), slotTime || null)
-      .input('amount', sql.Decimal(10, 2), amount || null)
+      .input('amount', sql.Decimal(10, 2), safeAmount || amount || null)
       .input('status', sql.NVarChar(30), 'pending_payment')
       .input('has_insurance', sql.Bit, hasInsurance ? 1 : 0)
       .input('insurance_company', sql.NVarChar(100), insuranceCompany || null)

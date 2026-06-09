@@ -177,6 +177,27 @@
 }
 .cv2-tag--more { color: var(--clinical-700); }
 .cv2-tag--green { color: var(--sage-700); font-weight: 600; }
+/* 2026-06-08 — partner-discount chip. Brass background so it pops
+   visually above the insurance-name tags (which read as plain text).
+   The "·" separator from .cv2-tag + .cv2-tag::before is suppressed
+   because the partner chip is intentionally visually distinct. */
+.cv2-tag--partner {
+  color: #fff !important;
+  background: linear-gradient(135deg, var(--brass-500, #c8a96a), var(--brass-700, #a0824a));
+  padding: 2px 10px;
+  border-radius: 999px;
+  font-weight: 700;
+  font-size: 0.75rem;
+  white-space: nowrap;
+}
+.cv2-tag--partner + .cv2-tag::before { content: ''; margin: 0; }
+
+/* 2026-06-08 — Strikethrough in the "tarifa desde" header label. */
+.cv2-price-old {
+  color: var(--fg-muted);
+  font-weight: 500;
+  font-size: 0.85em;
+}
 
 /* ── Slot chips ───────────────────────────────────────────────────────── */
 .cv2-slots {
@@ -334,6 +355,24 @@
   color: var(--sage-700);
   font-weight: 600;
   margin-top: 2px;
+}
+
+/* 2026-06-08 — Strikethrough + active price in each slot chip.
+   The strikethrough sits to the LEFT of the active price (inline row)
+   so the eye reads "old → new" naturally. */
+.cv2-slot-fee-group {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 4px;
+  margin-top: 2px;
+}
+.cv2-slot-fee-old {
+  font-family: var(--font-mono);
+  font-size: 0.65rem;
+  color: var(--fg-muted);
+  text-decoration: line-through;
+  text-decoration-thickness: 1px;
+  font-weight: 500;
 }
 
 .cv2-slot-chip--more {

@@ -32,6 +32,19 @@
   z-index: 1;
 }
 
+/* 2026-06-08 — strikethrough "tarifa habitual" sits above the active
+   amount in the ladder. Smaller + muted so the active number stays the
+   focal point. */
+.brand-tier__standard {
+  font-family: var(--font-mono, monospace);
+  font-size: var(--text-base, 0.95rem);
+  color: var(--fg-muted);
+  text-decoration: line-through;
+  text-decoration-thickness: 1.5px;
+  line-height: 1;
+  margin-bottom: 4px;
+}
+
 .brand-tier__amount {
   font-family: var(--font-display);
   font-size: var(--text-4xl);

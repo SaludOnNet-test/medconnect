@@ -236,14 +236,11 @@ export default async function EspecialistasCiudadPage({ params }) {
             {specialty.shortDesc(city)}
           </p>
 
-          {/* 2026-06-04 — A3 v2: price anchor compressed.
-              The v1 copy ran ~3 lines and pushed clinic listings below
-              the fold on mobile. The "tu seguro cubre el resto" half is
-              redundant — the trust strip immediately below already says
-              "Tu seguro cubre la consulta". We keep only the unique
-              info (the price comparison) in a single line that visually
-              reads as fine-print + bold numbers — same tone as the
-              inline trust strip so the two stack tidily. */}
+          {/* 2026-06-08 — Self-referential strikethrough replaces the
+              external €60-120 comparison. Tarifa habitual published on
+              /tarifas makes the strikethrough legally defensible. The
+              "Oferta de lanzamiento" eyebrow frames it as a current
+              promo, not a fabricated past price. */}
           <p
             className="esp-hero__anchor"
             style={{
@@ -254,10 +251,14 @@ export default async function EspecialistasCiudadPage({ params }) {
               marginBottom: 'var(--space-2)',
             }}
           >
+            <span style={{ color: 'var(--brass-700, #a0824a)', fontWeight: 700, letterSpacing: '0.04em', textTransform: 'uppercase', fontSize: '0.7rem' }}>
+              Oferta de lanzamiento ·{' '}
+            </span>
             Reserva{' '}
+            <s style={{ color: 'var(--fg-muted)', textDecorationThickness: '1px' }}>desde €10</s>{' '}
             <strong style={{ color: 'var(--ink-1000)' }}>desde €5</strong>
-            {' '}— una consulta privada equivalente cuesta{' '}
-            <strong style={{ color: 'var(--ink-1000)' }}>€60-120</strong>.
+            {' '}·{' '}
+            <a href="/tarifas" style={{ color: 'inherit', textDecoration: 'underline' }}>ver tarifas</a>.
           </p>
 
           {/* Key stats — flat icon + label list. Earlier this was a
