@@ -114,7 +114,7 @@ export async function POST(request, { params }) {
   }
 
   // Internal watcher mirror — Francisco sees every reschedule request.
-  notifyInternalWatcher({
+  await notifyInternalWatcher({
     kind: 'reschedule_requested',
     summary: `${booking.provider_name || 'clínica'} · ${booking.patient_name || 'paciente'}${booking.slot_date ? ' · ' + booking.slot_date : ''}`,
     booking: {

@@ -199,7 +199,7 @@ export async function POST(request, { params }) {
     .catch((e) => console.error('[bookings/cancel] clinic notification failed', e?.message));
 
   // Internal watcher mirror — Francisco sees every patient self-service cancel.
-  notifyInternalWatcher({
+  await notifyInternalWatcher({
     kind: 'cancelled',
     summary: `${booking.provider_name || 'clínica'} · ${booking.patient_name || 'paciente'}${booking.slot_date ? ' · ' + booking.slot_date : ''}`,
     booking: {

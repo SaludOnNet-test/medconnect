@@ -575,7 +575,7 @@ export async function POST(request) {
     // ── Internal watcher: mirror every sale to Francisco ─────────────────
     // Fires regardless of clinic notification config — this is the global
     // "ops mirror" channel, separate from the per-clinic recipient.
-    notifyInternalWatcher({
+    await notifyInternalWatcher({
       kind: 'sale',
       summary: `${providerName || 'clínica desconocida'} · ${patientName || 'paciente'}${slotDate ? ' · ' + slotDate : ''}${slotTime ? ' ' + slotTime : ''}`,
       booking: {
