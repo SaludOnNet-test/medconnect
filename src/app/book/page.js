@@ -8,8 +8,6 @@ import Footer from '@/components/Footer';
 import TrustStrip from '@/components/TrustStrip';
 import { services, insuranceCompanies, createReferral, getConvenienceFee, REFERRAL_STATES } from '@/data/mock';
 import { isLikelyCovered } from '@/data/insuranceCoverage';
-import { getPricingDisplay, STANDARD_TIERS } from '@/lib/pricing';
-import { isPartnerClinic } from '@/lib/partnerClinics';
 import { trackEvent, trackConversion } from '@/lib/analytics';
 import { formatEUR } from '@/lib/format';
 import Icon from '@/components/icons/Icon';
@@ -675,19 +673,6 @@ function BookContent() {
   }, [form, hasInsurance, selectedInsurance, isReferral]);
 
   const activeFee = fee;
-
-  // 2026-06-08 — Strikethrough display.
-  // The `fee` URL param already reflects any partner discount (applied
-  // upstream in the modal). We compute the matching `getPricingDisplay`
-  // to know the strikethrough "tarifa habitual" anchor for the same
-  // tier. Falls back to tier 1 if tierParam is 0 (e.g. /book reached
-  // via lock-in with no explicit tier).
-  const effectiveTier = tierParam || 1;
-  const isPartnerProvider = isPartnerClinic(Number(providerId) || 0);
-  const feePricingDisplay = getPricingDisplay(
-    { tier: effectiveTier, price: activeFee / (isPartnerProvider ? 0.7 : 1) },
-    Number(providerId) || 0,
-  );
 
   const totalPrice =
     hasInsurance === true
@@ -1360,14 +1345,6 @@ function BookContent() {
                     🎫 Tarifa de prioridad{feeLabel ? ` (${feeLabel.toLowerCase()})` : ''}
                   </span>
                   <span className="book-price-amount">
-                    {/* 2026-06-08 — Strikethrough on the "tarifa habitual"
-                        anchor alongside the active fee. The savings line
-                        renders below the breakdown. */}
-                    {feePricingDisplay.showStrikethrough && activeFee > 0 && (
-                      <span style={{ textDecoration: 'line-through', color: 'var(--muted)', fontWeight: 500, fontSize: '0.85em', marginRight: 6 }}>
-                        {feePricingDisplay.standardLabel}
-                      </span>
-                    )}
                     {activeFee > 0 ? formatEUR(activeFee) : '0 €'}
                   </span>
                 </div>
@@ -1378,21 +1355,6 @@ function BookContent() {
                     {totalPrice > 0 ? formatEUR(totalPrice) : 'Gratis'}
                   </span>
                 </div>
-
-                {/* 2026-06-08 — Single savings line. Combines the
-                    universal launch-offer + the partner extra (when
-                    applicable) into one positive frame. No external
-                    €60-120 comparison — replaced by self-referential
-                    strikethrough above. */}
-                {feePricingDisplay.savings > 0 && activeFee > 0 && (
-                  <p style={{ marginTop: 'var(--space-sm)', fontSize: '0.78rem', color: '#1b4332', lineHeight: 1.4, fontWeight: 500 }}>
-                    💸 <strong>Ahorras {feePricingDisplay.savingsLabel}</strong> sobre la tarifa habitual.
-                    {feePricingDisplay.isPartner && (
-                      <> Incluye <strong>−30% de centro destacado</strong>.</>
-                    )}{' '}
-                    <a href="/tarifas" style={{ color: 'inherit', textDecoration: 'underline' }}>Ver tarifas</a>.
-                  </p>
-                )}
               </div>
             )}
 
@@ -1421,15 +1383,6 @@ function BookContent() {
             {hasInsurance !== null && (
               <PaymentForm
                 totalPrice={totalPrice}
-                standardTotalPrice={
-                  // 2026-06-08 — Strikethrough anchor in the Stripe bar.
-                  // For seguro: standard tier fee. For sin-seguro: standard
-                  // tier fee + service price (since servicePrice itself
-                  // isn't discounted).
-                  hasInsurance === true
-                    ? feePricingDisplay.standard
-                    : feePricingDisplay.standard + (Number(servicePrice) || 0)
-                }
                 providerName={clinicName}
                 slotDate={slotDateToUse}
                 slotTime={slotTimeToUse}

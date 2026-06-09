@@ -1,6 +1,5 @@
 'use client';
 import { formatEUR } from '@/lib/format';
-import { STANDARD_TIERS } from '@/lib/pricing';
 import './PriceTier.css';
 
 /**
@@ -17,7 +16,6 @@ import './PriceTier.css';
  */
 export default function PriceTier({
   amount,
-  standardAmount, // 2026-06-08 — "tarifa habitual" anchor for strikethrough
   label,
   copy,
   tier = 1,
@@ -33,9 +31,6 @@ export default function PriceTier({
 
   return (
     <div className={cls}>
-      {standardAmount && standardAmount > amount && (
-        <div className="brand-tier__standard">{formatEUR(standardAmount)}</div>
-      )}
       <div className="brand-tier__amount">{formatEUR(amount)}</div>
       {label && <div className="brand-tier__label">{label}</div>}
       {copy && <p className="brand-tier__copy">{copy}</p>}
@@ -54,16 +49,6 @@ export default function PriceTier({
  *   - 29 € → cita en menos de 7 días (urgente)
  */
 export function PriceLadder({ highlight = 2 } = {}) {
-  // 2026-06-08 — Each tier now carries its "tarifa habitual" anchor
-  // pulled from STANDARD_TIERS. The mapping is inverted from the display
-  // order: cheapest tier in the ladder (€5) corresponds to STANDARD_TIERS
-  // tier 4 (€10), etc.
-  const standardByActive = Object.fromEntries(
-    STANDARD_TIERS.map((t) => [
-      ({ 1: 29, 2: 19, 3: 10, 4: 5 })[t.tier],
-      t.standard,
-    ]),
-  );
   const tiers = [
     { amount: 5,  label: 'Más adelante',   copy: 'Cita a más de 30 días vista. Para cuando puedes esperar pero quieres asegurar el hueco.' },
     { amount: 10, label: 'Este mes',       copy: 'Cita entre 15 y 30 días. La opción que cubre la mayoría de los casos.' },
@@ -77,7 +62,6 @@ export function PriceLadder({ highlight = 2 } = {}) {
           key={i}
           tier={i + 1}
           highlight={i + 1 === highlight}
-          standardAmount={standardByActive[t.amount]}
           {...t}
         />
       ))}
