@@ -45,7 +45,7 @@ export async function sendEmail({ to, subject, html, from = DEFAULT_FROM, catego
     console.log(`📧 Subject: ${subject}`);
     console.log(`📧 Body preview:\n${html.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim().substring(0, 300)}...`);
     console.log('==================================\n');
-    recordLedger({ to, subject, category, ok: true, provider: 'mock' });
+    await recordLedger({ to, subject, category, ok: true, provider: 'mock' });
     return { ok: true, mock: true };
   }
 
@@ -62,14 +62,14 @@ export async function sendEmail({ to, subject, html, from = DEFAULT_FROM, catego
     const data = await res.json();
     if (!res.ok) {
       console.error('[Email Error]', data);
-      recordLedger({ to, subject, category, ok: false, provider: 'resend' });
+      await recordLedger({ to, subject, category, ok: false, provider: 'resend' });
       return { ok: false, error: data?.message || 'Resend error', data };
     }
-    recordLedger({ to, subject, category, ok: true, provider: 'resend' });
+    await recordLedger({ to, subject, category, ok: true, provider: 'resend' });
     return { ok: true, data };
   } catch (err) {
     console.error('[Email Error]', err);
-    recordLedger({ to, subject, category, ok: false, provider: 'resend' });
+    await recordLedger({ to, subject, category, ok: false, provider: 'resend' });
     return { ok: false, error: err.message };
   }
 }
@@ -77,17 +77,27 @@ export async function sendEmail({ to, subject, html, from = DEFAULT_FROM, catego
 // Best-effort write to email_sends. Never throws — if the ledger table is
 // missing or the DB is offline, we just drop the row. The checker will
 // undercount but the email still went out.
-function recordLedger({ to, subject, category, ok, provider }) {
+//
+// 2026-06-09 fire-and-forget fix — now async + awaited by sendEmail.
+// Before this, the query promise was started but never awaited, so
+// Vercel Lambdas that wrapped up their HTTP response before the DB
+// INSERT completed would drop the ledger row silently. The Cambio
+// propuesto digest at 12:49 was the canonical example.
+async function recordLedger({ to, subject, category, ok, provider }) {
   if (!DB_AVAILABLE) return;
-  query(
-    `INSERT INTO email_sends (recipient, subject, category, provider, ok)
-     VALUES (@recipient, @subject, @category, @provider, @ok)`,
-    {
-      recipient: { type: sql.NVarChar(255), value: String(to).slice(0, 255) },
-      subject: { type: sql.NVarChar(500), value: subject ? String(subject).slice(0, 500) : null },
-      category: { type: sql.NVarChar(80), value: category ? String(category).slice(0, 80) : null },
-      provider: { type: sql.NVarChar(40), value: provider },
-      ok: { type: sql.Bit, value: ok ? 1 : 0 },
-    },
-  ).catch(() => { /* swallow — best-effort */ });
+  try {
+    await query(
+      `INSERT INTO email_sends (recipient, subject, category, provider, ok)
+       VALUES (@recipient, @subject, @category, @provider, @ok)`,
+      {
+        recipient: { type: sql.NVarChar(255), value: String(to).slice(0, 255) },
+        subject: { type: sql.NVarChar(500), value: subject ? String(subject).slice(0, 500) : null },
+        category: { type: sql.NVarChar(80), value: category ? String(category).slice(0, 80) : null },
+        provider: { type: sql.NVarChar(40), value: provider },
+        ok: { type: sql.Bit, value: ok ? 1 : 0 },
+      },
+    );
+  } catch {
+    // swallow — best-effort, never block delivery on a ledger hiccup.
+  }
 }

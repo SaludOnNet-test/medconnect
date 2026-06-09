@@ -58,7 +58,7 @@ export async function GET(request) {
     );
 
     // Internal watcher mirror — patient accepted the alternative.
-    notifyInternalWatcher({
+    await notifyInternalWatcher({
       kind: 'alternative_accepted',
       summary: `${c.patient_name || 'paciente'} · ${c.alternative_clinic_name || c.original_clinic_name || ''}`,
       booking: { id: c.booking_id, patientName: c.patient_name, patientEmail: c.patient_email },
@@ -134,7 +134,7 @@ export async function GET(request) {
   );
 
   // Internal watcher mirror — patient rejected the alternative.
-  notifyInternalWatcher({
+  await notifyInternalWatcher({
     kind: 'alternative_rejected',
     summary: `${c.patient_name || 'paciente'} · ${c.original_clinic_name || ''} (rechazó alternativa)`,
     booking: { id: c.booking_id, patientName: c.patient_name, patientEmail: c.patient_email },
