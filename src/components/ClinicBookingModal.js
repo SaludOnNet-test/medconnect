@@ -156,16 +156,33 @@ export default function ClinicBookingModal({
 
   // Cheapest total fee per date — surfaced on the date buttons so users see
   // price variation across days before picking one.
+  //
+  // 2026-06-09 — Apply the partner discount HERE so the date button
+  // matches the time-slot button. Previous deploy (rolled back) shipped
+  // the time-slot fix without this and produced an inconsistent
+  // "desde €29" date / "€20,50" slot — the bug surfaced on Cea
+  // Bermúdez. Both surfaces now route through applyPartnerDiscount
+  // and getPricingDisplay so the partner-discounted active price is
+  // the SINGLE number we show across the modal.
   const priceByDate = useMemo(() => {
     const map = {};
+    const standardMap = {};
     for (const s of allSlots) {
-      const slotPrice = Number(s.price ?? 0);
-      if (slotPrice === 0) continue; // skip free / zero-priced slots
+      const rawSlotPrice = Number(s.price ?? 0);
+      if (rawSlotPrice === 0) continue;
+      const slotPrice = applyPartnerDiscount(rawSlotPrice, provider.id);
       const total = isSinSeguro ? procedurePrice + slotPrice : slotPrice;
-      if (map[s.date] == null || total < map[s.date]) map[s.date] = total;
+      if (map[s.date] == null || total < map[s.date]) {
+        map[s.date] = total;
+        // Track the matching standard (strikethrough) price for the
+        // chosen cheapest slot of the day so the date button can
+        // render both consistently.
+        const display = getPricingDisplay(s, provider.id);
+        standardMap[s.date] = isSinSeguro ? procedurePrice + display.standard : display.standard;
+      }
     }
-    return map;
-  }, [allSlots, isSinSeguro, procedurePrice]);
+    return { active: map, standard: standardMap };
+  }, [allSlots, isSinSeguro, procedurePrice, provider.id]);
 
   const slotsForDate = selectedDate
     ? allSlots.filter((s) => s.date === selectedDate)
@@ -469,8 +486,14 @@ export default function ClinicBookingModal({
                     <span className="cbm-date-weekday">{weekday}</span>
                     <span className="cbm-date-num">{day}</span>
                     <span className="cbm-date-month">{month}</span>
-                    {priceByDate[date] != null && (
-                      <span className="cbm-date-price">desde {formatEUR(priceByDate[date])}</span>
+                    {priceByDate.active[date] != null && (
+                      <span className="cbm-date-price">
+                        desde{' '}
+                        {priceByDate.standard[date] > priceByDate.active[date] && (
+                          <span className="cbm-date-price-old">{formatEUR(priceByDate.standard[date])}</span>
+                        )}{' '}
+                        <strong>{formatEUR(priceByDate.active[date])}</strong>
+                      </span>
                     )}
                   </button>
                 );

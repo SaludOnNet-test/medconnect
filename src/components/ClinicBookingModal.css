@@ -263,6 +263,21 @@
   color: #fff;
 }
 
+/* 2026-06-09 — Strikethrough anchor inside the date button. Inline
+   so the "desde ~~€29~~ €20,50" reads as a single line. The active
+   number stays bold + colored, the standard is muted. */
+.cbm-date-price-old {
+  text-decoration: line-through;
+  text-decoration-thickness: 1px;
+  color: var(--muted, #6b7280);
+  font-weight: 500;
+  font-size: 0.85em;
+  margin-right: 2px;
+}
+.cbm-date-btn--active .cbm-date-price-old {
+  color: rgba(255, 255, 255, 0.55);
+}
+
 /* ── Time buttons ─────────────────────────────────────────────────────── */
 .cbm-times {
   display: grid;
