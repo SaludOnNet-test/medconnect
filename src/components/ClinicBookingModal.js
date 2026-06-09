@@ -266,9 +266,23 @@ export default function ClinicBookingModal({
       setHoldLoading(false);
     }
 
+    // 2026-06-09 — INCIDENT FIX (Jacques Blehaut booking).
+    // The param name was `provider` here; /book reads `providerId`. The
+    // mismatch caused every booking to default to provider_id=1 (Cea
+    // Bermúdez) in /book → wrong notification email + wrong partner
+    // discount + wrong clinic in admin. Renamed to match /book's
+    // search-params reader. Also surfacing specialty here so the
+    // bookings row no longer ends up with specialty=NULL.
     const params = new URLSearchParams({
-      provider: provider.id,
+      providerId: String(provider.id),
       providerName: provider.name,
+      ...(selectedProcedure?.specialty_slug
+        ? { specialty: selectedProcedure.specialty_slug }
+        : selectedProcedure?.specialty_name
+        ? { specialty: selectedProcedure.specialty_name }
+        : initialSpecialtySlug
+        ? { specialty: initialSpecialtySlug }
+        : {}),
       date: selectedSlot.date,
       time: selectedSlot.time,
       fee: priorityFee,

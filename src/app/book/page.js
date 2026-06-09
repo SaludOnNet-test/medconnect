@@ -122,7 +122,15 @@ function BookContent() {
   const searchParams = useSearchParams();
   const router = useRouter();
   const providerName = searchParams.get('providerName') || 'Centro Médico';
-  const providerId = searchParams.get('providerId') || '1';
+  // 2026-06-09 — INCIDENT FIX. The previous `|| '1'` fallback was a
+  // foot-gun: when a caller forgot to pass providerId, EVERY booking
+  // landed as Cea Bermúdez (id=1). That triggered the wrong
+  // notification email (Jacques Blehaut → araceli@ceasalud.com despite
+  // booking elsewhere) and applied the partner discount silently.
+  // We now leave providerId blank when the URL doesn't provide one;
+  // downstream code that needs a numeric id Number()-s this into NaN
+  // → null in /api/bookings, instead of silently routing to clinic 1.
+  const providerId = searchParams.get('providerId') || '';
   const date = searchParams.get('date') || '';
   const time = searchParams.get('time') || '';
   const fee = Number(searchParams.get('fee') || 0);

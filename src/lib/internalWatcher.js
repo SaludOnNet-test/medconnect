@@ -8,23 +8,35 @@
 // can opt in with a single line without bloating the route handlers.
 //
 // Recipient resolution order:
-//   1. INTERNAL_WATCHER_EMAIL env var (single address)
+//   1. INTERNAL_WATCHER_EMAIL env var — comma-separated list of addresses
+//      (e.g. "francisco.pizarro@saludonnet.com,info@medconnect.es").
 //   2. Hardcoded default 'francisco.pizarro@saludonnet.com' so the
 //      feature works out of the box without touching Vercel envs.
 //   Empty/null env value → notifications disabled.
+//
+// 2026-06-09 — INCIDENT FIX (Jacques Blehaut booking).
+// Previously single-address. The ops team learned about the sale only
+// through Aracelí's forwarded email because info@medconnect.es was
+// missing from the recipient list (Zendesk ingests from that mailbox).
+// Switched to comma-separated parsing so we can fan out to both
+// Francisco and info@ without redeploying.
 
 import { sendEmail } from '@/lib/email';
 import { internalEventDigest } from '@/lib/emailTemplates';
 
-const DEFAULT_WATCHER = 'francisco.pizarro@saludonnet.com';
+const DEFAULT_WATCHERS = ['francisco.pizarro@saludonnet.com', 'info@medconnect.es'];
 
-function resolveWatcherEmail() {
+function resolveWatcherEmails() {
   // Empty string explicitly disables (so we can turn this off without a redeploy).
   if (typeof process.env.INTERNAL_WATCHER_EMAIL === 'string') {
-    const v = process.env.INTERNAL_WATCHER_EMAIL.trim();
-    return v || null;
+    const raw = process.env.INTERNAL_WATCHER_EMAIL.trim();
+    if (!raw) return [];
+    return raw
+      .split(',')
+      .map((s) => s.trim())
+      .filter((s) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(s));
   }
-  return DEFAULT_WATCHER;
+  return DEFAULT_WATCHERS;
 }
 
 // Human-readable labels per event kind. Used in the subject prefix +
@@ -57,8 +69,8 @@ const KIND_LABELS = {
  */
 export async function notifyInternalWatcher(args) {
   try {
-    const to = resolveWatcherEmail();
-    if (!to) return; // explicitly disabled
+    const recipients = resolveWatcherEmails();
+    if (!recipients.length) return; // explicitly disabled
     const kind = args?.kind || 'event';
     const label = KIND_LABELS[kind] || kind;
     const tpl = internalEventDigest({
@@ -69,7 +81,17 @@ export async function notifyInternalWatcher(args) {
       caseRow: args.case || null,
       extra: args.extra || null,
     });
-    await sendEmail({ to, subject: tpl.subject, html: tpl.html });
+    // Fan out to every recipient. sendEmail accepts a string OR an array;
+    // we send N separate sends so a per-address bounce doesn't take the
+    // others down with it (Zendesk in particular sometimes rejects on
+    // duplicate Message-ID when it receives the same digest twice).
+    await Promise.all(
+      recipients.map((to) =>
+        sendEmail({ to, subject: tpl.subject, html: tpl.html }).catch((err) =>
+          console.error('[internalWatcher] send to', to, 'failed', err?.message),
+        ),
+      ),
+    );
   } catch (err) {
     // Never let a watcher failure escape — patient flow > internal mirror.
     console.error('[internalWatcher] failed', err?.message);

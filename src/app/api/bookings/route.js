@@ -241,11 +241,60 @@ export async function POST(request) {
   const isAlreadyFinalized = !!(existingRow && !isReservedRow);
 
   if (isAlreadyFinalized) {
-    // Webhook (or a previous client POST) already finalized this booking.
-    // Return the current state so the client UI moves forward exactly as
-    // if it had been the one to finalize it.
+    // 2026-06-09 — INCIDENT FIX (Jacques Blehaut booking).
+    // PREVIOUS BEHAVIOUR (buggy): when the Stripe webhook beat the
+    // client to advance status pending_payment → confirmed, this branch
+    // returned EARLY without persisting patient_phone, specialty,
+    // procedure_slug, procedure_name, service_price, platform_fee,
+    // patient_address — the data the client was carrying. Result: the
+    // booking row was confirmed but operations couldn't see the
+    // procedure or phone in /admin/ops.
+    //
+    // NEW BEHAVIOUR: backfill missing fields via COALESCE so the
+    // existing row's data is never overwritten, only enriched. Status
+    // stays under webhook authority (we don't touch it here).
     try {
-      const result = await (await getPool()).request()
+      const pool = await getPool();
+      await pool.request()
+        .input('id', sql.NVarChar(50), id)
+        .input('patient_name', sql.NVarChar(255), patientName || null)
+        .input('patient_phone', sql.NVarChar(50), patientPhone || null)
+        .input('patient_address', sql.NVarChar(500), patientAddress || null)
+        .input('provider_id', sql.Int, providerId || null)
+        .input('provider_name', sql.NVarChar(255), providerName || null)
+        .input('specialty', sql.NVarChar(100), specialty || null)
+        .input('procedure_slug', sql.NVarChar(100), procedureSlug || null)
+        .input('procedure_name', sql.NVarChar(255), procedureName || null)
+        .input('service_price', sql.Decimal(10, 2), servicePrice != null ? Number(servicePrice) : null)
+        .input('platform_fee', sql.Decimal(10, 2), platformFee != null ? Number(platformFee) : null)
+        .input('card_last4', sql.NVarChar(4), cardLast4 || null)
+        .input('insurance_company', sql.NVarChar(100), insuranceCompany || null)
+        .input('payment_intent_id', sql.NVarChar(80), paymentIntentId || null)
+        .input('dob', sql.NVarChar(20), patientDateOfBirth || null)
+        .input('nid', sql.NVarChar(20), patientNationalId || null)
+        .query(`
+          UPDATE bookings
+          SET patient_name        = COALESCE(patient_name, @patient_name),
+              patient_phone       = COALESCE(patient_phone, @patient_phone),
+              patient_address     = COALESCE(patient_address, @patient_address),
+              provider_id         = COALESCE(provider_id, @provider_id),
+              provider_name       = COALESCE(provider_name, @provider_name),
+              specialty           = COALESCE(specialty, @specialty),
+              procedure_slug      = COALESCE(procedure_slug, @procedure_slug),
+              procedure_name      = COALESCE(procedure_name, @procedure_name),
+              service_price       = COALESCE(service_price, @service_price),
+              platform_fee        = COALESCE(platform_fee, @platform_fee),
+              card_last4          = COALESCE(card_last4, @card_last4),
+              insurance_company   = COALESCE(insurance_company, @insurance_company),
+              payment_intent_id   = COALESCE(payment_intent_id, @payment_intent_id),
+              patient_date_of_birth = COALESCE(patient_date_of_birth, @dob),
+              patient_national_id   = COALESCE(patient_national_id, @nid),
+              updated_at          = SYSDATETIMEOFFSET()
+          WHERE id = @id
+            AND status NOT IN ('refunded', 'cancelled', 'cancelled_by_patient')
+        `);
+
+      const result = await pool.request()
         .input('id', sql.NVarChar(50), id)
         .query('SELECT * FROM bookings WHERE id = @id');
       return NextResponse.json({
