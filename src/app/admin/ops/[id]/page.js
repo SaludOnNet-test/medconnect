@@ -4,6 +4,7 @@ import { useEffect, useState, useMemo, useRef, use } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { adminFetch, getAdminToken } from '@/lib/adminClient';
+import CopyableValue from '@/components/admin/CopyableValue';
 import '../ops.css';
 
 // Spain operates on Europe/Madrid (CET in winter, CEST in summer). All
@@ -286,7 +287,7 @@ export default function OpsCaseDetail({ params }) {
           <div className="ops-card">
             <h2>Paciente</h2>
             <dl className="ops-kv">
-              <dt>Nombre</dt><dd>{c.patient_name || '—'}</dd>
+              <dt>Nombre</dt><dd><CopyableValue copy={c.patient_name || ''}>{c.patient_name || '—'}</CopyableValue></dd>
               <dt>Email</dt>
               <dd>
                 {editingEmail ? (
@@ -318,7 +319,7 @@ export default function OpsCaseDetail({ params }) {
                   </div>
                 ) : (
                   <span style={{ display: 'inline-flex', gap: 8, alignItems: 'center' }}>
-                    <span>{c.patient_email || '—'}</span>
+                    <CopyableValue copy={c.patient_email || ''}>{c.patient_email || '—'}</CopyableValue>
                     <button
                       type="button"
                       onClick={() => { setEmailDraft(c.patient_email || ''); setEditingEmail(true); }}
@@ -330,9 +331,9 @@ export default function OpsCaseDetail({ params }) {
                   </span>
                 )}
               </dd>
-              <dt>Teléfono</dt><dd>{c.patient_phone || '—'}</dd>
-              <dt>Aseguradora</dt><dd>{c.insurance_company || (c.has_insurance ? 'Sí' : 'Sin seguro')}</dd>
-              <dt>Especialidad</dt><dd>{c.specialty || '—'}</dd>
+              <dt>Teléfono</dt><dd><CopyableValue copy={c.patient_phone || ''}>{c.patient_phone || '—'}</CopyableValue></dd>
+              <dt>Aseguradora</dt><dd><CopyableValue copy={c.insurance_company || ''}>{c.insurance_company || (c.has_insurance ? 'Sí' : 'Sin seguro')}</CopyableValue></dd>
+              <dt>Especialidad</dt><dd><CopyableValue copy={c.specialty || ''}>{c.specialty || '—'}</CopyableValue></dd>
             </dl>
             <p style={{ marginTop: 10, fontSize: 11, color: '#6b7280', lineHeight: 1.4 }}>
               Cambiar el email redirige <strong>todos</strong> los emails futuros del flujo (autorización, alternativas, reembolsos) a la nueva dirección. Queda registrado en el log del caso.
@@ -342,13 +343,13 @@ export default function OpsCaseDetail({ params }) {
           <div className="ops-card">
             <h2>Cita original</h2>
             <dl className="ops-kv">
-              <dt>Clínica</dt><dd>{c.original_clinic_name || '—'}</dd>
-              <dt>ID clínica</dt><dd>{c.original_clinic_id || '—'}</dd>
-              <dt>Fecha</dt><dd>{fmtCitaDate(c.original_slot_date, c.original_slot_time)}</dd>
-              <dt>Cobrado</dt><dd>€{Number(c.amount_paid || 0).toFixed(2)} (T{c.tier || '—'})</dd>
-              <dt>A pagar a clínica</dt><dd>€{Number(c.payment_to_clinic || 0).toFixed(2)}</dd>
-              <dt>Booking ID</dt><dd style={{ fontFamily: 'monospace', fontSize: 12 }}>{c.booking_id}</dd>
-              <dt>Payment Intent</dt><dd style={{ fontFamily: 'monospace', fontSize: 12 }}>{c.payment_intent_id || '—'}</dd>
+              <dt>Clínica</dt><dd><CopyableValue copy={c.original_clinic_name || ''}>{c.original_clinic_name || '—'}</CopyableValue></dd>
+              <dt>ID clínica</dt><dd><CopyableValue copy={String(c.original_clinic_id || '')}>{c.original_clinic_id || '—'}</CopyableValue></dd>
+              <dt>Fecha</dt><dd><CopyableValue copy={fmtCitaDate(c.original_slot_date, c.original_slot_time)}>{fmtCitaDate(c.original_slot_date, c.original_slot_time)}</CopyableValue></dd>
+              <dt>Cobrado</dt><dd><CopyableValue copy={`€${Number(c.amount_paid || 0).toFixed(2)}`}>€{Number(c.amount_paid || 0).toFixed(2)} (T{c.tier || '—'})</CopyableValue></dd>
+              <dt>A pagar a clínica</dt><dd><CopyableValue copy={`€${Number(c.payment_to_clinic || 0).toFixed(2)}`}>€{Number(c.payment_to_clinic || 0).toFixed(2)}</CopyableValue></dd>
+              <dt>Booking ID</dt><dd style={{ fontFamily: 'monospace', fontSize: 12 }}><CopyableValue copy={c.booking_id || ''}>{c.booking_id}</CopyableValue></dd>
+              <dt>Payment Intent</dt><dd style={{ fontFamily: 'monospace', fontSize: 12 }}><CopyableValue copy={c.payment_intent_id || ''}>{c.payment_intent_id || '—'}</CopyableValue></dd>
             </dl>
           </div>
 
@@ -357,16 +358,16 @@ export default function OpsCaseDetail({ params }) {
             <div className="ops-card">
               <h2>Autorización SaludOnNet</h2>
               <dl className="ops-kv">
-                <dt>Acto médico</dt><dd>{c.procedure_name || c.procedure_slug || '—'}</dd>
-                <dt>Precio acto</dt><dd>€{Number(c.service_price || 0).toFixed(2)}</dd>
-                <dt>Tarifa de prioridad</dt><dd>€{Number(c.platform_fee || 0).toFixed(2)}</dd>
+                <dt>Acto médico</dt><dd><CopyableValue copy={c.procedure_name || c.procedure_slug || ''}>{c.procedure_name || c.procedure_slug || '—'}</CopyableValue></dd>
+                <dt>Precio acto</dt><dd><CopyableValue copy={`€${Number(c.service_price || 0).toFixed(2)}`}>€{Number(c.service_price || 0).toFixed(2)}</CopyableValue></dd>
+                <dt>Tarifa de prioridad</dt><dd><CopyableValue copy={`€${Number(c.platform_fee || 0).toFixed(2)}`}>€{Number(c.platform_fee || 0).toFixed(2)}</CopyableValue></dd>
                 <dt>Estado autorización</dt>
                 <dd>
                   <span className={`ops-status ops-status-${c.voucher_status || 'awaiting_voucher'}`}>
                     {c.voucher_status || 'awaiting_voucher'}
                   </span>
                 </dd>
-                {c.son_order_ref && (<><dt>Ref. SON</dt><dd style={{ fontFamily: 'monospace', fontSize: 12 }}>{c.son_order_ref}</dd></>)}
+                {c.son_order_ref && (<><dt>Ref. SON</dt><dd style={{ fontFamily: 'monospace', fontSize: 12 }}><CopyableValue copy={c.son_order_ref}>{c.son_order_ref}</CopyableValue></dd></>)}
                 {c.voucher_url && (<><dt>URL de la autorización</dt><dd><a href={c.voucher_url} target="_blank" rel="noopener noreferrer">Ver autorización</a></dd></>)}
                 {c.voucher_pdf_path && (<><dt>PDF subido</dt><dd><a href={c.voucher_pdf_path} target="_blank" rel="noopener noreferrer">Abrir PDF</a></dd></>)}
                 {c.voucher_uploaded_at && (<><dt>Subido</dt><dd>{fmtDateTime(c.voucher_uploaded_at)} {c.voucher_uploaded_by ? `por ${c.voucher_uploaded_by}` : ''}</dd></>)}
@@ -445,10 +446,10 @@ export default function OpsCaseDetail({ params }) {
             <div className="ops-card">
               <h2>Alternativa propuesta</h2>
               <dl className="ops-kv">
-                <dt>Clínica</dt><dd>{c.alternative_clinic_name || c.original_clinic_name}</dd>
-                <dt>Fecha</dt><dd>{fmtCitaDate(c.alternative_slot_date, c.alternative_slot_time)}</dd>
-                <dt>Motivo</dt><dd>{c.alternative_reason || '—'}</dd>
-                <dt>Decisión paciente</dt><dd>{c.patient_decision || 'Esperando'}</dd>
+                <dt>Clínica</dt><dd><CopyableValue copy={c.alternative_clinic_name || c.original_clinic_name || ''}>{c.alternative_clinic_name || c.original_clinic_name}</CopyableValue></dd>
+                <dt>Fecha</dt><dd><CopyableValue copy={fmtCitaDate(c.alternative_slot_date, c.alternative_slot_time)}>{fmtCitaDate(c.alternative_slot_date, c.alternative_slot_time)}</CopyableValue></dd>
+                <dt>Motivo</dt><dd><CopyableValue copy={c.alternative_reason || ''}>{c.alternative_reason || '—'}</CopyableValue></dd>
+                <dt>Decisión paciente</dt><dd><CopyableValue copy={c.patient_decision || ''}>{c.patient_decision || 'Esperando'}</CopyableValue></dd>
               </dl>
             </div>
           )}
@@ -457,9 +458,9 @@ export default function OpsCaseDetail({ params }) {
             <div className="ops-card">
               <h2>Reembolso</h2>
               <dl className="ops-kv">
-                <dt>Refund ID</dt><dd style={{ fontFamily: 'monospace', fontSize: 12 }}>{c.refund_id}</dd>
-                <dt>Importe</dt><dd>€{Number(c.refund_amount || 0).toFixed(2)}</dd>
-                <dt>Motivo</dt><dd>{c.refund_reason || '—'}</dd>
+                <dt>Refund ID</dt><dd style={{ fontFamily: 'monospace', fontSize: 12 }}><CopyableValue copy={c.refund_id || ''}>{c.refund_id}</CopyableValue></dd>
+                <dt>Importe</dt><dd><CopyableValue copy={`€${Number(c.refund_amount || 0).toFixed(2)}`}>€{Number(c.refund_amount || 0).toFixed(2)}</CopyableValue></dd>
+                <dt>Motivo</dt><dd><CopyableValue copy={c.refund_reason || ''}>{c.refund_reason || '—'}</CopyableValue></dd>
               </dl>
             </div>
           )}
@@ -486,7 +487,7 @@ export default function OpsCaseDetail({ params }) {
           <div className="ops-card">
             <h2>Metadatos</h2>
             <dl className="ops-kv">
-              <dt>Asignado a</dt><dd>{c.assigned_to || '—'}</dd>
+              <dt>Asignado a</dt><dd><CopyableValue copy={c.assigned_to || ''}>{c.assigned_to || '—'}</CopyableValue></dd>
               <dt>Creado</dt><dd>{fmtDateTime(c.created_at)}</dd>
               <dt>Actualizado</dt><dd>{fmtDateTime(c.updated_at)}</dd>
               <dt>Resuelto</dt><dd>{fmtDateTime(c.resolved_at)}</dd>
