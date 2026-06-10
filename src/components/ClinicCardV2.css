@@ -14,6 +14,11 @@
   margin-bottom: var(--space-3);
   transition: box-shadow var(--duration-micro) var(--ease),
               border-color var(--duration-micro) var(--ease);
+  /* 2026-06-10 — CLS fix. Scope intra-card reflows (slot batch resolve,
+     partner badge appearing, scarcity banner toggling) so they cannot
+     bubble up to the .sv2-results layout. The card itself still grows
+     when its content does, but adjacent cards stay put. */
+  contain: layout;
 }
 
 .cv2-card:hover {
@@ -32,6 +37,12 @@
   gap: 1rem;
   align-items: flex-start;
   margin-bottom: 1rem;
+  /* 2026-06-10 — CLS fix.
+     The partner "Centro destacado · -30%" chip + insurance tags row +
+     verified-cancel chip can sum to 1-2 lines (~24-48 px). Reserving a
+     stable minimum on the body keeps the slot area below from jumping
+     when the tag row wraps. */
+  min-height: 96px;
 }
 
 /* 2026-06-04 — dead-click fix.
@@ -203,6 +214,15 @@
 .cv2-slots {
   border-top: 1px solid var(--border);
   padding-top: var(--space-3);
+  /* 2026-06-10 — CLS hard fix.
+     Reserve a stable height for the slot section so the card's overall
+     height is the same in skeleton state and loaded state. The
+     "Última cita" scarcity banner (when present, ~40 px), the "Próximas
+     citas" label (~24 px) and the slot chip row (~80 px) sum to ~144
+     px on average; we reserve 160 px so the partner-badge + strikethrough
+     variations fit. Without this the card grew ~50 px when batch-slots
+     resolved → big CLS contribution multiplied by N cards. */
+  min-height: 160px;
 }
 
 /* "Última cita disponible" scarcity banner. Shown only when the card
@@ -359,12 +379,16 @@
 
 /* 2026-06-08 — Strikethrough + active price in each slot chip.
    The strikethrough sits to the LEFT of the active price (inline row)
-   so the eye reads "old → new" naturally. */
+   so the eye reads "old → new" naturally.
+   2026-06-10 — CLS fix: min-width reserves the strikethrough column
+   even when display.showStrikethrough is false, so the chip width
+   doesn't change once partner data resolves. */
 .cv2-slot-fee-group {
   display: inline-flex;
   align-items: baseline;
   gap: 4px;
   margin-top: 2px;
+  min-height: 18px;
 }
 .cv2-slot-fee-old {
   font-family: var(--font-mono);
@@ -395,12 +419,23 @@
   padding-top: var(--space-3);
   display: flex;
   gap: var(--space-2);
+  /* 2026-06-10 — CLS hard fix. Match the same min-height as the loaded
+     .cv2-slots state so the card's height does not change when slots
+     resolve. The slot row contains a label (~24 px) + the 80-px chips,
+     adding up to ~110 px with paddings; we reserve 160 px to also leave
+     room for the "Última cita" banner that some cards get. */
+  min-height: 160px;
+  flex-wrap: wrap;
+  align-content: flex-start;
 }
 
 .cv2-slot-skeleton {
   display: inline-block;
   width: 110px;
-  height: 44px;
+  /* Skeletons used to be 44 px tall, real chips are ~70 px (date + fee
+     stacked). The mismatch added ~25 px per row when data resolved.
+     Now skeletons match the real chip height. */
+  height: 70px;
   border-radius: var(--radius-md);
   background: linear-gradient(90deg, var(--bone-200) 25%, var(--bone-300) 50%, var(--bone-200) 75%);
   background-size: 200% 100%;

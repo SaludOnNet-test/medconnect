@@ -617,11 +617,12 @@ function SearchV2Content() {
               )}
 
               {hasMore && <div ref={sentinelRef} style={{ height: 1 }} />}
-              {isLoading && dbClinics !== null && (
-                <div style={{ textAlign: 'center', padding: '1rem', color: '#9ca3af', fontSize: '0.85rem' }}>
-                  Cargando más centros...
-                </div>
-              )}
+              {/* 2026-06-10 — CLS fix. Reserve fixed height so the
+                  loader appearing during pagination doesn't push the
+                  cards above when isLoading flips on/off. */}
+              <div style={{ textAlign: 'center', padding: '1rem 0', color: '#9ca3af', fontSize: '0.85rem', minHeight: '48px', visibility: (isLoading && dbClinics !== null) ? 'visible' : 'hidden' }}>
+                Cargando más centros...
+              </div>
             </div>
           </div>
 

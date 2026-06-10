@@ -124,6 +124,12 @@
   padding-bottom: 2rem;
   max-width: 1200px;
   margin: 0 auto;
+  /* 2026-06-10 — CLS hard fix. `contain: layout` prevents the listing
+     column reflow (when batch-slots resolves per card OR when filters
+     reshape the result set) from propagating to the rest of the page.
+     Clarity recordings showed CLS 1.5 after "Aplicar filtros" — this
+     keeps the reflow scoped to .sv2-results and .sv2-map-panel. */
+  contain: layout;
 }
 
 /* When the map is hidden, the results take the full width. */
@@ -350,6 +356,15 @@
   display: flex;
   flex-direction: column;
   gap: 0;
+  /* 2026-06-10 — CLS hard fix.
+     • min-height reserves space so an empty / loading result set doesn't
+       collapse to 0 height, then expand when the cards arrive (Clarity:
+       the click-then-aplicar flow drove CLS 0.76 → 1.5).
+     • contain: layout stops a card-internal reflow (skeleton → real
+       slot chips, partner discount strikethrough appearing late) from
+       bubbling up to the page. */
+  min-height: 600px;
+  contain: layout;
 }
 
 .sv2-empty {
