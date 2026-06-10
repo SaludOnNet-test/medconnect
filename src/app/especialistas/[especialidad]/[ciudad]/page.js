@@ -11,8 +11,50 @@ import {
   getAllSpecialtyCityCombinations,
   specialtyPageUrl,
 } from '@/lib/seoData';
+import { getPool, DB_AVAILABLE, sql } from '@/lib/db';
 
 const BASE_URL = process.env.NEXT_PUBLIC_BASE_URL || 'https://www.medconnect.es';
+
+// 2026-06-10 — Auto-noindex threshold.
+// Google Search Console reported 19 of these landing pages as "Discovered:
+// currently not indexed". 17 of them had < 3 clinics on the listing — Google
+// reads that as thin content. Setting robots.index=false until we have at
+// least 3 clinics for a (specialty, city) pair means:
+//   • Google stops wasting crawl budget on thin pages
+//   • Ops can onboard clinics; next deploy auto-flips index=true
+//   • UX for direct visitors is unchanged — the page still serves
+//
+// Threshold 3 matches what we saw in the diagnostic: 3+ clinics consistently
+// got indexed; 1-2 was the cliff. Pages with the threshold or more keep
+// their normal indexable metadata.
+const MIN_INDEXABLE_CLINICS = 3;
+
+async function countIndexableClinics(specialtySlug, city) {
+  if (!DB_AVAILABLE) return null; // dev / preview without DB → don't gate
+  try {
+    const pool = await getPool();
+    const variants = specialtySlug === 'ginecologia'
+      ? ['%ginecologia%', '%obstetricia%']
+      : [`%${specialtySlug}%`];
+    const req = pool.request().input('city', sql.NVarChar(120), city);
+    variants.forEach((v, i) => req.input(`v${i}`, sql.NVarChar(100), v));
+    const cond = variants.map((_, i) => `cs.specialty_slug LIKE @v${i}`).join(' OR ');
+    const r = await req.query(`
+      SELECT COUNT(DISTINCT c.id) AS n
+      FROM clinics c
+      WHERE c.city = @city
+        AND EXISTS (
+          SELECT 1 FROM clinic_specialties cs
+          WHERE cs.clinic_id = c.id AND (${cond})
+        )
+    `);
+    return Number(r.recordset[0]?.n || 0);
+  } catch {
+    // Any DB hiccup → be defensive and allow indexing (don't silently
+    // noindex the whole network because of a transient failure).
+    return null;
+  }
+}
 
 // ── Static generation ──────────────────────────────────────────────────────
 export function generateStaticParams() {
@@ -39,10 +81,21 @@ export async function generateMetadata({ params }) {
   const description = specialty.shortDesc(city);
   const canonical   = specialtyPageUrl(especialidad, ciudad);
 
+  // 2026-06-10 — Auto-noindex when the listing would be thin. See the
+  // MIN_INDEXABLE_CLINICS comment above. Pages still serve normally
+  // (UX unchanged); we only flip the robots header so Google doesn't
+  // include the page in its index until ops onboards more clinics.
+  const clinicCount = await countIndexableClinics(especialidad, city);
+  const tooThin = clinicCount !== null && clinicCount < MIN_INDEXABLE_CLINICS;
+  const robots = tooThin
+    ? { index: false, follow: true } // crawl OK, don't index
+    : undefined;
+
   return {
     title,
     description,
     alternates: { canonical },
+    ...(robots ? { robots } : {}),
     openGraph: {
       title,
       description,
