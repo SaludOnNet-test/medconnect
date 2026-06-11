@@ -27,6 +27,19 @@ const BASE_URL = process.env.NEXT_PUBLIC_BASE_URL || 'https://www.medconnect.es'
 // Threshold 3 matches what we saw in the diagnostic: 3+ clinics consistently
 // got indexed; 1-2 was the cliff. Pages with the threshold or more keep
 // their normal indexable metadata.
+//
+// 2026-06-11 — Two corrections after the gine/madrid investigation:
+//   1) Use the same `city LIKE '%@city%' OR province LIKE '%@city%'` filter
+//      the production API uses (/api/clinics/search). Exact city='Madrid'
+//      undercounted because some clinics in the Madrid metro area store
+//      city='Móstoles' but province='Madrid'.
+//   2) Require the clinic to have at least one available schedule row.
+//      Earlier I was counting catalog rows in clinic_specialties — but a
+//      clinic without schedules renders as a card without slots, which
+//      cappedClinics() in SearchResults.js then drops. So the actual
+//      visible count for /especialistas/gine/madrid was 9 even though
+//      clinic_specialties said 74. Counting bookable clinics matches
+//      what the user (and Google) actually sees.
 const MIN_INDEXABLE_CLINICS = 3;
 
 async function countIndexableClinics(specialtySlug, city) {
@@ -36,16 +49,20 @@ async function countIndexableClinics(specialtySlug, city) {
     const variants = specialtySlug === 'ginecologia'
       ? ['%ginecologia%', '%obstetricia%']
       : [`%${specialtySlug}%`];
-    const req = pool.request().input('city', sql.NVarChar(120), city);
+    const req = pool.request().input('city', sql.NVarChar(120), `%${city}%`);
     variants.forEach((v, i) => req.input(`v${i}`, sql.NVarChar(100), v));
     const cond = variants.map((_, i) => `cs.specialty_slug LIKE @v${i}`).join(' OR ');
     const r = await req.query(`
       SELECT COUNT(DISTINCT c.id) AS n
       FROM clinics c
-      WHERE c.city = @city
+      WHERE (LOWER(c.city) LIKE LOWER(@city) OR LOWER(c.province) LIKE LOWER(@city))
         AND EXISTS (
           SELECT 1 FROM clinic_specialties cs
           WHERE cs.clinic_id = c.id AND (${cond})
+        )
+        AND EXISTS (
+          SELECT 1 FROM clinic_schedules sch
+          WHERE sch.clinic_id = c.id AND sch.is_available = 1
         )
     `);
     return Number(r.recordset[0]?.n || 0);
