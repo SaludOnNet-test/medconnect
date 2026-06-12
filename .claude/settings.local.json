@@ -9,7 +9,17 @@
       "Bash($css = @':*)",
       "Bash(Add-Content -Path \"C:\\\\Users\\\\francisco.pizarro\\\\OneDrive - Saludonnet Spain SL\\\\Documents\\\\SON\\\\Tecnologia\\\\IA - Mejoras SON\\\\Venta de citas a asegurados\\\\prioritamed\\\\src\\\\app\\\\book\\\\book.css\" -Value $css)",
       "Bash(mkdir -p \"C:\\\\Users\\\\francisco.pizarro\\\\OneDrive - Saludonnet Spain SL\\\\Documents\\\\SON\\\\Tecnologia\\\\IA - Mejoras SON\\\\Venta de citas a asegurados\\\\prioritamed\\\\src\\\\app\\\\sign-in\\\\[[...sign-in]]\")",
-      "Bash(mkdir -p \"C:\\\\Users\\\\francisco.pizarro\\\\OneDrive - Saludonnet Spain SL\\\\Documents\\\\SON\\\\Tecnologia\\\\IA - Mejoras SON\\\\Venta de citas a asegurados\\\\prioritamed\\\\src\\\\app\\\\sign-up\\\\[[...sign-up]]\")"
+      "Bash(mkdir -p \"C:\\\\Users\\\\francisco.pizarro\\\\OneDrive - Saludonnet Spain SL\\\\Documents\\\\SON\\\\Tecnologia\\\\IA - Mejoras SON\\\\Venta de citas a asegurados\\\\prioritamed\\\\src\\\\app\\\\sign-up\\\\[[...sign-up]]\")",
+      "Bash(node -e ' *)",
+      "Bash(ls -la \"C:\\\\Users\\\\francisco.pizarro\\\\OneDrive - Saludonnet Spain SL\\\\Documents\\\\SON\\\\Tecnologia\\\\IA - Mejoras SON\\\\Venta de citas a asegurados\\\\prioritamed\\\\\" | grep -E \"^d\")",
+      "PowerShell(head -20)",
+      "WebSearch",
+      "WebFetch(domain:github.com)",
+      "Bash(ls -la ~/.claude/plugins/)",
+      "Bash(cp -r ~/.claude/skills/lean/skills/lean ~/.claude/skills/lean-skill)",
+      "Read(//c/Users/francisco.pizarro/.claude/skills/**)",
+      "Bash(cat)",
+      "Read(//tmp/**)"
     ]
   }
 }
