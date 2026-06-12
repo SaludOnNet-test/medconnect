@@ -10,6 +10,9 @@ import { sendEmail } from '@/lib/email';
 import { clinicSaleNotification } from '@/lib/emailTemplates';
 import { releaseHold, markHoldConverted } from '@/lib/slotHolds';
 import { notifyInternalWatcher } from '@/lib/internalWatcher';
+import { isPartnerClinic } from '@/lib/partnerClinics';
+import { applyPartnerDiscount } from '@/lib/pricing';
+import { getConvenienceFee } from '@/data/mock';
 
 // Hard cap so a misbehaving admin UI can't pull every row at once. Combined
 // with mandatory ops auth this also bounds the data exposure if a token leaks.
@@ -182,6 +185,31 @@ export async function POST(request) {
     platformFee,
   } = parsed.data;
 
+  // 2026-06-12 — Partner discount floor enforcement (con-seguro path).
+  // Mirror of the clamp in /api/bookings/reserve. Previously the
+  // finalize UPDATE blindly wrote @amount, so a client stuck on the
+  // pre-discount price (€29 instead of €20.50 for Cea Bermúdez)
+  // overwrote the lower amount that /reserve had stored. The Jacques
+  // Blehaut Jun-9 sale was charged €29 for exactly this reason.
+  // Now we re-derive the partner-discounted floor and clamp DOWN; the
+  // value that lands in bookings.amount is always ≤ the partner price.
+  // No-op for non-partner clinics — they pass through unchanged.
+  let safeAmount = Number(amount) || 0;
+  try {
+    if (slotDate && providerId && hasInsurance === true && isPartnerClinic(providerId)) {
+      const tierFee = getConvenienceFee(slotDate);
+      const expectedPriority = applyPartnerDiscount(tierFee.amount, providerId);
+      if (safeAmount > expectedPriority + 0.50) {
+        console.warn('[POST /api/bookings] partner amount mismatch — clamping', {
+          id, providerId, submitted: safeAmount, expected: expectedPriority,
+        });
+        safeAmount = expectedPriority;
+      }
+    }
+  } catch (e) {
+    console.error('[POST /api/bookings] partner clamp recompute failed', e?.message);
+  }
+
   // B9 — server-side amount validation. For sin-seguro bookings we re-fetch the
   // SON catalogue price for the (clinic, procedure) pair and verify it matches
   // what the client charged. Prevents query-string price tampering.
@@ -342,7 +370,7 @@ export async function POST(request) {
       .input('specialty', sql.NVarChar(100), specialty || null)
       .input('slot_date', sql.NVarChar(20), slotDate || null)
       .input('slot_time', sql.NVarChar(10), slotTime || null)
-      .input('amount', sql.Decimal(10, 2), amount || null)
+      .input('amount', sql.Decimal(10, 2), safeAmount || amount || null)
       .input('status', sql.NVarChar(30), finalStatus)
       .input('card_last4', sql.NVarChar(4), cardLast4 || null)
       .input('has_insurance', sql.Bit, hasInsurance ? 1 : 0)

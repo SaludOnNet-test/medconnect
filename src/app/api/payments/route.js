@@ -16,6 +16,15 @@
  *  - zod schema rejects unexpected fields and bad types at the boundary.
  *  - Errors are not echoed verbatim to the client (apart from Stripe's own
  *    user-actionable messages like 'card declined').
+ *  - 2026-06-12 — Partner discount floor. /api/bookings/reserve already
+ *    clamps the booking row's amount to the partner-discounted price for
+ *    partner clinics (Cea Bermúdez, etc.). Previously /api/payments
+ *    accepted the client-submitted amount directly and passed it to
+ *    Stripe — so a stale client (modal cached pre-discount, like in the
+ *    Jun-9 Jacques Blehaut sale) charged the full €29 even though
+ *    /reserve had stored €20.50. We now look up the reserved amount and
+ *    use the LOWER of (submitted, reserved) as the Stripe amount. Never
+ *    overcharge the patient.
  */
 
 import Stripe from 'stripe';
@@ -23,6 +32,7 @@ import { NextResponse } from 'next/server';
 import { limits } from '@/lib/rateLimit';
 import { internalError, clientError } from '@/lib/errors';
 import { paymentsBodySchema, formatZodError } from '@/lib/schemas';
+import { getPool, sql, DB_AVAILABLE } from '@/lib/db';
 
 const MAX_AMOUNT_EUR = 1000;
 
@@ -58,6 +68,40 @@ export async function POST(request) {
       return clientError(`Amount exceeds maximum (${MAX_AMOUNT_EUR} EUR)`, 400);
     }
 
+    // 2026-06-12 — Partner discount floor enforcement.
+    // /api/bookings/reserve stores the partner-discounted amount in
+    // bookings.amount before /api/payments fires. If the client (e.g. a
+    // modal cached pre-discount) sends a HIGHER amount, we clamp it down
+    // to the reserved value so Stripe charges only the discounted price.
+    // Going UP from the reserved amount is never legitimate; going DOWN
+    // (client manually picked a cheaper tier after reserving) is
+    // suspicious and equally clamped.
+    // Best-effort: DB hiccup → fall back to submitted amount + warn.
+    let chargeAmount = amount;
+    if (bookingId && DB_AVAILABLE) {
+      try {
+        const pool = await getPool();
+        const lookup = await pool.request()
+          .input('bid', sql.NVarChar(50), String(bookingId))
+          .query(`SELECT TOP 1 amount FROM bookings WHERE id = @bid`);
+        const reserved = lookup.recordset[0]?.amount;
+        if (reserved != null) {
+          const reservedNum = Number(reserved);
+          // 0.50 tolerance matches the reserve-side clamp tolerance.
+          if (reservedNum > 0 && Math.abs(reservedNum - amount) > 0.50) {
+            console.warn('[payments] reserved-amount mismatch — clamping', {
+              bookingId, submitted: amount, reserved: reservedNum,
+            });
+            chargeAmount = reservedNum;
+          }
+        }
+      } catch (e) {
+        // DB lookup failed — proceed with submitted amount; the hard
+        // MAX_AMOUNT_EUR cap is still the last line of defence.
+        console.error('[payments] booking lookup failed (continuing)', e?.message);
+      }
+    }
+
     const safeReceiptEmail = email ? email.trim() : undefined;
 
     // Idempotency key — when the client provides a bookingId, two retries
@@ -70,7 +114,7 @@ export async function POST(request) {
 
     const paymentIntent = await stripe.paymentIntents.create(
       {
-        amount: Math.round(amount * 100),
+        amount: Math.round(chargeAmount * 100),
         currency: 'eur',
         payment_method: paymentMethodId,
         confirm: true,
