@@ -16,7 +16,15 @@ import { PARTNER_CLINIC_IDS } from '@/lib/partnerClinics';
 // requested in 2026-06. Partner clinics (Cea Bermúdez and any others in
 // PARTNER_CLINIC_IDS) bypass the cap entirely so they always show every
 // tier they have.
-const TIER_CAPS = { 1: 3, 2: 2, 3: 4, 4: 8 };
+//
+// 2026-06-12 — Loosened to absorb the SON-priced inventory. Yesterday's
+// clinic_specialties backfill from clinic_procedures grew the pool from
+// ~9 to ~74 candidates per top page (e.g. ginecologia/Madrid), but the
+// previous caps {1:3,2:2,3:4,4:8} kept only ~9 visible. Bumping tier-4
+// to 30 — the API page size — effectively removes the catch-all cap so
+// every clinic the API returns can surface; tiers 1-3 stay capped to
+// preserve the "esta semana" scarcity bite at the top of the list.
+const TIER_CAPS = { 1: 6, 2: 5, 3: 12, 4: 30 };
 
 // Tier-window filter chip definitions. The user picks one or more
 // windows; cards then only show slot chips whose tier is in the set.
