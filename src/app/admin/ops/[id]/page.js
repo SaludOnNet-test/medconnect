@@ -637,7 +637,7 @@ export default function OpsCaseDetail({ params }) {
  *
  * Forza un motivo de >= 3 caracteres en el cliente (la API también lo
  * valida con 400, este gate es UX). Cuando la política de refund
- * (slot − 72 h) indica que el caso está fuera de cutoff, ofrece un
+ * (slot − 24 h) indica que el caso está fuera de cutoff, ofrece un
  * checkbox "Forzar reembolso completo aún fuera de cutoff" para que Ops
  * tenga que reconocer expresamente el override.
  */
@@ -662,18 +662,18 @@ function RefundFormSection({ c, busy, doAction, forceVisible }) {
     return Number.isNaN(d.getTime()) ? null : d;
   })();
   const hoursUntilSlot = slotAt ? (slotAt.getTime() - nowMsRefund) / 3_600_000 : null;
-  const withinCutoff = hoursUntilSlot !== null && hoursUntilSlot < 72;
+  const withinCutoff = hoursUntilSlot !== null && hoursUntilSlot < 24;
   const hasInsurance = c.has_insurance == null ? null : !!c.has_insurance;
 
   const policyHint = (() => {
     if (slotAt === null) return 'Sin fecha de cita registrada — refund por defecto completo.';
     if (!withinCutoff) {
-      return `Cita en ${hoursUntilSlot.toFixed(1)} h (>72 h). Dentro de cutoff: refund completo automático.`;
+      return `Cita en ${hoursUntilSlot.toFixed(1)} h (>24 h). Dentro de cutoff: refund íntegro automático.`;
     }
     if (hasInsurance === false) {
-      return `Cita en ${hoursUntilSlot.toFixed(1)} h (<72 h) y paciente sin seguro. La política reembolsa solo el valor del servicio. Marca el override para devolver todo.`;
+      return `Cita en ${hoursUntilSlot.toFixed(1)} h (<24 h) y paciente sin seguro. La política reembolsa solo el valor del servicio. Marca el override para devolver todo.`;
     }
-    return `Cita en ${hoursUntilSlot.toFixed(1)} h (<72 h) y paciente con seguro. La política NO reembolsa nada. Marca el override para forzar reembolso.`;
+    return `Cita en ${hoursUntilSlot.toFixed(1)} h (<24 h) y paciente con seguro. La política NO reembolsa nada. Marca el override para forzar reembolso.`;
   })();
 
   const reasonOk = refundReason.trim().length >= 3;

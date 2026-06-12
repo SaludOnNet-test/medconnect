@@ -166,7 +166,7 @@ async function notifyClinicOfOpsCancellation(c, { reasonLabel, reason, refundAmo
 }
 
 async function issueRefund(c, reason, opts = {}) {
-  // Consult the refund policy. By default Ops follows it (cutoff = slot − 72 h,
+  // Consult the refund policy. By default Ops follows it (cutoff = slot − 24 h,
   // sin-seguro fuera de cutoff recupera servicio, asegurado fuera de cutoff
   // no recupera nada). Ops PUEDE forzar un refund total fuera de cutoff
   // pasando opts.override = true — queda registrado en el call_log con

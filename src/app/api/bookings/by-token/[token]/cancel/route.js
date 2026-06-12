@@ -86,10 +86,11 @@ export async function POST(request, { params }) {
     }
   }
 
-  // Consult the refund policy. Política (decidida 2026-05-14):
-  //   > 72h antes de la cita → reembolso completo
-  //   <= 72h asegurado        → 0 €  (la consulta corre por su seguro)
-  //   <= 72h sin-seguro       → service_price (la prioridad no es reembolsable)
+  // Consult the refund policy. Política (decidida 2026-06-12,
+  // supersedes 2026-05-14):
+  //   > 24h antes de la cita → reembolso íntegro por cualquier motivo
+  //   <= 24h asegurado        → 0 €  (la consulta corre por su seguro)
+  //   <= 24h sin-seguro       → service_price (la prioridad no es reembolsable)
   //
   // El paciente solo tiene self-service; si quiere forzar reembolso
   // fuera de cutoff debe escribir a Ops (mensaje al final si aplica).
@@ -106,7 +107,7 @@ export async function POST(request, { params }) {
     return NextResponse.json({
       ok: false,
       reason: 'outside_cutoff',
-      message: 'La cita es en menos de 72 h. La prioridad no es reembolsable. Escribe a operaciones@medconnect.es si crees que aplica una excepción.',
+      message: 'La cita es en menos de 24 h. La prioridad no es reembolsable. Escribe a operaciones@medconnect.es si crees que aplica una excepción.',
       policy,
     }, { status: 409 });
   }

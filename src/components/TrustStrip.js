@@ -25,7 +25,7 @@
 
 const CLAIMS = [
   { icon: '🔒', short: 'Stripe seguro', label: 'Pago seguro con Stripe' },
-  { icon: '💸', short: 'Reembolso 72 h', label: 'Reembolso íntegro en 72 h si no encontramos hueco' },
+  { icon: '💸', short: 'Cancela hasta 24 h antes', label: 'Cancelación gratuita hasta 24 h antes de la cita' },
   { icon: '🏥', short: 'Tu seguro cubre la consulta', label: 'Tu seguro sigue cubriendo la consulta' },
 ];
 

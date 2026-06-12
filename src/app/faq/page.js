@@ -39,7 +39,7 @@ const FAQ_ITEMS = [
   },
   {
     q: '¿Puedo cancelar?',
-    a: <p>Sí, hasta 24 horas antes de la cita y la tarifa de prioridad se reembolsa íntegramente. Pasado ese plazo, la tarifa no es reembolsable salvo causa justificada.</p>,
+    a: <p>Sí. Hasta <strong>24 horas antes</strong> de la cita cancelas gratis por cualquier motivo y te devolvemos el importe íntegro en 72 h. Pasado ese plazo, la tarifa de prioridad no es reembolsable salvo causa justificada.</p>,
   },
   {
     q: '¿Mis datos están seguros?',

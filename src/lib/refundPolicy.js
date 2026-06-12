@@ -1,22 +1,22 @@
 // Refund policy for Medconnect priority bookings.
 //
-// Rule (decided 2026-05-14):
-//   - Cancela > 72 h antes de la cita → refund completo.
-//   - Cancela <= 72 h antes / no-show:
+// Rule (decided 2026-06-12 — supersedes the 2026-05-14 rule):
+//   - Cancela > 24 h antes de la cita → refund completo (priority + service,
+//     por cualquier motivo). "Cancelación gratuita hasta 24 h antes".
+//   - Cancela <= 24 h antes / no-show:
 //       · Asegurado (paciente con seguro)  → no refund. La prioridad se
 //         queda Medconnect; la consulta corre por su póliza (no la cobramos
 //         nosotros, así que no hay nada que devolver).
 //       · Sin seguro                      → refund SOLO del valor del
-//         servicio (SaludOnNet). La prioridad NO se reembolsa. El paciente
-//         pierde la tarifa de prioridad pero recupera el coste de la
-//         consulta privada porque no llegó a usarse.
+//         servicio (SaludOnNet). La prioridad NO se reembolsa. Disuade
+//         no-shows sin penalizar el coste del acto que no llegó a usarse.
 //
 // Ops puede forzar un refund fuera de cutoff cuando hay un motivo
 // excepcional (clínica cancela, error nuestro, etc.). El helper lo
 // indica como `allowed:false` + `reason` para que el endpoint de Ops
 // pueda decidir si pasa por encima registrando el override.
 
-const SEVENTY_TWO_HOURS_MS = 72 * 60 * 60 * 1000;
+const TWENTY_FOUR_HOURS_MS = 24 * 60 * 60 * 1000;
 
 /**
  * Build a Date from a slot date (YYYY-MM-DD) and time (HH:MM). Both are
@@ -72,15 +72,15 @@ export function isRefundable(slotDate, slotTime, opts = {}) {
     };
   }
 
-  const cutoffAt = new Date(slotAt.getTime() - SEVENTY_TWO_HOURS_MS);
+  const cutoffAt = new Date(slotAt.getTime() - TWENTY_FOUR_HOURS_MS);
   const hoursUntilSlot = (slotAt.getTime() - now.getTime()) / (60 * 60 * 1000);
 
-  // Within the safe window (> 72 h before).
+  // Within the safe window (> 24 h before).
   if (now < cutoffAt) {
     return {
       allowed: true,
       refundableAmount: 'full',
-      reason: `Cancelación con más de 72 h de antelación (faltan ${hoursUntilSlot.toFixed(1)} h). Reembolso completo permitido.`,
+      reason: `Cancelación con más de 24 h de antelación (faltan ${hoursUntilSlot.toFixed(1)} h). Reembolso íntegro por cualquier motivo.`,
       cutoffAt,
       hoursUntilSlot,
     };
@@ -91,7 +91,7 @@ export function isRefundable(slotDate, slotTime, opts = {}) {
     return {
       allowed: false,
       refundableAmount: 'service_only',
-      reason: `Cancelación dentro de las 72 h previas a la cita. Solo se reembolsa el valor del servicio (la prioridad no es reembolsable).`,
+      reason: `Cancelación dentro de las 24 h previas a la cita. Solo se reembolsa el valor del servicio (la prioridad no es reembolsable).`,
       cutoffAt,
       hoursUntilSlot,
     };
@@ -100,7 +100,7 @@ export function isRefundable(slotDate, slotTime, opts = {}) {
   return {
     allowed: false,
     refundableAmount: 'none',
-    reason: `Cancelación dentro de las 72 h previas a la cita o no-show. La prioridad no es reembolsable; la consulta la cubre tu seguro.`,
+    reason: `Cancelación dentro de las 24 h previas a la cita o no-show. La prioridad no es reembolsable; la consulta la cubre tu seguro.`,
     cutoffAt,
     hoursUntilSlot,
   };

@@ -146,8 +146,9 @@ export default function TarifasPage() {
             <li>Gestión y reserva del hueco prioritario con la clínica.</li>
             <li>Confirmación por email + recordatorios automáticos antes de la cita.</li>
             <li>
-              <strong>Reembolso íntegro en 72 h</strong> si no encontramos hueco con tu
-              seguro o si cancelas con más de 72 h de antelación.
+              <strong>Cancelación gratuita hasta 24 h antes de la cita</strong> — por
+              cualquier motivo. Reembolso íntegro en 72 h. También si no encontramos
+              hueco con tu seguro.
             </li>
           </ul>
 

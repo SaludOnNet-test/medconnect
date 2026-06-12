@@ -537,7 +537,7 @@ function PaymentFormContent({ totalPrice, standardTotalPrice = 0, providerName, 
                     <span>·</span>
                     <span>✓ PCI DSS</span>
                     <span>·</span>
-                    <span>✓ Reembolsable 72h</span>
+                    <span>✓ Cancela hasta 24h antes</span>
                   </div>
 
                   {paymentError && (
@@ -582,7 +582,7 @@ function PaymentFormContent({ totalPrice, standardTotalPrice = 0, providerName, 
                     <ul className="payment-trust-list">
                       <li>Tu tarjeta nunca pasa por servidores de Med Connect.</li>
                       <li>Tu banco pedirá confirmar el pago por SMS o por la app (~10&nbsp;segundos).</li>
-                      <li>Si no encontramos hueco con tu seguro, te devolvemos el cargo íntegro en 72&nbsp;h.</li>
+                      <li>Cancelación gratuita hasta 24&nbsp;h antes de la cita: te devolvemos el cargo íntegro en 72&nbsp;h por cualquier motivo.</li>
                     </ul>
                   </div>
 
