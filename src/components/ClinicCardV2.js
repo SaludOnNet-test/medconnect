@@ -111,7 +111,33 @@ export default function ClinicCardV2({
               </p>
             </div>
 
-            <div className="cv2-rating-block">
+            {/* 2026-06-12 — Dead-click fix follow-up.
+                Clarity recorded a SEM session (Jun 10, 17:32) with two
+                consecutive dead clicks on `★` and `(N opiniones)`. The
+                rating block ALREADY bubbled into the card-body's
+                openBrowseMode handler, but Clarity's heuristic flags a
+                click as dead when the exact element doesn't visually
+                respond within ~250 ms — the modal opens after a brief
+                React state cycle, so the click target itself looks
+                inert. We now (a) attach the handler EXPLICITLY to the
+                rating block so its onClick fires before the bubble does,
+                (b) give it a :hover + :active style so the element
+                literally responds under the cursor, and (c) mark it as
+                role="button" so Clarity classifies it as interactive
+                and stops scoring its clicks as dead. */}
+            <div
+              className="cv2-rating-block cv2-rating-block--clickable"
+              role="button"
+              tabIndex={0}
+              onClick={(e) => { e.stopPropagation(); openBrowseMode(); }}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' || e.key === ' ') {
+                  e.preventDefault();
+                  openBrowseMode();
+                }
+              }}
+              aria-label={`Ver opiniones y reservar en ${provider.name}`}
+            >
               <div className="cv2-stars">{'★'.repeat(Math.round(provider.rating || 0))}</div>
               <span className="cv2-rating-num">{provider.rating}</span>
               <span className="cv2-reviews">({provider.reviewCount} opiniones)</span>

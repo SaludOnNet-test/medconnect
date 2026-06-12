@@ -29,15 +29,72 @@ function getSessionId() {
   }
 }
 
+/**
+ * 2026-06-12 — Sticky attribution.
+ *
+ * The Jun 10-12 funnel audit revealed that analytics_events.properties
+ * never recorded utm_source / utm_medium / gclid even though Clarity
+ * (which parses them from the URL itself) attributed 36 of 72 sessions
+ * to google/cpc. Without DB-side attribution we couldn't measure SEM
+ * conversion or wire Enhanced Conversions back to Google Ads.
+ *
+ * The fix: on the FIRST event of a session that carries attribution
+ * params in the URL, freeze them into sessionStorage. Every subsequent
+ * event in that session merges them into `params` automatically. The
+ * patient who lands on /especialistas/ginecologia/madrid?gclid=… and
+ * three clicks later fires `slot_selected` carries the gclid into that
+ * event so downstream reporting can attribute the conversion.
+ *
+ * Sticky across the session ONLY — if the patient comes back tomorrow
+ * via a different campaign, sessionStorage was already wiped (new
+ * `mc_sid`) and the new attribution wins.
+ */
+const ATTRIBUTION_KEYS = [
+  'utm_source', 'utm_medium', 'utm_campaign',
+  'utm_term', 'utm_content', 'gclid', 'gbraid', 'wbraid',
+];
+
+function readAttributionFromUrl() {
+  if (typeof window === 'undefined') return {};
+  try {
+    const sp = new URLSearchParams(window.location.search);
+    const found = {};
+    for (const k of ATTRIBUTION_KEYS) {
+      const v = sp.get(k);
+      if (v) found[k] = v;
+    }
+    return found;
+  } catch { return {}; }
+}
+
+function getStickyAttribution() {
+  if (typeof window === 'undefined') return {};
+  try {
+    // First event of the session might carry the UTM in the URL — freeze it.
+    const cached = sessionStorage.getItem('mc_attribution');
+    if (cached) {
+      try { return JSON.parse(cached); } catch { /* fall through to refresh */ }
+    }
+    const fromUrl = readAttributionFromUrl();
+    if (Object.keys(fromUrl).length > 0) {
+      sessionStorage.setItem('mc_attribution', JSON.stringify(fromUrl));
+      return fromUrl;
+    }
+    // No attribution yet — return empty so we don't pollute params.
+    return {};
+  } catch { return {}; }
+}
+
 async function recordDbEvent(name, params) {
   try {
+    const enriched = { ...params, ...getStickyAttribution() };
     fetch('/api/analytics/event', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         event_name: name,
         session_id: getSessionId(),
-        properties: JSON.stringify(params),
+        properties: JSON.stringify(enriched),
         page_url: window.location.pathname + window.location.search,
       }),
     }); // fire-and-forget — no await
