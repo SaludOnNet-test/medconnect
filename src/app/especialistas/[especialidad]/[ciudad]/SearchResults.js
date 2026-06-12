@@ -394,9 +394,18 @@ export default function SearchResults({ specialtySlug, city }) {
                 highlightedId={highlightedId}
                 city={city}
                 onPinClick={(p) => {
+                  // 2026-06-12 — Pin click → scroll listing to the
+                  // clinic + highlight. Same behaviour as /search-v2 so
+                  // map ⇄ listing interaction is consistent. See the
+                  // matching comment in src/app/search-v2/page.js for
+                  // the Clarity-session rationale.
                   setHighlightedId(p.id);
-                  setModalProvider(p);
-                  setModalInitialSlot(null);
+                  if (typeof document !== 'undefined') {
+                    const el = document.getElementById(`clinic-card-${p.id}`);
+                    if (el) {
+                      el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                    }
+                  }
                 }}
                 onBoundsChange={setMapBounds}
               />

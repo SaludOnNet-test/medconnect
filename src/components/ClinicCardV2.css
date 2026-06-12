@@ -136,6 +136,31 @@
   flex-shrink: 0;
 }
 
+/* 2026-06-12 — Dead-click fix follow-up.
+   The rating block is now an explicit role="button". Visible hover +
+   :active states so the click target itself responds within Clarity's
+   ~250 ms dead-click window, instead of relying on the modal opening
+   (which Clarity scores as unrelated to the click target). */
+.cv2-rating-block--clickable {
+  cursor: pointer;
+  border-radius: 6px;
+  padding: 2px 6px;
+  margin: -2px -6px;
+  transition: background-color 0.12s ease, transform 0.08s ease;
+  outline: none;
+}
+.cv2-rating-block--clickable:hover {
+  background-color: rgba(201, 168, 76, 0.12); /* brass-500 @ 12% */
+}
+.cv2-rating-block--clickable:active {
+  transform: scale(0.97);
+  background-color: rgba(201, 168, 76, 0.22);
+}
+.cv2-rating-block--clickable:focus-visible {
+  outline: 2px solid var(--brass-500);
+  outline-offset: 2px;
+}
+
 .cv2-stars {
   color: var(--brass-500);
   font-size: var(--text-sm);

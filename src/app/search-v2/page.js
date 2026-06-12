@@ -648,9 +648,24 @@ function SearchV2Content() {
                   city={cityFilter || cityParam}
                   filterSignature={`${specialtySlug}|${procedureSlug}|${insuranceFilter}`}
                   onPinClick={(p) => {
+                    // 2026-06-12 — Pin click → scroll listing to the
+                    // clinic + highlight. Previously the pin opened the
+                    // booking modal directly, but Clarity recorded a SEM
+                    // session that spent 10 minutes playing with the
+                    // Leaflet zoom controls and never tapped a pin —
+                    // pins didn't read as a discovery affordance, just
+                    // as "another click that commits me". Now they read
+                    // the listing card in context (rating, insurance,
+                    // slots), then the patient decides to open the modal
+                    // by clicking the card. The map is a discovery lens,
+                    // not a one-step booking trigger.
                     setHighlightedId(p.id);
-                    setModalProvider(p);
-                    setModalInitialSlot(null);
+                    if (typeof document !== 'undefined') {
+                      const el = document.getElementById(`clinic-card-${p.id}`);
+                      if (el) {
+                        el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                      }
+                    }
                   }}
                   onBoundsChange={setMapBounds}
                 />
