@@ -35,7 +35,13 @@ import '../../../search-v2/search-v2.css';
 // surface a slot in each tier window. Same caps as /search-v2 so the
 // scarcity feel is consistent across both listings. Partners
 // (PARTNER_CLINIC_IDS) bypass the cap.
-const TIER_CAPS = { 1: 3, 2: 2, 3: 4, 4: 8 };
+//
+// 2026-06-12 — Loosened in lockstep with /search-v2 so the SON-priced
+// inventory (clinics with priced procedures but no clinic_schedules)
+// reaches the SEO landing page. Same numbers as /search-v2 — keep them
+// in sync so a clinic that's visible on /search-v2 is also visible on
+// /especialistas/[esp]/[city] and vice versa.
+const TIER_CAPS = { 1: 6, 2: 5, 3: 12, 4: 30 };
 
 const TIER_CHIPS = [
   { tier: 1, label: 'Esta semana' },
