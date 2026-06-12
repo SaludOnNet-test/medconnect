@@ -1409,16 +1409,25 @@ function BookContent() {
                 the price-breakdown box on the form step, but by the time the
                 patient reaches the Stripe field they have forgotten it. We
                 show this above PaymentForm so the trust frame is fresh
-                when they reach for their card. */}
+                when they reach for their card.
+                2026-06-12 — Reworded to (a) break down what the patient is
+                paying (tarifa de prioridad alone for insured, consulta +
+                prioridad for sin-seguro) and (b) state the real cancellation
+                policy: refund íntegro within 72 h for any cancellation up
+                to 24 h before the appointment, regardless of reason. */}
             {hasInsurance !== null && (
               <div
                 className="book-info-box book-info-box--green"
                 style={{ marginBottom: 'var(--space-md)' }}
               >
-                Cargo único de <strong>{totalPrice > 0 ? formatEUR(totalPrice) : '0 €'}</strong>.
-                Reembolso íntegro en 72&nbsp;h si no encontramos hueco con tu
-                seguro. La consulta sigue cubierta por tu póliza — solo pagas
-                nuestra tarifa de prioridad.
+                Cargo único de <strong>{totalPrice > 0 ? formatEUR(totalPrice) : '0 €'}</strong>
+                {hasInsurance === true ? (
+                  <> — nuestra tarifa de prioridad. La consulta la cubre tu póliza.</>
+                ) : (
+                  <> — consulta ({formatEUR(servicePrice)}) + tarifa de prioridad ({formatEUR(activeFee)}).</>
+                )}
+                {' '}Si cancelas hasta <strong>24&nbsp;h antes de la cita</strong> por cualquier motivo,
+                te devolvemos el importe íntegro en 72&nbsp;h.
               </div>
             )}
 
