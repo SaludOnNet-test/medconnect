@@ -604,29 +604,45 @@ export default function ClinicBookingModal({
                     </span>
                   )}
                 </p>
-                {/* Show BOTH prices upfront to avoid price-shock when the
-                    user toggles "No tengo seguro". When sin-seguro flow,
-                    we know the total already and show only that. Otherwise
-                    "Con seguro: €X · Sin seguro: €Y" + a single-line note.
-                    2026-06-04 v2 — dropped the "consulta privada €60-120"
-                    line from the modal: the landing-hero anchor already
-                    sets that frame, and the modal needs vertical room for
-                    the slot picker to stay above the fold on mobile. */}
+                {/* Price hint — see strict height constraint in the
+                    "Footer CTA" block comment above (line ~585). Any
+                    growth here pushes slot tiles below the fold on mobile.
+                    2026-06-12 — When the user already filtered "Con
+                    seguro" upstream (initialInsurance set, !isSinSeguro),
+                    we show only their side — one number instead of two.
+                    When they didn't declare ("unknown"), we still need
+                    both sides; we keep it on a SINGLE line and rely on
+                    the existing CSS to wrap on narrow viewports without
+                    forcing extra rows. */}
                 {!isSinSeguro && procedurePrice > 0 && selectedPriorityFee > 0 && (
-                  <p className="cbm-footer-pricehint">
-                    {selectedPricingDisplay?.showStrikethrough && (
-                      <span className="cbm-price-old">{selectedPricingDisplay.standardLabel}</span>
-                    )}{' '}
-                    <strong>{formatEUR(selectedPriorityFee)}</strong> con seguro
-                    {' · '}
-                    <strong>{formatEUR(selectedTotalNoInsurance)}</strong> sin seguro
-                    {' '}<span className="cbm-footer-pricehint-note">(consulta {formatEUR(procedurePrice)} + prioridad)</span>
-                    {selectedPricingDisplay?.isPartner && (
-                      <span className="cbm-partner-savings">
-                        {' '}· ✨ −30% centro destacado
-                      </span>
-                    )}
-                  </p>
+                  initialInsurance ? (
+                    <p className="cbm-footer-pricehint">
+                      {selectedPricingDisplay?.showStrikethrough && (
+                        <span className="cbm-price-old">{selectedPricingDisplay.standardLabel}</span>
+                      )}{' '}
+                      <strong>{formatEUR(selectedPriorityFee)}</strong> con seguro
+                      {selectedPricingDisplay?.isPartner && (
+                        <span className="cbm-partner-savings">
+                          {' '}· ✨ −30% centro destacado
+                        </span>
+                      )}
+                    </p>
+                  ) : (
+                    <p className="cbm-footer-pricehint">
+                      {selectedPricingDisplay?.showStrikethrough && (
+                        <span className="cbm-price-old">{selectedPricingDisplay.standardLabel}</span>
+                      )}{' '}
+                      <strong>{formatEUR(selectedPriorityFee)}</strong> con seguro
+                      {' · '}
+                      <strong>{formatEUR(selectedTotalNoInsurance)}</strong> sin seguro
+                      {' '}<span className="cbm-footer-pricehint-note">(consulta {formatEUR(procedurePrice)} + prioridad)</span>
+                      {selectedPricingDisplay?.isPartner && (
+                        <span className="cbm-partner-savings">
+                          {' '}· ✨ −30% centro destacado
+                        </span>
+                      )}
+                    </p>
+                  )
                 )}
               </div>
               <div className="cbm-footer-cta">

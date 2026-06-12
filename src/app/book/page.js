@@ -1668,12 +1668,15 @@ function BookContent() {
           </div>
 
           {/* 2026-06-04 — A2: trust strip on /book form step. The same 3
-              chips already on landing + modal + Stripe step. Stacked variant
-              here because the form column is narrower; sits between the
-              slot summary and the form fields so it is read before the
-              patient starts typing. */}
+              chips already on landing + modal + Stripe step.
+              2026-06-12 — Switched stacked → inline (Jacques feedback): the
+              stacked variant added ~120 px of vertical real estate above
+              the form and pushed the toggle of seguro below the fold on
+              mobile. Inline keeps the same 3 claims at ~22 px tall, same
+              swap already done in landing + modal (see TrustStrip.js
+              header comment). */}
           <div style={{ marginBottom: 'var(--space-md)' }}>
-            <TrustStrip variant="stacked" />
+            <TrustStrip variant="inline" />
           </div>
 
           <form onSubmit={handlePay} className={submitAttempted ? 'book-form-submitted' : ''}>
@@ -1725,82 +1728,16 @@ function BookContent() {
               )}
             </div>
 
-            {/* User details form */}
+            {/* Insurance block — moved ABOVE patient details on 2026-06-12
+                per Jacques feedback. Old order asked for name/email/phone
+                first and revealed the seguro toggle (+ side-without-seguro
+                price) only afterwards, so patients who didn't have the
+                insurer or didn't like the sin-seguro total had already
+                invested 4 form fields by the time they bailed. New order
+                lets them resolve the seguro decision (and see "Pagas €XX"
+                in the toggle option) BEFORE they type a single character. */}
             <div className="book-form">
-              <h3 style={{ fontFamily: 'var(--font-heading)', fontSize: '1.2rem', marginBottom: 'var(--space-md)' }}>
-                {isReferral ? 'Datos del Paciente' : 'Tus Datos'}
-              </h3>
-              <div className="book-form-grid">
-                <div className="form-group">
-                  <label className="form-label" htmlFor="name">Nombre</label>
-                  <input
-                    id="name"
-                    className="form-input"
-                    type="text"
-                    placeholder="Nombre"
-                    value={form.name}
-                    onChange={(e) => handleFormChange('name', e.target.value)}
-                    required
-                  />
-                </div>
-                <div className="form-group">
-                  <label className="form-label" htmlFor="surname">Apellidos</label>
-                  <input
-                    id="surname"
-                    className="form-input"
-                    type="text"
-                    placeholder="Apellidos"
-                    value={form.surname}
-                    onChange={(e) => handleFormChange('surname', e.target.value)}
-                    required
-                  />
-                </div>
-                <div className="form-group book-form-full">
-                  <label className="form-label" htmlFor="email">Email {isReferral ? 'del Paciente' : ''}</label>
-                  <input
-                    id="email"
-                    className="form-input"
-                    type="email"
-                    placeholder="paciente@email.com"
-                    value={form.email}
-                    onChange={(e) => handleFormChange('email', e.target.value)}
-                    required
-                  />
-                </div>
-                {/* 2026-06-01 — pre-payment form reduced from 8 → 4 fields
-                    (name, surname, email, phone). Edad / Sexo / Fecha de
-                    nacimiento / DNI moved AFTER payment to the success step
-                    under "Datos para la clínica". Rationale: 4 of the 5
-                    sessions that reached /book between 28-may and 1-jun
-                    abandoned at the form step; reducing required fields
-                    pre-payment cuts friction. The clinic-identification
-                    data is still collected, just after the user has
-                    committed financially — when drop-off cost is zero. */}
-                <div className="form-group">
-                  <label className="form-label" htmlFor="phone">Teléfono de contacto</label>
-                  <input
-                    id="phone"
-                    className="form-input"
-                    type="tel"
-                    placeholder="Ej. +34 612 345 678"
-                    value={form.phone}
-                    onChange={(e) => handleFormChange('phone', e.target.value)}
-                    /* Loose accepts: country-code prefix + 6-20 digits/separators.
-                       The clinic will reach out on this number if there's a
-                       schedule change — better to accept all formats and
-                       validate at-call than to block valid international
-                       formats. */
-                    pattern="[\+0-9 \-\(\)]{6,25}"
-                    title="Introduce un teléfono válido"
-                    autoComplete="tel"
-                    inputMode="tel"
-                    required
-                  />
-                </div>
-              </div>
-
-              {/* Insurance context + toggle */}
-              <div className="form-group" style={{ marginTop: 'var(--space-lg)' }}>
+              <div className="form-group">
                 <div style={{
                   background: '#f0f9ff',
                   border: '1px solid #bae6fd',
@@ -1811,12 +1748,6 @@ function BookContent() {
                   color: '#0c4a6e',
                   lineHeight: 1.6,
                 }}>
-                  {/* 2026-06-08 — Compressed from 4 lines to 2.
-                      The previous wording ("acto médico", "gestionarte la
-                      reserva prioritaria") read as legalese on first
-                      contact; a Clarity session bailed in 9 s after
-                      reading it. Same idea, half the words, one bold to
-                      anchor the value. */}
                   Tu seguro paga la consulta a la clínica.
                   {' '}<strong>Tú solo pagas la tarifa de prioridad</strong> por la cita urgente.
                 </div>
@@ -1827,9 +1758,6 @@ function BookContent() {
                     onClick={() => handleHasInsuranceClick(true)}
                   >
                     <strong>Sí, {isReferral ? 'tiene' : 'tengo'} seguro</strong>
-                    {/* 2026-06-01 — show concrete € upfront so the user makes
-                        an informed choice between the two options instead
-                        of being surprised by a price jump after clicking. */}
                     {activeFee > 0 && (
                       <span style={{ display: 'block', fontSize: '0.95rem', color: 'var(--ink-1000, #0e1a2b)', marginTop: '4px', fontWeight: 700 }}>
                         Pagas {formatEUR(activeFee)}
@@ -1875,12 +1803,10 @@ function BookContent() {
                 </div>
               )}
 
-              {/* 2026-06-04 — A7: insurance coverage clarifier.
-                  Mitigates the "I have insurance but I'm not sure my plan
-                  covers this specialty" bailout. We never claim
-                  "not covered" — only "usually covered" (green) or
-                  "we'll confirm before charging" (grey). Ops always
-                  verifies regardless. */}
+              {/* Coverage clarifier — see top-of-block comment for the
+                  2026-06-12 removal of the "Te avisamos en 24 h" branch.
+                  Only the positive "suele cubrir esta especialidad" box
+                  remains. */}
               {hasInsurance === true && selectedInsurance && (() => {
                 const specialtyForLookup =
                   service?.id ||
@@ -1889,45 +1815,24 @@ function BookContent() {
                   '';
                 if (!specialtyForLookup) return null;
                 const covered = isLikelyCovered(selectedInsurance, specialtyForLookup);
-                if (covered) {
-                  return (
-                    <div
-                      role="status"
-                      style={{
-                        marginTop: 'var(--space-md)',
-                        padding: '10px 14px',
-                        background: '#eef6f0',
-                        border: '1px solid #c7e8d0',
-                        color: '#1b4332',
-                        borderRadius: 8,
-                        fontSize: '0.88rem',
-                        lineHeight: 1.45,
-                      }}
-                    >
-                      <strong>✅ {selectedInsurance} suele cubrir esta especialidad.</strong>{' '}
-                      Confirmaremos la cobertura con la clínica antes de cobrarte. Si no
-                      hay cobertura, te devolvemos el cargo íntegro en 72 h.
-                    </div>
-                  );
-                }
+                if (!covered) return null;
                 return (
                   <div
                     role="status"
                     style={{
                       marginTop: 'var(--space-md)',
                       padding: '10px 14px',
-                      background: '#f3f4f6',
-                      border: '1px solid #e5e7eb',
-                      color: '#374151',
+                      background: '#eef6f0',
+                      border: '1px solid #c7e8d0',
+                      color: '#1b4332',
                       borderRadius: 8,
                       fontSize: '0.88rem',
                       lineHeight: 1.45,
                     }}
                   >
-                    <strong>ℹ️ Confirmamos la cobertura antes de cobrar.</strong>{' '}
-                    No tenemos confirmado al 100% si tu {selectedInsurance} cubre esta
-                    consulta. Te avisamos en 24 h — si no hay cobertura, devolución
-                    íntegra en 72 h.
+                    <strong>✅ {selectedInsurance} suele cubrir esta especialidad.</strong>{' '}
+                    Confirmaremos la cobertura con la clínica antes de cobrarte. Si no
+                    hay cobertura, te devolvemos el cargo íntegro en 72 h.
                   </div>
                 );
               })()}
@@ -1937,6 +1842,71 @@ function BookContent() {
                   * Te hemos reservado este hueco con prioridad. Acude con tu tarjeta de asegurado y la clínica te atenderá bajo tu póliza, como cualquier otra cita concertada.
                 </p>
               )}
+            </div>
+
+            {/* User details form */}
+            <div className="book-form">
+              <h3 style={{ fontFamily: 'var(--font-heading)', fontSize: '1.2rem', marginBottom: 'var(--space-md)' }}>
+                {isReferral ? 'Datos del Paciente' : 'Tus Datos'}
+              </h3>
+              <div className="book-form-grid">
+                <div className="form-group">
+                  <label className="form-label" htmlFor="name">Nombre</label>
+                  <input
+                    id="name"
+                    className="form-input"
+                    type="text"
+                    placeholder="Nombre"
+                    value={form.name}
+                    onChange={(e) => handleFormChange('name', e.target.value)}
+                    required
+                  />
+                </div>
+                <div className="form-group">
+                  <label className="form-label" htmlFor="surname">Apellidos</label>
+                  <input
+                    id="surname"
+                    className="form-input"
+                    type="text"
+                    placeholder="Apellidos"
+                    value={form.surname}
+                    onChange={(e) => handleFormChange('surname', e.target.value)}
+                    required
+                  />
+                </div>
+                <div className="form-group book-form-full">
+                  <label className="form-label" htmlFor="email">Email {isReferral ? 'del Paciente' : ''}</label>
+                  <input
+                    id="email"
+                    className="form-input"
+                    type="email"
+                    placeholder="paciente@email.com"
+                    value={form.email}
+                    onChange={(e) => handleFormChange('email', e.target.value)}
+                    required
+                  />
+                </div>
+                {/* 2026-06-01 — pre-payment form reduced from 8 → 4 fields
+                    (name, surname, email, phone). Edad / Sexo / Fecha de
+                    nacimiento / DNI moved AFTER payment to the success step
+                    under "Datos para la clínica". */}
+                <div className="form-group">
+                  <label className="form-label" htmlFor="phone">Teléfono de contacto</label>
+                  <input
+                    id="phone"
+                    className="form-input"
+                    type="tel"
+                    placeholder="Ej. +34 612 345 678"
+                    value={form.phone}
+                    onChange={(e) => handleFormChange('phone', e.target.value)}
+                    pattern="[\+0-9 \-\(\)]{6,25}"
+                    title="Introduce un teléfono válido"
+                    autoComplete="tel"
+                    inputMode="tel"
+                    required
+                  />
+                </div>
+              </div>
             </div>
 
             {/* Price Breakdown */}
@@ -2042,7 +2012,7 @@ function BookContent() {
                 disabled={hasInsurance === null}
                 style={hasInsurance === null ? { opacity: 0.55, cursor: 'not-allowed' } : undefined}
               >
-                {totalPrice > 0 ? `Confirmar y Proceder al Pago (${formatEUR(totalPrice)})` : 'Confirmar reserva gratuita'}
+                {totalPrice > 0 ? `Continuar al pago (${formatEUR(totalPrice)})` : 'Continuar'}
               </button>
             </div>
           </form>

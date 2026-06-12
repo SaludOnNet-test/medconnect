@@ -462,20 +462,14 @@ function PaymentFormContent({ totalPrice, standardTotalPrice = 0, providerName, 
           {/* 2026-06-04 — Pre-form reassurance card. Addresses the top three
               bailout reasons measured Mon→Thu (0/4 reserved bookings ever
               attempted payment): unclear who holds the card, 3DS popup
-              looking suspicious, and no visible refund safety net. Placed
-              above the card field so it is the FIRST thing the patient
-              reads at the payment step. */}
-          <div className="payment-trust-card" role="note" aria-label="Información de seguridad">
-            <div className="payment-trust-title">
-              <span aria-hidden="true">🔒</span>
-              <span>Pago 100% seguro con Stripe</span>
-            </div>
-            <ul className="payment-trust-list">
-              <li>Tu tarjeta nunca pasa por servidores de Med Connect.</li>
-              <li>Tu banco pedirá confirmar el pago por SMS o por la app (~10&nbsp;segundos).</li>
-              <li>Si no encontramos hueco con tu seguro, te devolvemos el cargo íntegro en 72&nbsp;h.</li>
-            </ul>
-          </div>
+              looking suspicious, and no visible refund safety net.
+              2026-06-12 — Moved DOWN to just above the "Pagar" CTA
+              (Jacques feedback): keeping it above the CardElement pushed
+              the card input below the fold on mobile. Placing it as the
+              "last nudge" before submission keeps it as a reassurance at
+              the moment of friction without delaying card entry. The
+              actual JSX lives just before the payment-actions block
+              below; this is now a marker comment. */}
 
           {/* Stripe Elements or Mock Form */}
           {stripeAvailable ? (
@@ -579,6 +573,18 @@ function PaymentFormContent({ totalPrice, standardTotalPrice = 0, providerName, 
                       </div>
                     </div>
                   )}
+
+                  <div className="payment-trust-card" role="note" aria-label="Información de seguridad">
+                    <div className="payment-trust-title">
+                      <span aria-hidden="true">🔒</span>
+                      <span>Pago 100% seguro con Stripe</span>
+                    </div>
+                    <ul className="payment-trust-list">
+                      <li>Tu tarjeta nunca pasa por servidores de Med Connect.</li>
+                      <li>Tu banco pedirá confirmar el pago por SMS o por la app (~10&nbsp;segundos).</li>
+                      <li>Si no encontramos hueco con tu seguro, te devolvemos el cargo íntegro en 72&nbsp;h.</li>
+                    </ul>
+                  </div>
 
                   <div className="payment-actions">
                     <button
