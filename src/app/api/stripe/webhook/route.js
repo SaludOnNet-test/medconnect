@@ -27,6 +27,8 @@ import { NextResponse } from 'next/server';
 import Stripe from 'stripe';
 import { getPool, sql, DB_AVAILABLE } from '@/lib/db';
 import { internalError } from '@/lib/errors';
+import { createCaseForBooking } from '@/lib/opsCases';
+import { notifyInternalWatcher } from '@/lib/internalWatcher';
 
 // Stripe requires the raw body byte-for-byte to verify the signature, so we
 // must NOT call request.json() before constructEvent(). Forcing dynamic
@@ -86,17 +88,11 @@ async function markBookingPaid(paymentIntent) {
   // F15 — the booking row may now exist in `pending_payment` status when
   // /api/bookings/reserve ran but the client-side finalize POST never
   // came back (tab closed mid-3DS). The webhook is the only authoritative
-  // tail-call we have, so it must promote the row to the correct paid
-  // status based on `has_insurance` (sin-seguro → awaiting_voucher;
-  // con-seguro → confirmed).
-  //
-  // We DO NOT create the ops case / fire notifications from here yet —
-  // those need patient_phone / procedureName / etc. that the reserve
-  // payload skipped. The /admin/ops dashboard will surface
-  // `pending_payment → awaiting_voucher` rows for manual finalization
-  // (or a follow-up cron). The critical win this PR delivers is that
-  // the booking row is NEVER orphaned: every paid Stripe charge always
-  // maps to a row that ops can act on.
+  // tail-call we have, so it must:
+  //   1. Promote the row to the correct paid status.
+  //   2. Create the ops case if none exists yet — without this, bookings
+  //      where the client tab closed after payment but before /api/bookings
+  //      POST completed would be charged but invisible in /admin/ops.
   //
   // Prefer the metadata.bookingId path first — it's the canonical link.
   // Fall back to payment_intent_id / id matching for legacy rows.
@@ -106,7 +102,7 @@ async function markBookingPaid(paymentIntent) {
   // Status mapping: pending_payment rows know their hasInsurance flag
   // already (reserve stored it). UPDATE picks the correct final status
   // inline via CASE so we don't need a round-trip SELECT.
-  await pool.request()
+  const updateResult = await pool.request()
     .input('pi', sql.NVarChar(80), paymentIntent.id)
     .input('booking_id', sql.NVarChar(50), metadataBookingId)
     .query(`
@@ -116,7 +112,12 @@ async function markBookingPaid(paymentIntent) {
                      WHEN status = 'pending_payment' AND has_insurance = 0 THEN 'awaiting_voucher'
                      ELSE 'confirmed'
                    END,
+          payment_intent_id = @pi,
           updated_at = SYSDATETIMEOFFSET()
+      OUTPUT INSERTED.id, INSERTED.provider_id, INSERTED.provider_name,
+             INSERTED.slot_date, INSERTED.slot_time, INSERTED.amount,
+             INSERTED.platform_fee, INSERTED.referral_id,
+             INSERTED.patient_name, INSERTED.patient_email
       WHERE (
               (@booking_id IS NOT NULL AND id = @booking_id)
               OR payment_intent_id = @pi
@@ -124,6 +125,51 @@ async function markBookingPaid(paymentIntent) {
             )
         AND status IN ('pending', 'pending_payment', 'awaiting_payment', 'requires_action')
     `);
+
+  const booking = updateResult.recordset[0];
+  if (!booking) return; // already processed or no matching row
+
+  // Ensure an ops case exists for this booking. The normal path creates it
+  // inside /api/bookings POST, but if the client tab closed before that
+  // request completed the case is never created. We guard with an existence
+  // check so running this twice is safe.
+  const caseCheck = await pool.request()
+    .input('bid', sql.NVarChar(50), booking.id)
+    .query(`SELECT TOP 1 id FROM operations_cases WHERE booking_id = @bid`);
+
+  if (caseCheck.recordset.length === 0) {
+    try {
+      await createCaseForBooking({
+        id: booking.id,
+        providerId: booking.provider_id ?? null,
+        providerName: booking.provider_name ?? null,
+        slotDate: booking.slot_date ?? null,
+        slotTime: booking.slot_time ?? null,
+        amount: booking.amount ?? 0,
+        platformFee: booking.platform_fee != null ? Number(booking.platform_fee) : null,
+        referralId: booking.referral_id ?? null,
+      });
+      notifyInternalWatcher({
+        kind: 'sale',
+        summary: `Venta recuperada vía webhook — ${booking.provider_name || 'clínica desconocida'}`,
+        booking: {
+          id: booking.id,
+          patient_name: booking.patient_name,
+          patient_email: booking.patient_email,
+          provider_name: booking.provider_name,
+          slot_date: booking.slot_date,
+          slot_time: booking.slot_time,
+          amount: booking.amount,
+          platform_fee: booking.platform_fee,
+        },
+        extra: { origen: 'webhook Stripe (tab cerrada antes de /api/bookings)' },
+      });
+    } catch (err) {
+      // Non-fatal: the booking is already confirmed. Ops can recover
+      // manually. Log so Sentry captures it.
+      console.error('[stripe webhook] ops case creation failed for', booking.id, err?.message);
+    }
+  }
 }
 
 async function markBookingPaymentFailed(paymentIntent) {
