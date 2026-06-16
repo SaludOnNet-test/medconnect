@@ -25,19 +25,24 @@ export const dynamic = 'force-dynamic';
  *                      cleanup in a single call. Idempotent. Always requires
  *                      ?confirm=true to actually mutate.
  *
- * Identification (from the user, 2026-06-12):
- *   - Jacques Blehaut: any booking with patient_name LIKE '%blehaut%'
- *     (he is the Jun-9 buyer documented in /api/payments/route.js).
- *   - Julia Iruarrizaga Castillo, mc_bfd923, 23-Jun 16:30 16:30, eco,
- *     €72 (€62 service + €10 priority, sin seguro), specialty
- *     Ginecología y Obstetricia at Clínica Ginecológica Elcano.
+ * Identification (from the user, 2026-06-12; revised 2026-06-16 after the
+ * dry-run audit revealed Julia's booking already exists in the DB):
+ *   - Jacques Blehaut:  any booking with patient_name LIKE '%blehaut%'
+ *   - Julia Iruarrizaga Castillo: any booking with patient_name LIKE
+ *     '%iruarrizaga%'. The booking already lives in the DB; the user
+ *     originally mentioned "mc_bfd923" which turned out to be a short
+ *     reference, NOT the primary key — the real row id is something
+ *     like `mc_ea83c358202c56572d1c356e`. The seed code resolves it
+ *     dynamically by name, then re-points provider_id to the freshly
+ *     inserted Clínica Ginecológica Elcano row.
  *
  * Elcano clinic — only the bare minimum to keep the catalog row
  * usable. The user can flesh it out from /admin/clinics later.
  */
 
 const JACQUES_NAME_LIKE = '%blehaut%';
-const JULIA_BOOKING_ID  = 'mc_bfd923';
+const JULIA_NAME_LIKE   = '%iruarrizaga%';
+const JULIA_FALLBACK_ID = 'mc_bfd923'; // only used when no existing booking matches
 const JULIA_EMAIL_FALLBACK = 'julia.iruarrizaga@example.invalid';
 const ELCANO_NAME = 'Clínica Ginecológica Elcano';
 const ELCANO_CITY = 'Madrid';
@@ -75,14 +80,14 @@ async function auditOnly() {
             b.specialty, b.created_at,
             CASE
               WHEN LOWER(b.patient_name) LIKE @jacques THEN 1
-              WHEN b.id = @julia THEN 1
+              WHEN LOWER(b.patient_name) LIKE @julia   THEN 1
               ELSE 0
             END AS is_keep
        FROM bookings b
    ORDER BY b.created_at DESC`,
     {
       jacques: { type: sql.NVarChar(50), value: JACQUES_NAME_LIKE },
-      julia:   { type: sql.NVarChar(50), value: JULIA_BOOKING_ID },
+      julia:   { type: sql.NVarChar(50), value: JULIA_NAME_LIKE },
     },
   );
   const cases = await query(
@@ -152,14 +157,23 @@ async function seedElcano({ confirm }) {
   }
   const clinicId = clinic?.id ?? null;
 
-  // Step 2 — ensure Julia's booking row exists.
-  const bookingExists = await query(
-    `SELECT TOP 1 id, provider_id, patient_name FROM bookings WHERE id = @id`,
-    { id: { type: sql.NVarChar(50), value: JULIA_BOOKING_ID } },
+  // Step 2 — locate Julia's booking. Match by patient_name LIKE
+  // '%iruarrizaga%' (case-insensitive). Whichever row matches gets its
+  // provider_id re-pointed to the freshly created Elcano clinic so the
+  // ops case downstream lines up with a real, fulfilable booking row.
+  // If nothing matches (fresh DB), fall back to inserting a new row
+  // under the legacy JULIA_FALLBACK_ID — the seed stays usable on a
+  // clean environment.
+  const existingJulia = await query(
+    `SELECT TOP 1 id, provider_id, patient_name FROM bookings
+      WHERE LOWER(patient_name) LIKE @julia
+   ORDER BY created_at DESC`,
+    { julia: { type: sql.NVarChar(50), value: JULIA_NAME_LIKE } },
   );
-  let bookingRow = bookingExists.recordset[0];
+  let bookingRow = existingJulia.recordset[0] || null;
+  let juliaBookingId = bookingRow?.id || JULIA_FALLBACK_ID;
   if (!bookingRow) {
-    planned.push(`INSERT bookings (${JULIA_BOOKING_ID}, Julia Iruarrizaga, Elcano)`);
+    planned.push(`INSERT bookings (${JULIA_FALLBACK_ID}, Julia Iruarrizaga, Elcano)`);
     if (confirm && clinicId) {
       await query(
         `INSERT INTO bookings (
@@ -170,32 +184,51 @@ async function seedElcano({ confirm }) {
          ) VALUES (
            @id, @name, @email, NULL,
            @clinicId, @clinicName, N'Ginecología y Obstetricia',
-           '2026-06-23', '16:30', 72.00, 'confirmed', 0,
+           '2026-06-23', '16:30', 72.00, 'awaiting_voucher', 0,
            62.00, 10.00, N'Ecografía ginecológica', '2026-06-15T14:39:00Z'
          )`,
         {
-          id:         { type: sql.NVarChar(50), value: JULIA_BOOKING_ID },
+          id:         { type: sql.NVarChar(50), value: JULIA_FALLBACK_ID },
           name:       { type: sql.NVarChar(255), value: 'Julia Iruarrizaga Castillo' },
           email:      { type: sql.NVarChar(255), value: JULIA_EMAIL_FALLBACK },
           clinicId:   { type: sql.Int, value: clinicId },
           clinicName: { type: sql.NVarChar(255), value: ELCANO_NAME },
         },
       );
-      const r = await query(`SELECT TOP 1 id FROM bookings WHERE id = @id`,
-        { id: { type: sql.NVarChar(50), value: JULIA_BOOKING_ID } });
+      const r = await query(`SELECT TOP 1 id, provider_id, patient_name FROM bookings WHERE id = @id`,
+        { id: { type: sql.NVarChar(50), value: JULIA_FALLBACK_ID } });
+      bookingRow = r.recordset[0];
+      juliaBookingId = bookingRow?.id || JULIA_FALLBACK_ID;
+    }
+  } else if (clinicId && bookingRow.provider_id !== clinicId) {
+    planned.push(`UPDATE bookings (${bookingRow.id}, ${bookingRow.patient_name}) → provider_id=${clinicId} (Elcano)`);
+    if (confirm) {
+      await query(
+        `UPDATE bookings
+            SET provider_id   = @clinicId,
+                provider_name = @clinicName
+          WHERE id = @id`,
+        {
+          id:         { type: sql.NVarChar(50), value: bookingRow.id },
+          clinicId:   { type: sql.Int, value: clinicId },
+          clinicName: { type: sql.NVarChar(255), value: ELCANO_NAME },
+        },
+      );
+      const r = await query(`SELECT TOP 1 id, provider_id, patient_name FROM bookings WHERE id = @id`,
+        { id: { type: sql.NVarChar(50), value: bookingRow.id } });
       bookingRow = r.recordset[0];
     }
   }
 
   // Step 3 — ensure ops case for Julia's booking, marked as clinic
-  //          rejected.
+  //          rejected. The booking_id is whatever Step 2 resolved to.
   const caseExists = await query(
     `SELECT TOP 1 id, status FROM operations_cases WHERE booking_id = @id`,
-    { id: { type: sql.NVarChar(50), value: JULIA_BOOKING_ID } },
+    { id: { type: sql.NVarChar(50), value: juliaBookingId } },
   );
   let caseRow = caseExists.recordset[0];
   if (!caseRow) {
-    planned.push(`INSERT operations_cases (booking ${JULIA_BOOKING_ID}, clinic_rejected_searching)`);
+    planned.push(`INSERT operations_cases (booking ${juliaBookingId}, clinic_rejected_searching)`);
     if (confirm && bookingRow && clinicId) {
       await query(
         `INSERT INTO operations_cases (
@@ -211,7 +244,7 @@ async function seedElcano({ confirm }) {
            @callLog, @opsNotes
          )`,
         {
-          id:         { type: sql.NVarChar(50), value: JULIA_BOOKING_ID },
+          id:         { type: sql.NVarChar(50), value: juliaBookingId },
           clinicId:   { type: sql.Int, value: clinicId },
           clinicName: { type: sql.NVarChar(255), value: ELCANO_NAME },
           callLog: { type: sql.NVarChar(sql.MAX), value:
@@ -225,7 +258,7 @@ async function seedElcano({ confirm }) {
         },
       );
       const r = await query(`SELECT TOP 1 id, status FROM operations_cases WHERE booking_id = @id`,
-        { id: { type: sql.NVarChar(50), value: JULIA_BOOKING_ID } });
+        { id: { type: sql.NVarChar(50), value: juliaBookingId } });
       caseRow = r.recordset[0];
     }
   }
@@ -237,6 +270,7 @@ async function seedElcano({ confirm }) {
     clinic,
     booking: bookingRow,
     operationsCase: caseRow,
+    juliaBookingId,
   });
 }
 
@@ -318,8 +352,11 @@ async function applyAll({ confirm }) {
 }
 
 // Deletes test bookings + their ops_cases. Keep-list:
-//   - Any booking whose patient_name LIKE '%blehaut%' (Jacques)
-//   - The booking with id = mc_bfd923 (Julia)
+//   - Any booking whose patient_name LIKE '%blehaut%'   (Jacques)
+//   - Any booking whose patient_name LIKE '%iruarrizaga%' (Julia)
+// Identification by name (not id) since the audit on 2026-06-16 showed
+// Julia's actual booking primary key is `mc_ea83c358202c56572d1c356e`,
+// not the short "mc_bfd923" reference the user originally quoted.
 // All dependent rows are deleted in the right order so FKs (if any)
 // don't trip.
 async function cleanup({ confirm }) {
@@ -327,10 +364,10 @@ async function cleanup({ confirm }) {
     `SELECT b.id, b.patient_name, b.patient_email, b.amount, b.status, b.created_at
        FROM bookings b
       WHERE LOWER(b.patient_name) NOT LIKE @jacques
-        AND b.id <> @julia`,
+        AND LOWER(b.patient_name) NOT LIKE @julia`,
     {
       jacques: { type: sql.NVarChar(50), value: JACQUES_NAME_LIKE },
-      julia:   { type: sql.NVarChar(50), value: JULIA_BOOKING_ID },
+      julia:   { type: sql.NVarChar(50), value: JULIA_NAME_LIKE },
     },
   );
   const ids = target.recordset.map((r) => r.id);
@@ -340,7 +377,10 @@ async function cleanup({ confirm }) {
       mode: 'dry-run',
       wouldDelete: target.recordset,
       count: ids.length,
-      kept: { jacques: 'patient_name LIKE %blehaut%', julia: JULIA_BOOKING_ID },
+      kept: {
+        jacques: 'patient_name LIKE %blehaut%',
+        julia:   'patient_name LIKE %iruarrizaga%',
+      },
     });
   }
 
@@ -370,6 +410,9 @@ async function cleanup({ confirm }) {
     deletedBookings,
     deletedCases,
     deletedVouchers,
-    kept: { jacques: 'patient_name LIKE %blehaut%', julia: JULIA_BOOKING_ID },
+    kept: {
+      jacques: 'patient_name LIKE %blehaut%',
+      julia:   'patient_name LIKE %iruarrizaga%',
+    },
   });
 }
