@@ -68,6 +68,8 @@ export default function AdminClinicsPage() {
             next[c.id] = {
               notificationEmail: c.notificationEmail || '',
               notificationsEnabled: c.notificationsEnabled,
+              partnershipStatus: c.partnershipStatus || 'pending',
+              partnershipNotes: c.partnershipNotes || '',
             };
           }
         });
@@ -124,6 +126,8 @@ export default function AdminClinicsPage() {
         body: JSON.stringify({
           notificationEmail: draft.notificationEmail ? draft.notificationEmail : null,
           notificationsEnabled: !!draft.notificationsEnabled,
+          partnershipStatus: draft.partnershipStatus || 'pending',
+          partnershipNotes: draft.partnershipNotes ? draft.partnershipNotes : null,
         }),
       });
       const j = await res.json();
@@ -207,21 +211,30 @@ export default function AdminClinicsPage() {
               <th>Ciudad</th>
               <th>Email de notificación</th>
               <th>Activado</th>
+              <th>Partnership</th>
               <th>Guardar</th>
             </tr>
           </thead>
           <tbody>
             {loading && visibleClinics.length === 0 ? (
-              <tr><td colSpan={5} style={{ padding: 16, color: '#9ca3af' }}>Cargando…</td></tr>
+              <tr><td colSpan={6} style={{ padding: 16, color: '#9ca3af' }}>Cargando…</td></tr>
             ) : visibleClinics.length === 0 ? (
-              <tr><td colSpan={5} style={{ padding: 16, color: '#9ca3af' }}>
+              <tr><td colSpan={6} style={{ padding: 16, color: '#9ca3af' }}>
                 No hay resultados para <strong>{search}</strong>. Probá con menos palabras o sin tildes.
               </td></tr>
             ) : visibleClinics.map((c) => {
               const draft = drafts[c.id] || {};
+              const draftPartnership = draft.partnershipStatus || 'pending';
               const dirty =
                 (draft.notificationEmail || '') !== (c.notificationEmail || '') ||
-                !!draft.notificationsEnabled !== !!c.notificationsEnabled;
+                !!draft.notificationsEnabled !== !!c.notificationsEnabled ||
+                draftPartnership !== (c.partnershipStatus || 'pending') ||
+                (draft.partnershipNotes || '') !== (c.partnershipNotes || '');
+              const partnershipBadgeStyle = (() => {
+                if (draftPartnership === 'accepted') return { background: '#dcfce7', color: '#166534' };
+                if (draftPartnership === 'rejected') return { background: '#fee2e2', color: '#991b1b' };
+                return { background: '#f3f4f6', color: '#374151' };
+              })();
               return (
                 <tr key={c.id} className={c.notificationEmail ? 'clinics-row-configured' : ''}>
                   <td><strong>{c.name}</strong><div className="clinics-row-meta">ID {c.id}</div></td>
@@ -249,6 +262,48 @@ export default function AdminClinicsPage() {
                       />
                       <span>{draft.notificationsEnabled ? 'ON' : 'OFF'}</span>
                     </label>
+                  </td>
+                  <td>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 4, minWidth: 180 }}>
+                      <select
+                        value={draftPartnership}
+                        onChange={(e) => updateDraft(c.id, 'partnershipStatus', e.target.value)}
+                        disabled={!isAdmin || busyId === c.id}
+                        style={{
+                          padding: '4px 8px',
+                          borderRadius: 6,
+                          border: '1px solid #d1d5db',
+                          fontSize: '0.85rem',
+                          fontWeight: 600,
+                          ...partnershipBadgeStyle,
+                        }}
+                      >
+                        <option value="pending">Pendiente</option>
+                        <option value="accepted">Aceptó acuerdo</option>
+                        <option value="rejected">Rechazó acuerdo</option>
+                      </select>
+                      <textarea
+                        placeholder="Notas (opcional): por qué aceptó/rechazó, próximos pasos…"
+                        value={draft.partnershipNotes || ''}
+                        onChange={(e) => updateDraft(c.id, 'partnershipNotes', e.target.value)}
+                        disabled={!isAdmin || busyId === c.id}
+                        rows={2}
+                        style={{
+                          fontSize: '0.78rem',
+                          padding: '4px 6px',
+                          borderRadius: 4,
+                          border: '1px solid #e5e7eb',
+                          resize: 'vertical',
+                          fontFamily: 'inherit',
+                          minHeight: 32,
+                        }}
+                      />
+                      {c.partnershipDecidedAt && (
+                        <div className="clinics-row-meta" style={{ fontSize: '0.7rem' }}>
+                          Decidido: {new Date(c.partnershipDecidedAt).toLocaleString('es-ES', { dateStyle: 'short', timeStyle: 'short' })}
+                        </div>
+                      )}
+                    </div>
                   </td>
                   <td>
                     <button

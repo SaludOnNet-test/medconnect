@@ -45,6 +45,32 @@ export const TERMINAL_STATUSES = new Set([
 
 export async function createCaseForBooking(booking) {
   if (!DB_AVAILABLE) return null;
+
+  // 2026-06-12 — Skip ops case creation when the destination clinic is
+  // already a partner (`clinics.partnership_status='accepted'`). Partners
+  // have a standing agreement; Ops doesn't need to call them per booking.
+  // Wrapped in try/catch with a permissive fallback so a pre-migration DB
+  // (no partnership_status column) still creates cases for everyone — that
+  // matches the legacy behaviour exactly until /api/db/setup runs.
+  const clinicId = booking.providerId ?? null;
+  if (clinicId != null) {
+    try {
+      const result = await query(
+        `SELECT TOP 1 partnership_status FROM clinics WHERE id = @clinicId`,
+        { clinicId: { type: sql.Int, value: Number(clinicId) } },
+      );
+      const status = result.recordset[0]?.partnership_status;
+      if (status === 'accepted') return null;
+    } catch (err) {
+      if (!String(err?.message || '').includes('Invalid column name')) {
+        // Real DB error — log and continue creating the case (failing
+        // open is safer than dropping the case silently on a network
+        // blip).
+        console.error('[createCaseForBooking] partnership lookup failed:', err?.message);
+      }
+    }
+  }
+
   const token = crypto.randomBytes(24).toString('hex');
 
   // Tier is derived from the platform fee (slot price), NOT from the total

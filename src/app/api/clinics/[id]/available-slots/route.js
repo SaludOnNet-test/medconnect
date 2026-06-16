@@ -13,6 +13,7 @@ export async function GET(request, { params }) {
 
   let schedules = [];
   let city = null;
+  let partnershipStatus = null;
   // Booking-aware slot rotation — mirror the batch-slots route. Any
   // confirmed/pending booking on a (date, time) for this clinic is
   // invisible to the listing; the generator rotates to the next
@@ -37,14 +38,32 @@ export async function GET(request, { params }) {
     // the national list only — slots open on local holidays in that
     // degraded mode, accepted as a no-data-default rather than blocking
     // every slot.
+    //
+    // 2026-06-12 — Same query also reads `partnership_status`. When the
+    // clinic rejected the partnership offer we still surface them in
+    // search (they may agree to take a far-future booking) but only at
+    // slot_date ≥ today + 30 days, so we don't promise near-term huecos
+    // that the clinic will turn away.
     try {
       const cityResult = await query(
-        `SELECT TOP 1 city FROM clinics WHERE id = @clinicId`,
+        `SELECT TOP 1 city, partnership_status FROM clinics WHERE id = @clinicId`,
         { clinicId: { type: sql.Int, value: clinicId } }
       );
       city = cityResult.recordset[0]?.city || null;
+      partnershipStatus = cityResult.recordset[0]?.partnership_status || null;
     } catch (err) {
       console.error('available-slots city lookup error:', err);
+      // Pre-migration fallback: try without partnership_status so legacy
+      // DBs still serve slots normally.
+      if (String(err?.message || '').includes('Invalid column name')) {
+        try {
+          const cityResultLegacy = await query(
+            `SELECT TOP 1 city FROM clinics WHERE id = @clinicId`,
+            { clinicId: { type: sql.Int, value: clinicId } }
+          );
+          city = cityResultLegacy.recordset[0]?.city || null;
+        } catch {}
+      }
     }
     try {
       const today = new Date().toISOString().slice(0, 10);
@@ -91,7 +110,22 @@ export async function GET(request, { params }) {
   const url = new URL(request.url);
   const asTopRanked = url.searchParams.get('asTopRanked') === 'true';
   const tierOneMaxSlots = (isPartnerClinic(clinicId) || asTopRanked) ? 1 : 2;
-  const { slots, rule, earliestSellable } = generateSlotsForClinic(clinicId, schedules, { city, bookedKeys, tierOneMaxSlots });
+
+  // 2026-06-12 — Clinics that rejected the partnership offer get a
+  // 30-day moving lead time. We synthesize a "now" 30 days into the
+  // future and hand it to the slot generator; the existing
+  // applyBusinessHourBuffer step pushes earliestSellable a bit further
+  // (one business day) from there. Net effect: no slots within the
+  // next 30 calendar days are sold, regardless of when the user
+  // searches.
+  let nowForGenerator;
+  if (partnershipStatus === 'rejected') {
+    const t = new Date();
+    t.setUTCDate(t.getUTCDate() + 30);
+    nowForGenerator = t;
+  }
+
+  const { slots, rule, earliestSellable } = generateSlotsForClinic(clinicId, schedules, { city, bookedKeys, tierOneMaxSlots, now: nowForGenerator });
 
   return NextResponse.json({
     slots,

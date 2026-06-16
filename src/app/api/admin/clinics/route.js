@@ -79,6 +79,7 @@ export async function GET(request) {
         `SELECT TOP (${limit})
            c.id, c.name, c.city, c.province, c.address,
            c.notification_email, c.notifications_enabled,
+           c.partnership_status, c.partnership_decided_at, c.partnership_notes,
            COUNT(*) OVER() AS total_count
          FROM clinics c
          ${whereSql}
@@ -97,6 +98,9 @@ export async function GET(request) {
           address: row.address,
           notificationEmail: row.notification_email || null,
           notificationsEnabled: row.notifications_enabled === false ? false : !!row.notifications_enabled,
+          partnershipStatus: row.partnership_status || 'pending',
+          partnershipDecidedAt: row.partnership_decided_at || null,
+          partnershipNotes: row.partnership_notes || null,
         })),
         total,
         limit,

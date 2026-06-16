@@ -66,6 +66,31 @@ export async function PATCH(request, { params }) {
     sets.push('notifications_enabled = @notifications_enabled');
   }
 
+  // 2026-06-12 — partnership fields. Three statuses; admin always
+  // re-stamps `partnership_decided_at` on a status change so the row
+  // shows when ops last reached a decision. Free-text notes optional.
+  const VALID_PARTNERSHIP_STATUSES = ['pending', 'accepted', 'rejected'];
+  if ('partnershipStatus' in body) {
+    const next = String(body.partnershipStatus || '').trim().toLowerCase();
+    if (!VALID_PARTNERSHIP_STATUSES.includes(next)) {
+      return NextResponse.json({ error: 'invalid partnership status' }, { status: 400 });
+    }
+    req.input('partnership_status', sql.NVarChar(20), next);
+    sets.push('partnership_status = @partnership_status');
+    // Re-stamp the decided_at marker on every status write. Pending
+    // counts as a decision too — useful when ops walks back a rejection.
+    sets.push('partnership_decided_at = SYSDATETIMEOFFSET()');
+  }
+  if ('partnershipNotes' in body) {
+    const notes = body.partnershipNotes;
+    if (notes === null || notes === undefined || notes === '') {
+      req.input('partnership_notes', sql.NVarChar(sql.MAX), null);
+    } else {
+      req.input('partnership_notes', sql.NVarChar(sql.MAX), String(notes));
+    }
+    sets.push('partnership_notes = @partnership_notes');
+  }
+
   if (sets.length === 0) {
     return NextResponse.json({ error: 'nothing to update' }, { status: 400 });
   }
@@ -73,7 +98,9 @@ export async function PATCH(request, { params }) {
   try {
     const result = await req.query(
       `UPDATE clinics SET ${sets.join(', ')} WHERE id = @id;
-       SELECT TOP 1 id, name, city, notification_email, notifications_enabled
+       SELECT TOP 1 id, name, city,
+              notification_email, notifications_enabled,
+              partnership_status, partnership_decided_at, partnership_notes
        FROM clinics WHERE id = @id`,
     );
     const row = result.recordset[0];
@@ -88,6 +115,9 @@ export async function PATCH(request, { params }) {
         city: row.city,
         notificationEmail: row.notification_email || null,
         notificationsEnabled: row.notifications_enabled === false ? false : !!row.notifications_enabled,
+        partnershipStatus: row.partnership_status || 'pending',
+        partnershipDecidedAt: row.partnership_decided_at || null,
+        partnershipNotes: row.partnership_notes || null,
       },
     });
   } catch (err) {

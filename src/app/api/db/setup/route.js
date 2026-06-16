@@ -762,6 +762,53 @@ export async function GET(request) {
       ALTER TABLE clinics ADD notifications_enabled BIT NOT NULL DEFAULT 1;
     `);
 
+    // ── Migration: clinic partnership status (2026-06-12) ──────────────
+    // After a sale on a non-partner clinic Ops calls the clinic to (a)
+    // confirm the specific booking and (b) sound them out about joining
+    // medconnect as a partner. Both decisions live here:
+    //   partnership_status      — 'pending' | 'accepted' | 'rejected'
+    //   partnership_decided_at  — timestamp of the last status change
+    //   partnership_notes       — free-text Ops notes (why they accepted/rejected)
+    //
+    // Two side effects fire off this column:
+    //   - opsCases.createCaseForBooking: skips case creation when
+    //     partnership_status='accepted' (the clinic is already onboarded,
+    //     no need to call them again per booking).
+    //   - api/clinics/[id]/available-slots: when partnership_status='rejected',
+    //     the earliest sellable date is pushed to TODAY + 30 days so the
+    //     clinic stops surfacing near-term slots that we can't fulfil.
+    //
+    // Seed: Cea Bermúdez (id=1, the only partner in the legacy
+    // PARTNER_CLINIC_IDS set) is marked 'accepted' with the historical
+    // onboarding date so the new code path agrees with the old static set.
+    await pool.request().query(`
+      IF NOT EXISTS (SELECT * FROM sys.columns WHERE Name = 'partnership_status' AND Object_ID = Object_ID('clinics'))
+      ALTER TABLE clinics ADD partnership_status NVARCHAR(20) NOT NULL DEFAULT 'pending';
+    `);
+    await pool.request().query(`
+      IF NOT EXISTS (SELECT * FROM sys.columns WHERE Name = 'partnership_decided_at' AND Object_ID = Object_ID('clinics'))
+      ALTER TABLE clinics ADD partnership_decided_at DATETIMEOFFSET NULL;
+    `);
+    await pool.request().query(`
+      IF NOT EXISTS (SELECT * FROM sys.columns WHERE Name = 'partnership_notes' AND Object_ID = Object_ID('clinics'))
+      ALTER TABLE clinics ADD partnership_notes NVARCHAR(MAX) NULL;
+    `);
+    await pool.request().query(`
+      IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE name = 'IX_clinics_partnership_status' AND object_id = OBJECT_ID('clinics'))
+      CREATE INDEX IX_clinics_partnership_status ON clinics(partnership_status);
+    `);
+    // Idempotent seed for Cea Bermúdez. Only touches the row when status
+    // is still the default 'pending' so re-running setup doesn't clobber
+    // a later change made from /admin/clinics.
+    await pool.request().query(`
+      UPDATE clinics
+         SET partnership_status     = 'accepted',
+             partnership_decided_at = '2026-05-05T00:00:00Z',
+             partnership_notes      = COALESCE(partnership_notes, 'Partner pionero (CEA Bermúdez, Madrid). Onboarding completado 2026-05-05.')
+       WHERE id = 1
+         AND (partnership_status IS NULL OR partnership_status = 'pending');
+    `);
+
     // ── EXEC: clinic_outreach — proactive sales pipeline ───────────────────
     // Separate from clinic_alta_requests (inbound: pros asking to be listed).
     // This table tracks OUTBOUND outreach: clinics we want to onboard but
