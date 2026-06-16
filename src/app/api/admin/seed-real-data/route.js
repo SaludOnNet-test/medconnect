@@ -244,27 +244,18 @@ async function seedElcano({ confirm }) {
 // + cleanup, all idempotent. The migration block is a copy of the
 // idempotent ALTERs from /api/db/setup so this endpoint doesn't
 // depend on x-setup-secret being available.
+//
+// Migration runs EVERY time — even in dry-run mode — because the rest
+// of the flow (seedElcano dry-run, cleanup dry-run) issues SELECTs
+// against `partnership_status`. ALTER TABLE ADD COLUMN IF NOT EXISTS
+// is non-destructive, and the Cea seed only fires when the row is
+// still on the default 'pending', so re-runs are safe.
 async function applyAll({ confirm }) {
-  if (!confirm) {
-    // Dry-run path: just report what each step would do.
-    const seedDryRun = await seedElcano({ confirm: false });
-    const cleanupDryRun = await cleanup({ confirm: false });
-    return NextResponse.json({
-      ok: true,
-      mode: 'dry-run',
-      migration: 'Would run ALTER TABLE clinics ADD partnership_status / partnership_decided_at / partnership_notes (idempotent) + UPDATE Cea Bermúdez.',
-      seedElcano: await seedDryRun.json(),
-      cleanup: await cleanupDryRun.json(),
-      note: 'Re-run with ?confirm=true to apply.',
-    });
-  }
-
   const pool = await getPool();
   const migrationSteps = [];
 
-  // 1) Schema migration — same SQL as /api/db/setup, copied here so the
-  //    endpoint is self-contained (admin auth is enough; no setup secret
-  //    needed).
+  // 1) Schema migration — runs unconditionally so subsequent SELECTs
+  //    against partnership_status don't 500 on a pre-migration DB.
   try {
     await pool.request().query(`
       IF NOT EXISTS (SELECT * FROM sys.columns WHERE Name = 'partnership_status' AND Object_ID = Object_ID('clinics'))
@@ -299,29 +290,30 @@ async function applyAll({ confirm }) {
   } catch (err) {
     return NextResponse.json({
       ok: false,
-      mode: 'applied',
+      mode: confirm ? 'applied' : 'dry-run',
       step: 'migration',
       error: err.message,
       migrationSteps,
     }, { status: 500 });
   }
 
-  // 2) Elcano + Julia + ops case.
-  const seedRes = await seedElcano({ confirm: true });
+  // 2) Elcano + Julia + ops case (respects confirm).
+  const seedRes = await seedElcano({ confirm });
   const seedJson = await seedRes.json();
 
-  // 3) Cleanup of test bookings (run AFTER seed-elcano so Julia's
-  //    booking — which we just made sure exists — is preserved by the
-  //    keep-list).
-  const cleanRes = await cleanup({ confirm: true });
+  // 3) Cleanup of test bookings (respects confirm). Runs AFTER
+  //    seed-elcano so Julia's booking — which we just made sure exists
+  //    — is preserved by the keep-list when confirm=true.
+  const cleanRes = await cleanup({ confirm });
   const cleanJson = await cleanRes.json();
 
   return NextResponse.json({
     ok: true,
-    mode: 'applied',
+    mode: confirm ? 'applied' : 'dry-run',
     migrationSteps,
     seedElcano: seedJson,
     cleanup: cleanJson,
+    note: confirm ? undefined : 'Schema migration ran (non-destructive). Re-run with ?confirm=true to apply seed + cleanup.',
   });
 }
 
