@@ -155,6 +155,19 @@ export default async function EspecialistasCiudadPage({ params }) {
 
   const canonicalUrl = specialtyPageUrl(especialidad, ciudad);
 
+  // 2026-06-16 — CLS hard fix for low-inventory cities.
+  // Bilbao gineco (1 clinic) recorded CLS 0.37 on mobile because
+  // SearchResults reserved 1800 px while loading and shrank to ~280 px
+  // when the single real card arrived — a 1500 px upward shift of the
+  // FAQ/testimonials block. We now pre-compute the expected count on
+  // the server and pass it as a prop so SearchResults reserves space
+  // matching ONE skeleton per expected clinic. Same DB query as the
+  // noindex threshold so it's a single source of truth for "how many
+  // clinics will the patient actually see here". Best-effort: null
+  // when DB unavailable → SearchResults falls back to its previous
+  // generic skeleton.
+  const expectedClinicCount = await countIndexableClinics(especialidad, city);
+
   // JSON-LD: MedicalBusiness + FAQPage schema
   const jsonLd = {
     '@context': 'https://schema.org',
@@ -399,7 +412,11 @@ export default async function EspecialistasCiudadPage({ params }) {
       {/* Pass the URL slug (e.g. "cardiologia") instead of the numeric
           mock id — the new SearchResults uses /api/clinics/search which
           accepts `specialtySlug` natively, no slug→id round-trip needed. */}
-      <SearchResults specialtySlug={especialidad} city={city} />
+      <SearchResults
+        specialtySlug={especialidad}
+        city={city}
+        expectedClinicCount={expectedClinicCount}
+      />
 
       {/* 2026-06-04 — A5 repositioned: real + seeded patient testimonials.
           Originally placed below the FAQ; user reported "tampoco veo
