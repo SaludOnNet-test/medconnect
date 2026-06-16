@@ -152,11 +152,13 @@ export default function AdminClinicsPage() {
     <div className="ops-page">
       <header className="ops-header">
         <div>
-          <h1>Notificaciones a clínicas</h1>
+          <h1>Gestión de clínicas con casos Med Connect</h1>
           <p className="ops-subtitle">
-            Cuando una venta se deriva a una clínica, el correo indicado abajo recibe
-            los datos del paciente, la consulta y los importes. Aplica también a
-            cancelaciones y reembolsos.
+            Una fila por clínica. Configurás el correo que recibe los avisos
+            de venta y cancelación, y registrás el estado del acuerdo de
+            partnership (pendiente / aceptó / rechazó) más las notas de las
+            llamadas. Cuando una clínica queda como rechazada, sus huecos a
+            menos de 30 días dejan de ofrecerse automáticamente.
           </p>
         </div>
         <div className="ops-header-right">
