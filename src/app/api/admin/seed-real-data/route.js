@@ -21,6 +21,9 @@ export const dynamic = 'force-dynamic';
  *   - 'seed-elcano'  — insert Elcano clinic + Julia booking + ops case (idempotent)
  *   - 'cleanup'      — delete bookings NOT in the keep-list (Jacques + Julia)
  *                      and their dependent ops_cases / vouchers
+ *   - 'apply-all'    — runs the partnership schema migration + seed-elcano +
+ *                      cleanup in a single call. Idempotent. Always requires
+ *                      ?confirm=true to actually mutate.
  *
  * Identification (from the user, 2026-06-12):
  *   - Jacques Blehaut: any booking with patient_name LIKE '%blehaut%'
@@ -55,6 +58,7 @@ export async function POST(request) {
     if (action === 'audit') return await auditOnly();
     if (action === 'seed-elcano') return await seedElcano({ confirm });
     if (action === 'cleanup') return await cleanup({ confirm });
+    if (action === 'apply-all') return await applyAll({ confirm });
     return NextResponse.json({ error: `unknown action: ${action}` }, { status: 400 });
   } catch (err) {
     console.error('[seed-real-data]', err);
@@ -233,6 +237,91 @@ async function seedElcano({ confirm }) {
     clinic,
     booking: bookingRow,
     operationsCase: caseRow,
+  });
+}
+
+// One-shot: migration (clinics partnership_* columns) + seed-elcano
+// + cleanup, all idempotent. The migration block is a copy of the
+// idempotent ALTERs from /api/db/setup so this endpoint doesn't
+// depend on x-setup-secret being available.
+async function applyAll({ confirm }) {
+  if (!confirm) {
+    // Dry-run path: just report what each step would do.
+    const seedDryRun = await seedElcano({ confirm: false });
+    const cleanupDryRun = await cleanup({ confirm: false });
+    return NextResponse.json({
+      ok: true,
+      mode: 'dry-run',
+      migration: 'Would run ALTER TABLE clinics ADD partnership_status / partnership_decided_at / partnership_notes (idempotent) + UPDATE Cea Bermúdez.',
+      seedElcano: await seedDryRun.json(),
+      cleanup: await cleanupDryRun.json(),
+      note: 'Re-run with ?confirm=true to apply.',
+    });
+  }
+
+  const pool = await getPool();
+  const migrationSteps = [];
+
+  // 1) Schema migration — same SQL as /api/db/setup, copied here so the
+  //    endpoint is self-contained (admin auth is enough; no setup secret
+  //    needed).
+  try {
+    await pool.request().query(`
+      IF NOT EXISTS (SELECT * FROM sys.columns WHERE Name = 'partnership_status' AND Object_ID = Object_ID('clinics'))
+      ALTER TABLE clinics ADD partnership_status NVARCHAR(20) NOT NULL DEFAULT 'pending';
+    `);
+    migrationSteps.push('partnership_status column ensured');
+    await pool.request().query(`
+      IF NOT EXISTS (SELECT * FROM sys.columns WHERE Name = 'partnership_decided_at' AND Object_ID = Object_ID('clinics'))
+      ALTER TABLE clinics ADD partnership_decided_at DATETIMEOFFSET NULL;
+    `);
+    migrationSteps.push('partnership_decided_at column ensured');
+    await pool.request().query(`
+      IF NOT EXISTS (SELECT * FROM sys.columns WHERE Name = 'partnership_notes' AND Object_ID = Object_ID('clinics'))
+      ALTER TABLE clinics ADD partnership_notes NVARCHAR(MAX) NULL;
+    `);
+    migrationSteps.push('partnership_notes column ensured');
+    await pool.request().query(`
+      IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE name = 'IX_clinics_partnership_status' AND object_id = OBJECT_ID('clinics'))
+      CREATE INDEX IX_clinics_partnership_status ON clinics(partnership_status);
+    `);
+    migrationSteps.push('IX_clinics_partnership_status ensured');
+    const ceaUpdate = await pool.request().query(`
+      UPDATE clinics
+         SET partnership_status     = 'accepted',
+             partnership_decided_at = '2026-05-05T00:00:00Z',
+             partnership_notes      = COALESCE(partnership_notes, 'Partner pionero (CEA Bermúdez, Madrid). Onboarding completado 2026-05-05.')
+       WHERE id = 1
+         AND (partnership_status IS NULL OR partnership_status = 'pending');
+      SELECT @@ROWCOUNT AS affected;
+    `);
+    migrationSteps.push(`Cea Bermúdez seed rows affected: ${ceaUpdate.recordset?.[0]?.affected ?? 0}`);
+  } catch (err) {
+    return NextResponse.json({
+      ok: false,
+      mode: 'applied',
+      step: 'migration',
+      error: err.message,
+      migrationSteps,
+    }, { status: 500 });
+  }
+
+  // 2) Elcano + Julia + ops case.
+  const seedRes = await seedElcano({ confirm: true });
+  const seedJson = await seedRes.json();
+
+  // 3) Cleanup of test bookings (run AFTER seed-elcano so Julia's
+  //    booking — which we just made sure exists — is preserved by the
+  //    keep-list).
+  const cleanRes = await cleanup({ confirm: true });
+  const cleanJson = await cleanRes.json();
+
+  return NextResponse.json({
+    ok: true,
+    mode: 'applied',
+    migrationSteps,
+    seedElcano: seedJson,
+    cleanup: cleanJson,
   });
 }
 
