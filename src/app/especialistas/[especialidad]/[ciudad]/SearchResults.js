@@ -57,12 +57,23 @@ const PAGE_SIZE = 30;
 
 /**
  * Props (passed by page.js after resolving the route params):
- *   specialtySlug   — URL slug, e.g. "cardiologia". Used directly as the
- *                     `specialtySlug` query param of /api/clinics/search.
- *   city            — display name, e.g. "Madrid". Forwarded to both
- *                     /api/clinics/search and to <ClinicMap city={...}>.
+ *   specialtySlug        — URL slug, e.g. "cardiologia". Used directly as
+ *                          the `specialtySlug` query param of /api/clinics/search.
+ *   city                 — display name, e.g. "Madrid". Forwarded to both
+ *                          /api/clinics/search and to <ClinicMap city={...}>.
+ *   expectedClinicCount  — server-side estimate of how many clinics the
+ *                          patient will see here (specialty + schedule
+ *                          available). Used ONLY to render the right
+ *                          number of skeleton cards during loading so the
+ *                          container doesn't shrink when real cards
+ *                          arrive (Bilbao gineco CLS 0.37 fix). Null when
+ *                          DB is unavailable → fallback to 6 skeletons.
  */
-export default function SearchResults({ specialtySlug, city }) {
+const SKELETON_CARD_HEIGHT_PX = 280;
+const FALLBACK_SKELETON_COUNT = 6;
+const MAX_SKELETON_COUNT = 30; // matches API page-size cap
+
+export default function SearchResults({ specialtySlug, city, expectedClinicCount = null }) {
   // ── Filters that live on this page ──
   // Rating filter + "Ordenar" dropdown removed 2026-06 — listing now
   // differentiates clinics by availability window (tier filter below)
@@ -76,6 +87,14 @@ export default function SearchResults({ specialtySlug, city }) {
   const [tierFilter, setTierFilter] = useState(new Set());
   // Desktop opens the map by default, mobile keeps it hidden until toggled.
   const [showMap, setShowMap] = useState(false);
+  // 2026-06-16 — Mobile filter drawer state.
+  // Previously the Filtros button on MobileStickyBar only scrollIntoView'd
+  // an anchor that was already at the top of the viewport → no visible
+  // change → Clarity flagged it as a dead click. The 15-jun conversion
+  // session recorded exactly this dead click before continuing. We now
+  // mirror /search-v2's slide-up sheet pattern: same `.sv2-filters-row--open`
+  // CSS already exists, we just need the state + markup wrapper here.
+  const [filtersOpen, setFiltersOpen] = useState(false);
   useEffect(() => {
     if (typeof window !== 'undefined' && window.matchMedia('(min-width: 901px)').matches) {
       setShowMap(true);
@@ -268,8 +287,31 @@ export default function SearchResults({ specialtySlug, city }) {
           al final del mapa". This wraps drops the dedicated SearchBarV2
           since the SEO breadcrumb + hero already serve as navigation
           and that's what was producing the misalignment. */}
-      <div className="container">
-        <div className="sv2-filters" id="esp-filters-anchor">
+      {/* Filter row — inline on desktop, slide-up drawer on mobile (<=640px).
+          Drawer is triggered by MobileStickyBar's Filtros button below.
+          CSS for `.sv2-filters-row--open` already lives in
+          src/app/search-v2/search-v2.css (the same drawer used on the
+          /search-v2 page) — we just mirror the markup structure here so
+          /especialistas pages get the same affordance. */}
+      <div
+        className={`sv2-filters-row container ${filtersOpen ? 'sv2-filters-row--open' : ''}`}
+        aria-hidden={filtersOpen ? 'false' : undefined}
+      >
+        <div className="sv2-filters" id="esp-filters-anchor" role="group" aria-label="Filtros de búsqueda">
+          {/* Drawer header — visible only on mobile when the sheet is open,
+              hidden inline on desktop (CSS handles the visibility). */}
+          <div className="sv2-filters-header">
+            <span className="sv2-filters-title">Filtros</span>
+            <button
+              type="button"
+              className="sv2-filters-close"
+              onClick={() => setFiltersOpen(false)}
+              aria-label="Cerrar filtros"
+            >
+              ✕
+            </button>
+          </div>
+
           <div className="sv2-filter-group">
             <label className="sv2-filter-label">Aseguradora</label>
             <select
@@ -324,7 +366,23 @@ export default function SearchResults({ specialtySlug, city }) {
               {showMap ? 'Ocultar mapa' : 'Ver mapa'}
             </button>
           </div>
+
+          {/* Apply button — visible only inside the mobile drawer (CSS).
+              Closes the sheet; filter changes are already applied live via
+              useState so there's no separate "submit" semantics. */}
+          <div className="sv2-filters-apply-wrap">
+            <button type="button" className="sv2-filters-apply" onClick={() => setFiltersOpen(false)}>
+              Aplicar
+            </button>
+          </div>
         </div>
+        {filtersOpen && (
+          <div
+            className="sv2-filters-backdrop"
+            onClick={() => setFiltersOpen(false)}
+            aria-hidden="true"
+          />
+        )}
       </div>
 
       {/* Two-column layout (single column when map is hidden).
@@ -332,13 +390,18 @@ export default function SearchResults({ specialtySlug, city }) {
           match what the user already knows from the main search page. */}
       <div className={`sv2-layout container ${showMap ? '' : 'sv2-layout--list-only'}`}>
         {/* Left: cards.
-            min-height reserves space for ~6 cards before the fetch resolves
-            so the hero/about/FAQ blocks below don't shift downward when the
-            first batch arrives — primary CLS driver on this page (was 1.1
-            on Clarity, 2026-05-29). 1800 px = ~6 * 300 px card height,
-            roughly one viewport on mobile so we don't over-reserve. */}
+            2026-06-16 — CLS hard fix for low-inventory cities.
+            Previously this reserved a flat 1800 px while loading. For
+            Bilbao gineco (1 real clinic ~280 px) that collapsed to ~280 px
+            after fetch — a 1500 px upward shift of the FAQ / testimonials
+            below = CLS 0.37 in a real 14-jun Clarity session. We now
+            render exactly `expectedClinicCount` skeleton cards (from the
+            server-side count, same query as the noindex threshold), so
+            the container size during loading matches the size after load.
+            Falls back to 6 skeletons when expectedClinicCount is null
+            (DB unavailable in dev / preview). */}
         <div className="sv2-left">
-          <div className="sv2-results" style={{ minHeight: clinics === null ? '1800px' : undefined }}>
+          <div className="sv2-results">
             {cappedClinics.length > 0 ? (
               cappedClinics.map((provider, i) => (
                 <ClinicCardV2
@@ -357,9 +420,29 @@ export default function SearchResults({ specialtySlug, city }) {
                 />
               ))
             ) : isLoading ? (
-              <div className="sv2-empty" style={{ minHeight: '600px' }}>
-                <p style={{ color: 'var(--fg-muted)' }}>Cargando centros…</p>
-              </div>
+              // 2026-06-16 — Replace flat "Cargando centros…" with N skeleton
+              // cards that match the expected size of the real listing, so
+              // when real cards arrive there's no upward shift (bilbao CLS
+              // 0.37 fix). Skeletons are styled as muted cv2-card silhouettes.
+              (() => {
+                const skeletonCount = Math.min(
+                  MAX_SKELETON_COUNT,
+                  Math.max(
+                    1,
+                    Number.isFinite(expectedClinicCount) && expectedClinicCount > 0
+                      ? expectedClinicCount
+                      : FALLBACK_SKELETON_COUNT,
+                  ),
+                );
+                return Array.from({ length: skeletonCount }).map((_, i) => (
+                  <div
+                    key={`skel-${i}`}
+                    className="cv2-card cv2-card--skeleton"
+                    style={{ minHeight: SKELETON_CARD_HEIGHT_PX }}
+                    aria-hidden="true"
+                  />
+                ));
+              })()
             ) : (
               <div className="sv2-empty">
                 <p>No encontramos centros con estos filtros.</p>
@@ -442,8 +525,12 @@ export default function SearchResults({ specialtySlug, city }) {
           (insuranceFilter ? 1 : 0) + (tierFilter.size > 0 ? 1 : 0)
         }
         onOpenFilters={() => {
-          const anchor = document.getElementById('esp-filters-anchor');
-          if (anchor) anchor.scrollIntoView({ behavior: 'smooth', block: 'start' });
+          // 2026-06-16 — Previously a no-op scrollIntoView on an anchor
+          // that was usually already in view (Clarity flagged this as
+          // dead click in the 15-jun conversion session). Now opens
+          // the slide-up drawer via the .sv2-filters-row--open class,
+          // mirroring /search-v2's pattern.
+          setFiltersOpen(true);
         }}
         isMapOpen={showMap}
         onToggleMap={() => setShowMap((v) => !v)}

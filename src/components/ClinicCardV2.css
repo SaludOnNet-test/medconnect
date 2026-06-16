@@ -31,6 +31,32 @@
   box-shadow: var(--shadow-2);
 }
 
+/* 2026-06-16 — Skeleton card.
+   Renders a card-shaped placeholder during the /api/clinics/search
+   fetch so the listing reserves space matching the eventual content.
+   Same dimensions as a real card so the swap (skeleton → real) is a
+   zero-shift replacement — the CLS 0.37 we saw on bilbao gineco
+   came from a 1800 → 280 px shrink when only 1 real card arrived. */
+.cv2-card--skeleton {
+  background: linear-gradient(
+    90deg,
+    rgba(0, 0, 0, 0.03) 0%,
+    rgba(0, 0, 0, 0.06) 50%,
+    rgba(0, 0, 0, 0.03) 100%
+  );
+  background-size: 200% 100%;
+  animation: cv2-skeleton-shimmer 1.4s ease-in-out infinite;
+  border-color: var(--border);
+  pointer-events: none;
+}
+@keyframes cv2-skeleton-shimmer {
+  0%   { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .cv2-card--skeleton { animation: none; }
+}
+
 /* ── Card body ────────────────────────────────────────────────────────── */
 .cv2-card-body {
   display: flex;
