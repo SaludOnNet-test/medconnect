@@ -125,11 +125,17 @@ async function seedElcano({ confirm }) {
   if (!clinic) {
     planned.push('INSERT clinics (Clínica Ginecológica Elcano, Madrid)');
     if (confirm) {
+      // clinics.id is NOT an IDENTITY column (rows came in from
+      // Doctoralia imports with their own provider_id). Compute the
+      // next id from MAX(id)+1 in the same SELECT so the INSERT has
+      // a value. Tiny race window if two admins seed concurrently —
+      // acceptable for this admin-only one-shot endpoint.
       const inserted = await query(
-        `INSERT INTO clinics (name, city, province, partnership_status, partnership_decided_at, partnership_notes)
+        `INSERT INTO clinics (id, name, city, province, partnership_status, partnership_decided_at, partnership_notes)
          OUTPUT INSERTED.id, INSERTED.name, INSERTED.city, INSERTED.partnership_status
-         VALUES (@name, @city, @province, 'rejected', SYSDATETIMEOFFSET(),
-                 N'2026-06-15 — Rechazó atender al paciente derivado (Julia Iruarrizaga, eco 23-jun 16:30) y rechazó también el acuerdo de partnership con Med Connect. Bloqueamos sus huecos a menos de 30 días.')`,
+         SELECT COALESCE(MAX(id), 0) + 1, @name, @city, @province, 'rejected', SYSDATETIMEOFFSET(),
+                N'2026-06-15 — Rechazó atender al paciente derivado (Julia Iruarrizaga, eco 23-jun 16:30) y rechazó también el acuerdo de partnership con Med Connect. Bloqueamos sus huecos a menos de 30 días.'
+           FROM clinics WITH (TABLOCKX)`,
         {
           name: { type: sql.NVarChar(255), value: ELCANO_NAME },
           city: { type: sql.NVarChar(120), value: ELCANO_CITY },
