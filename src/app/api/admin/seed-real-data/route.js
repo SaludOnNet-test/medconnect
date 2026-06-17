@@ -392,7 +392,12 @@ async function cleanup({ confirm }) {
 
   // Need a table value param or use a temp table; with a handful of IDs
   // we batch via inline IN. Safe because they come from our own SELECT.
-  let deletedCases = 0, deletedVouchers = 0, deletedBookings = 0;
+  // Order matters: clear every table that holds a booking_id FK BEFORE
+  // touching bookings itself. `reviews` enforces FK_reviews_booking
+  // (setup/route.js:712); `operations_cases` and `vouchers` reference
+  // bookings without an explicit FK but we still delete first so we
+  // don't leave orphans pointing nowhere.
+  let deletedCases = 0, deletedVouchers = 0, deletedReviews = 0, deletedBookings = 0;
   if (ids.length > 0) {
     // Quote and escape ids defensively (NVARCHAR primary key; we generate
     // them ourselves, but better safe than sorry).
@@ -406,6 +411,13 @@ async function cleanup({ confirm }) {
       // Table may not exist in every environment — non-fatal.
       console.warn('[seed-real-data] vouchers cleanup skipped:', err?.message);
     }
+    try {
+      const rRes = await query(`DELETE FROM reviews WHERE booking_id IN (${literal})`);
+      deletedReviews = rRes.rowsAffected?.[0] || 0;
+    } catch (err) {
+      // Same as vouchers — non-fatal if the table is missing.
+      console.warn('[seed-real-data] reviews cleanup skipped:', err?.message);
+    }
     const bRes = await query(`DELETE FROM bookings WHERE id IN (${literal})`);
     deletedBookings = bRes.rowsAffected?.[0] || 0;
   }
@@ -416,6 +428,7 @@ async function cleanup({ confirm }) {
     deletedBookings,
     deletedCases,
     deletedVouchers,
+    deletedReviews,
     kept: {
       jacques: 'patient_name LIKE %blehaut%',
       julia:   'patient_name LIKE %iruarrizaga%',
