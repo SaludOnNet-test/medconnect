@@ -187,9 +187,41 @@ async function issueRefund(c, reason, opts = {}) {
 
   let refundId = null;
   let refundAmount = targetAmount;
+  let stripeError = null;
   const stripeKey = process.env.STRIPE_SECRET_KEY;
   const piId = c.payment_intent_id || c.booking_id;
-  if (stripeKey && piId && targetAmount > 0) {
+
+  // 2026-06-18 — Refund-flow hardening (Julia Iruarrizaga incident).
+  // Case 14 was marked REFUNDED in DB even though Stripe never refunded
+  // anything: the booking row stored payment_intent_id = booking_id
+  // ("mc_xxx", from /reserve's placeholder) instead of the real Stripe
+  // pi_xxx. stripe.refunds.create({payment_intent:'mc_xxx'}) threw "no
+  // such payment_intent" → catch silently swallowed → DB updated as if
+  // refunded. The patient saw "refunded" in our system, Stripe saw
+  // nothing, Francisco had to refund manually 3 days later.
+  //
+  // Now:
+  //   1) We validate the PI id looks like a real Stripe pi_xxx BEFORE
+  //      attempting the API call. If it doesn't, we surface a clear
+  //      error to the operator and DO NOT mark REFUNDED.
+  //   2) Any Stripe error (network, auth, "not found", "already
+  //      refunded", "amount exceeds remaining") aborts the DB update.
+  //      The case stays in its pre-refund status and the operator
+  //      sees an explicit "Stripe failed — refund manualmente" toast.
+  const looksLikeStripePi = typeof piId === 'string' && /^pi_[A-Za-z0-9]{16,}$/.test(piId);
+
+  if (!stripeKey) {
+    stripeError = 'STRIPE_SECRET_KEY no configurado en el entorno';
+  } else if (!piId) {
+    stripeError = 'Booking sin payment_intent_id — refund manualmente en Stripe';
+  } else if (!looksLikeStripePi) {
+    stripeError = `payment_intent_id "${piId}" no es un Stripe PI válido (esperado pi_…). Refund manualmente en Stripe y actualiza este case con el refund_id.`;
+  } else if (targetAmount <= 0) {
+    // Policy says no refund — that's a legitimate "no-op" Stripe-side.
+    // We still mark the case as REFUNDED with refund_amount=0 so the
+    // operator knows the case was processed and the customer was told.
+    stripeError = null;
+  } else {
     try {
       const stripe = new Stripe(stripeKey, { apiVersion: '2024-04-10' });
       const refundParams = {
@@ -208,8 +240,27 @@ async function issueRefund(c, reason, opts = {}) {
       refundId = refund.id;
       refundAmount = (refund.amount || 0) / 100;
     } catch (err) {
-      console.error('[ops/refund] stripe error:', err.message);
+      stripeError = `Stripe: ${err.message || 'error desconocido'}`;
+      console.error('[ops/refund] stripe error:', err.message, err);
     }
+  }
+
+  // If Stripe failed (or the PI is invalid), DO NOT mark the case as
+  // refunded. Return the error to the caller so the operator UI can
+  // surface it. The case stays in its pre-refund status — when the
+  // operator refunds manually in the Stripe dashboard, they can come
+  // back and click "Marcar reembolso manual" (or we'll add a separate
+  // endpoint for that pattern in a follow-up).
+  if (stripeError && targetAmount > 0) {
+    return {
+      error: 'stripe_refund_failed',
+      message: stripeError,
+      policy,
+      forced,
+      targetAmount,
+      refundId: null,
+      refundAmount: 0,
+    };
   }
 
   // Compose reason with policy context so the call log has full provenance.
@@ -372,6 +423,19 @@ export async function POST(request, { params }) {
         await updateCase(id, { status: CASE_STATUS.NO_ALTERNATIVE_REFUNDING, assigned_to: session.username });
         c = await getCase(id);
         const r = await issueRefund(c, reasonRaw, { override: body.overrideCutoff === true });
+        // 2026-06-18 — Surface Stripe failures explicitly. Pre-fix this
+        // branch unconditionally proceeded as if the refund succeeded.
+        if (r.error) {
+          await appendCallLog(
+            id,
+            `Sin alternativa. STRIPE REFUND FAILED: ${r.message}. Case NO marcado como refunded — reembolsa manualmente en Stripe.`,
+            session.username,
+          );
+          return NextResponse.json(
+            { error: r.error, message: r.message, action: 'no_alternative_refund' },
+            { status: 502 },
+          );
+        }
         const tail = r.forced ? ' (override fuera de cutoff)' : '';
         await appendCallLog(
           id,
@@ -402,6 +466,20 @@ export async function POST(request, { params }) {
           );
         }
         const r = await issueRefund(c, reasonRaw, { override: body.overrideCutoff === true });
+        // 2026-06-18 — Same Stripe-failure surfacing as the
+        // no_alternative_refund branch above. See Julia incident note
+        // in issueRefund().
+        if (r.error) {
+          await appendCallLog(
+            id,
+            `STRIPE REFUND FAILED: ${r.message}. Case NO marcado como refunded — reembolsa manualmente en Stripe.`,
+            session.username,
+          );
+          return NextResponse.json(
+            { error: r.error, message: r.message, action: 'refund' },
+            { status: 502 },
+          );
+        }
         const tail = r.forced ? ' (override fuera de cutoff)' : '';
         await appendCallLog(
           id,

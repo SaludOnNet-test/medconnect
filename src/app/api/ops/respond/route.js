@@ -76,11 +76,28 @@ export async function GET(request) {
   }
 
   // reject → refund flow
+  // 2026-06-18 — Same hardening as src/app/api/ops/cases/[id]/action.
+  // Pre-fix this swallowed Stripe errors and still marked the case as
+  // REFUNDED in DB. Julia incident triggered the audit. Now we
+  // validate the PI looks real and abort the DB update if Stripe
+  // didn't actually refund.
   let refundId = null;
   let refundAmount = Number(c.amount_paid || 0);
+  let stripeError = null;
   const stripeKey = process.env.STRIPE_SECRET_KEY;
   const piId = c.payment_intent_id || c.booking_id;
-  if (stripeKey && piId) {
+  const looksLikeStripePi = typeof piId === 'string' && /^pi_[A-Za-z0-9]{16,}$/.test(piId);
+
+  if (!stripeKey) {
+    stripeError = 'STRIPE_SECRET_KEY no configurado';
+  } else if (!piId) {
+    stripeError = 'Booking sin payment_intent_id';
+  } else if (!looksLikeStripePi) {
+    stripeError = `payment_intent_id "${piId}" no es un Stripe PI válido (esperado pi_…)`;
+  } else if (refundAmount <= 0) {
+    // Nothing to refund — proceed with DB update (no Stripe call needed).
+    stripeError = null;
+  } else {
     try {
       const stripe = new Stripe(stripeKey, { apiVersion: '2024-04-10' });
       const refund = await stripe.refunds.create(
@@ -93,9 +110,27 @@ export async function GET(request) {
       refundId = refund.id;
       refundAmount = (refund.amount || 0) / 100;
     } catch (err) {
-      console.error('[ops/respond] stripe refund error:', err.message);
+      stripeError = `Stripe: ${err.message || 'error desconocido'}`;
+      console.error('[ops/respond] stripe refund error:', err.message, err);
     }
   }
+
+  // If Stripe failed, do NOT mark the case as REFUNDED. The patient
+  // already submitted "rechazo" via the email link though, so we still
+  // need to capture that decision somewhere — log it and notify ops
+  // so they can complete the refund manually in Stripe.
+  if (stripeError && refundAmount > 0) {
+    await appendCallLog(
+      c.id,
+      `Paciente rechazó la alternativa pero STRIPE REFUND FAILED: ${stripeError}. Case NO marcado refunded — reembolsa manualmente en Stripe y luego marca refund_id en el case.`,
+      'patient',
+    );
+    return NextResponse.json(
+      { error: 'stripe_refund_failed', message: stripeError },
+      { status: 502 },
+    );
+  }
+
   await updateCase(c.id, {
     status: CASE_STATUS.REFUNDED,
     patient_decision: 'rejected',
