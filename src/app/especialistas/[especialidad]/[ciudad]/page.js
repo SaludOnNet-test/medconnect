@@ -42,6 +42,47 @@ const BASE_URL = process.env.NEXT_PUBLIC_BASE_URL || 'https://www.medconnect.es'
 //      what the user (and Google) actually sees.
 const MIN_INDEXABLE_CLINICS = 3;
 
+// 2026-06-18 — Two distinct counts for two distinct purposes:
+//   1. countIndexableClinics — for the noindex threshold. STRICT:
+//      specialty + has-schedules. We only want Google to index pages
+//      that show real bookable clinics.
+//   2. countApiMatchClinics  — for the skeleton placeholder count.
+//      LOOSE: matches what /api/clinics/search ACTUALLY returns (no
+//      schedule requirement, capped at the API page size of 30). If
+//      we use the strict count for skeletons we under-count and the
+//      18-jun 02:55 session showed CLS 0.36 because Madrid gineco
+//      rendered 19 skeletons but the API returned 30 cards — 11 cards
+//      arrived AFTER the skeletons and pushed the FAQ down.
+const API_PAGE_SIZE = 30;
+
+async function countApiMatchClinics(specialtySlug, city) {
+  if (!DB_AVAILABLE) return null;
+  try {
+    const pool = await getPool();
+    const variants = specialtySlug === 'ginecologia'
+      ? ['%ginecologia%', '%obstetricia%']
+      : [`%${specialtySlug}%`];
+    const req = pool.request().input('city', sql.NVarChar(120), `%${city}%`);
+    variants.forEach((v, i) => req.input(`v${i}`, sql.NVarChar(100), v));
+    const cond = variants.map((_, i) => `cs.specialty_slug LIKE @v${i}`).join(' OR ');
+    const r = await req.query(`
+      SELECT COUNT(DISTINCT c.id) AS n
+      FROM clinics c
+      WHERE (LOWER(c.city) LIKE LOWER(@city) OR LOWER(c.province) LIKE LOWER(@city))
+        AND EXISTS (
+          SELECT 1 FROM clinic_specialties cs
+          WHERE cs.clinic_id = c.id AND (${cond})
+        )
+    `);
+    const total = Number(r.recordset[0]?.n || 0);
+    // Cap at the API page size so the skeleton count never exceeds what
+    // the API can actually return.
+    return Math.min(total, API_PAGE_SIZE);
+  } catch {
+    return null;
+  }
+}
+
 async function countIndexableClinics(specialtySlug, city) {
   if (!DB_AVAILABLE) return null; // dev / preview without DB → don't gate
   try {
@@ -159,14 +200,16 @@ export default async function EspecialistasCiudadPage({ params }) {
   // Bilbao gineco (1 clinic) recorded CLS 0.37 on mobile because
   // SearchResults reserved 1800 px while loading and shrank to ~280 px
   // when the single real card arrived — a 1500 px upward shift of the
-  // FAQ/testimonials block. We now pre-compute the expected count on
-  // the server and pass it as a prop so SearchResults reserves space
-  // matching ONE skeleton per expected clinic. Same DB query as the
-  // noindex threshold so it's a single source of truth for "how many
-  // clinics will the patient actually see here". Best-effort: null
-  // when DB unavailable → SearchResults falls back to its previous
-  // generic skeleton.
-  const expectedClinicCount = await countIndexableClinics(especialidad, city);
+  // FAQ/testimonials block.
+  //
+  // 2026-06-18 — Iteration. The first fix used countIndexableClinics
+  // (specialty + schedules), which UNDER-counted vs the API. Madrid
+  // gineco rendered 19 skeletons but the API returned 30 — 11 cards
+  // arrived after the skeletons and pushed the FAQ down → CLS 0.36
+  // observed on 18-jun 02:55. We now use countApiMatchClinics which
+  // mirrors the API's WHERE (no schedule gate) and caps at the API
+  // page size (30). Skeleton count = API response count → 0 shift.
+  const expectedClinicCount = await countApiMatchClinics(especialidad, city);
 
   // JSON-LD: MedicalBusiness + FAQPage schema
   const jsonLd = {
@@ -351,22 +394,36 @@ export default async function EspecialistasCiudadPage({ params }) {
               horizontal line of labels with cursor:default so the
               affordance matches the (lack of) behaviour. Styles live
               in `.esp-hero__pill` inside search-v2.css. */}
-          <div className="esp-hero__pills">
+          {/* 2026-06-18 — Dead-click fix on hero pills.
+              The 2026-06 task #16 round made these `<span>` with
+              cursor:default to discourage click-as-button. Clarity
+              still recorded dead clicks (17-jun 08:28 session — 2
+              consecutive on "✅ Sin lista de espera"), because the
+              patient reads the copy and naturally tries to interact.
+              Now we lean INTO the impulse: clicking any pill scrolls
+              the listing into view. Same purely-informational look
+              (no border, no chip styling) but the click resolves
+              into the action the copy promises ("here are the
+              clinics, no waiting list"). */}
+          <ul className="esp-hero__pills" role="list">
             {[
               ['✅', 'Sin lista de espera', 'keep-mobile'],
               ['📅', 'Cita en 24-72 h', 'keep-mobile'],
               ['🏥', 'Centros verificados', 'hide-mobile'],
               ['💳', 'Con y sin seguro', 'hide-mobile'],
             ].map(([icon, label, mobileClass]) => (
-              <span
-                key={label}
-                className={`esp-hero__pill esp-hero__pill--${mobileClass}`}
-              >
-                <span className="esp-hero__pill-icon" aria-hidden="true">{icon}</span>
-                {label}
-              </span>
+              <li key={label} className="esp-hero__pill-wrap">
+                <a
+                  href="#esp-filters-anchor"
+                  className={`esp-hero__pill esp-hero__pill--clickable esp-hero__pill--${mobileClass}`}
+                  aria-label={`${label} — ver clínicas disponibles`}
+                >
+                  <span className="esp-hero__pill-icon" aria-hidden="true">{icon}</span>
+                  {label}
+                </a>
+              </li>
             ))}
-          </div>
+          </ul>
 
           {/* 2026-06-04 — A2: trust strip replicated upstream. Same 3 claims
               that appear at the Stripe step (commit f2dc34a) so the patient
