@@ -58,6 +58,18 @@ function PaymentFormContent({ totalPrice, standardTotalPrice = 0, providerName, 
   // so the user never sees a stale error after they edit the card.
   const [paymentError, setPaymentError] = useState(null);
 
+  // 2026-06-22 — CardElement readiness gate (dead-click fix).
+  // Clarity audit 15-22 jun: 30 dead clicks acumulados sobre el
+  // placeholder "•••• •••• •••• ••••" del CardElement de Stripe. Causa:
+  // los users hacen click sobre el campo ANTES de que el iframe de
+  // Stripe.js hidrate (~300-800ms en mobile). El click cae sobre el
+  // espacio vacío del contenedor — sin handler, sin cursor especial,
+  // sin feedback. Stripe lo marca dead.
+  // Solución: bloquear el campo con un overlay durante el load, con
+  // cursor:progress + copy "Cargando formulario seguro…", que se
+  // desmonta cuando el CardElement firae onReady.
+  const [cardReady, setCardReady] = useState(false);
+
   // 2026-06-04 — A1: Apple Pay / Google Pay support.
   // `paymentRequest` is a Stripe-side object that abstracts iOS/Android
   // native wallets. We only render the button when canMakePayment() returns
@@ -510,8 +522,28 @@ function PaymentFormContent({ totalPrice, standardTotalPrice = 0, providerName, 
 
                   <div className="payment-field">
                     <label className="payment-label">Tarjeta de crédito</label>
-                    <div className="payment-stripe-element">
-                      <CardElement options={CARD_ELEMENT_OPTIONS} />
+                    <div
+                      className={`payment-stripe-element ${cardReady ? '' : 'payment-stripe-element--loading'}`}
+                      aria-busy={cardReady ? undefined : 'true'}
+                    >
+                      <CardElement
+                        options={CARD_ELEMENT_OPTIONS}
+                        onReady={() => setCardReady(true)}
+                      />
+                      {!cardReady && (
+                        // 2026-06-22 — Skeleton overlay durante el hydrate
+                        // del iframe Stripe. Catches clicks (default
+                        // pointer-events: auto) y los absorbe sin dejar
+                        // que dead-clickeen el espacio vacío de Stripe.
+                        // cursor:progress + texto "Cargando..." da feedback
+                        // claro de "esto está a punto de funcionar, esperá".
+                        // Cuando onReady firae (300-800ms típicamente), el
+                        // overlay se desmonta y Stripe queda accesible.
+                        <div className="payment-stripe-skeleton" aria-hidden="true">
+                          <span className="payment-stripe-skeleton-shimmer" />
+                          <span className="payment-stripe-skeleton-text">Cargando formulario seguro…</span>
+                        </div>
+                      )}
                     </div>
                   </div>
 
