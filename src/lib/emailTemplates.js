@@ -758,6 +758,59 @@ export function patientRefunded({ patientName, providerName, slotDate, slotTime,
 }
 
 // ─────────────────────────────────────────────
+// 12b. Patient — pending_payment recovery.
+//
+// 2026-06-22 — Sent by the cron at /api/bookings/recover-pending-payment.
+// Targets bookings where /api/bookings/reserve succeeded (the row exists
+// with status='pending_payment') but the Stripe step was never completed.
+// Cases like Verónica (Sagasta, 17-jun) and the Jacques-era racha — the
+// patient is one click away from paying, just needs the nudge.
+//
+// Tone: gentle, not pushy. Confirms the slot is still held, offers a
+// one-click resume CTA. Avoids any "you missed something" framing — the
+// patient might just have closed the tab to think.
+// ─────────────────────────────────────────────
+export function pendingPaymentRecovery({
+  patientName, providerName, slotDate, slotTime, amount, resumeUrl,
+}) {
+  const fmtDate = slotDate
+    ? new Date(slotDate + 'T00:00:00').toLocaleDateString('es-ES', {
+        weekday: 'long', day: 'numeric', month: 'long',
+      })
+    : slotDate;
+  const greeting = patientName ? `Hola ${patientName.split(/\s+/)[0]},` : 'Hola,';
+  const html = baseWrapper(bodySection(`
+    <h2 style="margin:0 0 12px;font-size:22px;font-weight:800;color:#1a3c5e;">Tu cita sigue reservada</h2>
+    <p style="margin:0 0 16px;font-size:15px;color:#374151;line-height:1.55;">${greeting}</p>
+    <p style="margin:0 0 18px;font-size:15px;color:#374151;line-height:1.55;">
+      Vimos que empezaste a reservar una cita con <strong>${providerName || 'una clínica'}</strong>
+      ${fmtDate ? `para el <strong>${fmtDate}</strong>` : ''}${slotTime ? ` a las <strong>${slotTime}</strong>` : ''}, pero no llegaste a completar el pago.
+      Te guardamos el hueco un poco más por si querés terminar la reserva.
+    </p>
+    <table width="100%" cellpadding="0" cellspacing="0" style="margin:0 0 20px;border:1px solid #e5e7eb;border-radius:8px;overflow:hidden;">
+      <tr style="background:#f9fafb;"><th colspan="2" style="padding:10px 14px;text-align:left;font-size:12px;color:#6b7280;font-weight:600;text-transform:uppercase;letter-spacing:0.05em;">Detalles de tu reserva</th></tr>
+      ${infoRow('Centro', providerName || '—')}
+      ${infoRow('Fecha', fmtDate || '—')}
+      ${infoRow('Hora', slotTime || '—')}
+      ${amount != null ? infoRow('Tarifa de prioridad', formatEUR(amount)) : ''}
+    </table>
+    <div style="text-align:center;margin:18px 0 22px;">
+      ${ctaButton(resumeUrl, 'Completar mi reserva', '#c9a84c', '#1a3c5e')}
+    </div>
+    <p style="margin:0 0 12px;font-size:13px;color:#6b7280;line-height:1.5;">
+      Si ya no la necesitás, podés ignorar este email — la liberamos automáticamente.
+    </p>
+    <p style="margin:0;font-size:12px;color:#9ca3af;line-height:1.5;">
+      ¿Dudas? Respondé a este correo y te ayudamos.
+    </p>
+  `));
+  return {
+    subject: `Tu reserva con ${providerName || 'Med Connect'} sigue pendiente`,
+    html,
+  };
+}
+
+// ─────────────────────────────────────────────
 // 13. Patient — voucher delivery (sin seguro). Sent when ops uploads the
 //     SaludOnNet voucher PDF/URL from the admin dashboard.
 // ─────────────────────────────────────────────
