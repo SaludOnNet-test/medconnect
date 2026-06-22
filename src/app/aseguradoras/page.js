@@ -1,4 +1,5 @@
 import Image from 'next/image';
+import Link from 'next/link';
 import Header from '@/components/Header';
 import Footer from '@/components/Footer';
 import PageHeader from '@/components/brand/PageHeader';
@@ -92,9 +93,23 @@ export default async function AseguradorasPage() {
 
       <section className="info-section">
         <div className="container">
+          {/* 2026-06-22 — Insurer cards now clickable.
+              Clarity audit 15-22 jun: 48 dead clicks sobre "Aseguradora
+              con clínicas concertadas en X provincias" — el mayor
+              single dead-click contributor de la semana. Los users
+              esperan que la card abra el listado filtrado por esa
+              aseguradora. Ahora hace exactamente eso: navega a
+              /search-v2?insurance=Adeslas para ver las clínicas
+              concertadas. La intención era informational pero la
+              acción es perfectamente buyer-facing. */}
           <div className="insurers-grid">
             {insurers.map((ins) => (
-              <article key={ins.id} className="insurer-card">
+              <Link
+                key={ins.id}
+                href={`/search-v2?insurance=${encodeURIComponent(ins.name)}`}
+                className="insurer-card insurer-card--clickable"
+                aria-label={`Ver clínicas concertadas con ${ins.name}`}
+              >
                 <div className="insurer-card-logo">
                   {/* Caser doesn't ship in our placeholder kit; show its name in serif */}
                   {['caser'].includes(ins.id) ? (
@@ -116,7 +131,8 @@ export default async function AseguradorasPage() {
                     {ins.provinces === 1 ? 'provincia' : 'provincias'} de toda España
                   </div>
                 </div>
-              </article>
+                <span className="insurer-card-cta" aria-hidden="true">Ver clínicas →</span>
+              </Link>
             ))}
           </div>
         </div>
