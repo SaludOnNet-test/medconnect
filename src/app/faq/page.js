@@ -76,7 +76,7 @@ export default function FAQPage() {
             Tu cita está esperándote. Búscala por especialidad y ciudad y elige el horario que más te conviene.
           </p>
           <div className="cta-actions">
-            <Button href="/" variant="primary" size="lg">Buscar mi cita</Button>
+            <Button href="/search-v2" variant="primary" size="lg">Buscar mi cita</Button>
             <Button href="mailto:info@medconnect.es" variant="ghostInv" size="lg">Escribirnos</Button>
           </div>
         </div>
