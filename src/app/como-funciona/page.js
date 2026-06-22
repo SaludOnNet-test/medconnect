@@ -89,7 +89,7 @@ export default function ComoFuncionaPage() {
           </p>
           <div className="cta-actions">
             <Button href="/sign-up" variant="primary" size="lg">Crear cuenta gratis</Button>
-            <Button href="/" variant="ghostInv" size="lg">Buscar mi cita</Button>
+            <Button href="/search-v2" variant="ghostInv" size="lg">Buscar mi cita</Button>
           </div>
         </div>
       </section>

@@ -166,7 +166,7 @@ export default async function AseguradorasPage() {
             Búscala con tu especialidad y ciudad. Te mostramos solo clínicas concertadas con tu aseguradora.
           </p>
           <div className="cta-actions">
-            <Button href="/" variant="primary" size="lg">Buscar mi cita</Button>
+            <Button href="/search-v2" variant="primary" size="lg">Buscar mi cita</Button>
             <Button href="/como-funciona" variant="ghostInv" size="lg">Cómo funciona</Button>
           </div>
         </div>

@@ -182,6 +182,15 @@
 .header-btn-account:hover {
   background: var(--accent-hover);
 }
+/* 2026-06-22 — :active feedback explícito.
+   Clarity registró 8 dead clicks acumulados en "Acceder" porque el
+   toggle del dropdown abre un menú que en algunos viewports queda
+   ABAJO del fold visible — el botón en sí no cambia visualmente y
+   Clarity flagea como dead. El scale + bg da señal inmediata de
+   "este click hizo algo". */
+.header-btn-account:active {
+  transform: scale(0.97);
+}
 
 .header-account-menu {
   position: absolute;
