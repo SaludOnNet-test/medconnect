@@ -149,6 +149,27 @@
   gap: var(--space-1);
 }
 
+/* 2026-06-22 — Address link variant.
+   When the address is wrapped in an <a> to Google Maps, we want it to
+   look like a subtle link without breaking the card's visual rhythm.
+   No underline by default (the icon + dirección already read as a
+   location); underline on hover signals interactivity. */
+.cv2-address--link {
+  text-decoration: none;
+  color: var(--fg-muted);
+  transition: color 0.12s ease;
+}
+.cv2-address--link:hover {
+  color: var(--accent, var(--brass-500));
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+.cv2-address--link:focus-visible {
+  outline: 2px solid var(--brass-500);
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
 .cv2-icon {
   color: var(--fg-muted);
   flex-shrink: 0;

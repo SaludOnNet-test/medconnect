@@ -94,6 +94,7 @@ export default function ClinicCardV2({
         onClick={openBrowseMode}
         onKeyDown={handleBodyKey}
         aria-label={`Ver disponibilidad de ${provider.name}`}
+        title="Click para reservar"
       >
         <div className="cv2-avatar" style={provider.imageUrl ? {} : { background: avatarColor }}>
           {provider.imageUrl
@@ -105,10 +106,31 @@ export default function ClinicCardV2({
           <div className="cv2-info-top">
             <div>
               <h3 className="cv2-name">{provider.name}</h3>
-              <p className="cv2-address">
+              {/* 2026-06-22 — Address ahora link a Google Maps.
+                  Clarity grabó múltiples sesiones (incluida una SEM de
+                  bing/derma-barcelona) con dead clicks en la dirección
+                  de la clínica — los usuarios la leen como interactiva
+                  porque "es una dirección, debería abrir en mapa".
+                  Ahora click en la dirección abre Maps en pestaña nueva
+                  con la dirección pre-rellenada. stopPropagation para
+                  que NO se dispare ALSO el openBrowseMode del card-body
+                  (sin eso, el click haría las dos cosas — abrir modal Y
+                  Maps — porque el link queda DENTRO del card clickeable). */}
+              <a
+                href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(
+                  `${provider.name}, ${provider.address || ''}, ${provider.city || ''}`.trim()
+                )}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="cv2-address cv2-address--link"
+                onClick={(e) => e.stopPropagation()}
+                onKeyDown={(e) => e.stopPropagation()}
+                title="Ver en Google Maps"
+                aria-label={`Ver ${provider.name} en Google Maps`}
+              >
                 <Icon name="map-pin" size={14} className="cv2-icon" />
                 {provider.address}, {provider.city}
-              </p>
+              </a>
             </div>
 
             {/* 2026-06-12 — Dead-click fix follow-up.

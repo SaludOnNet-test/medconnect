@@ -4,6 +4,7 @@ import './globals.css';
 import CookieBanner from '@/components/CookieBanner';
 import WhatsAppFAB from '@/components/WhatsAppFAB';
 import PageViewTracker from '@/components/PageViewTracker';
+import AnonVisitTracker from '@/components/AnonVisitTracker';
 
 // Brand 2026 typography. Variables here flow into `var(--font-display)`,
 // `--font-body`, and `--font-mono` declared in globals.css. Fraunces is loaded
@@ -126,6 +127,13 @@ export default async function RootLayout({ children }) {
           <Suspense fallback={null}>
             <PageViewTracker />
           </Suspense>
+          {/* 2026-06-22 — anon visit counter, fires unconditionally.
+              No PII; aggregate-only (path, date, count). Cierra el 8×
+              gap entre Clarity y analytics_events que viene del consent
+              gate sobre page_viewed. */}
+          <Suspense fallback={null}>
+            <AnonVisitTracker />
+          </Suspense>
         </body>
       </html>
     );
@@ -142,6 +150,9 @@ export default async function RootLayout({ children }) {
         <WhatsAppFAB />
         <Suspense fallback={null}>
           <PageViewTracker />
+        </Suspense>
+        <Suspense fallback={null}>
+          <AnonVisitTracker />
         </Suspense>
       </body>
     </html>
