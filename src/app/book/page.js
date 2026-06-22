@@ -159,6 +159,20 @@ function BookContent() {
   const isLastSlotParam = searchParams.get('lastSlot') === '1';
   const tierParam = Number(searchParams.get('tier') || 0);
   const restoredHoldIdParam = searchParams.get('restoredHoldId') || '';
+  // 2026-06-22 — Empty-state redirect.
+  // /book sin providerId / lockInId / restoredHoldId no tiene sentido —
+  // es la página de reservar, necesita saber QUÉ reservar. El audit
+  // SEO 15-22 jun mostró 3 sesiones organic aterrizando acá sin params
+  // (Google la había indexado a pesar del noindex actual, posible cache
+  // viejo). Redirect a /search-v2 con un flag UTM para medir cuántas
+  // sesiones rescatamos. El layout YA es noindex (desde mayo), así que
+  // a mediano plazo Google la sacará del índice y este caso se reduce.
+  useEffect(() => {
+    if (!providerId && !lockInId && !restoredHoldIdParam) {
+      router.replace('/search-v2?from=book-empty&utm_source=internal&utm_medium=empty-redirect');
+    }
+  }, [providerId, lockInId, restoredHoldIdParam, router]);
+  const isEmptyBookPage = !providerId && !lockInId && !restoredHoldIdParam;
 
   // Forwarded from search-v2 → ClinicBookingModal: the user already declared
   // their coverage situation by picking a filter, so pre-select the toggle
@@ -1650,6 +1664,37 @@ function BookContent() {
           </div>
         </main>
         <Footer />
+      </>
+    );
+  }
+
+  // 2026-06-22 — Empty state.
+  // El useEffect arriba dispara router.replace, pero React puede renderizar
+  // un frame antes de que la nav termine. Mostramos un message de
+  // "redirigiendo..." en lugar del form vacío para que ningún user vea
+  // el formulario sin contexto. Si el redirect falla (ej. router no
+  // disponible en SSR), igual hay un link manual a /search-v2.
+  if (isEmptyBookPage) {
+    return (
+      <>
+        <Header />
+        <main className="book-page">
+          <div className="book-container" style={{ textAlign: 'center', padding: '4rem 1rem' }}>
+            <h1 style={{ fontSize: '1.5rem', marginBottom: '0.75rem' }}>
+              Te llevamos a la búsqueda…
+            </h1>
+            <p style={{ color: 'var(--fg-muted)', marginBottom: '1.5rem' }}>
+              Para reservar primero hay que elegir clínica + horario.
+            </p>
+            <Link
+              href="/search-v2"
+              className="btn btn-gold"
+              style={{ display: 'inline-block' }}
+            >
+              Ir a la búsqueda →
+            </Link>
+          </div>
+        </main>
       </>
     );
   }

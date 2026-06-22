@@ -11,6 +11,9 @@ import Footer from '@/components/Footer';
 export const metadata = {
   title: 'Cuenta pendiente de aprobación — Med Connect',
   description: 'Tu cuenta de profesional aún no ha sido aprobada por el equipo de Med Connect.',
+  // 2026-06-22 — Auth-only state page. Sin contexto de session no
+  // tiene utilidad como entry SEO.
+  robots: { index: false, follow: false },
 };
 
 export default function PendingApproval() {
