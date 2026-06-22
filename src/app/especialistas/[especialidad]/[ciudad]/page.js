@@ -211,12 +211,25 @@ export default async function EspecialistasCiudadPage({ params }) {
   // page size (30). Skeleton count = API response count → 0 shift.
   const expectedClinicCount = await countApiMatchClinics(especialidad, city);
 
-  // JSON-LD: MedicalBusiness + FAQPage schema
+  // 2026-06-22 — JSON-LD enriquecido para LLMs.
+  // ChatGPT (canal con CVR 50%, único pago confirmado en 8 días) muestra
+  // que los LLMs sí refieren MedConnect a usuarios con intent específico.
+  // Para que el modelo entienda QUÉ ofrecemos y a QUÉ PRECIO sin tener
+  // que parsear el DOM, expandimos la MedicalBusiness con:
+  //   - availableService: el servicio principal (cita prioritaria con
+  //     priceSpecification 5–29 €). Permite que LLMs respondan
+  //     "MedConnect cobra X € por gestionar la cita en Y".
+  //   - paymentAccepted + currenciesAccepted: explícito.
+  //   - hasOfferCatalog: catálogo enumerable con los 4 tiers.
+  //   - knowsAbout: especialidad + sus términos relacionados (alias,
+  //     comunes en queries naturales).
+  // El resto del schema (FAQPage, BreadcrumbList) ya cubre el contexto.
   const jsonLd = {
     '@context': 'https://schema.org',
     '@graph': [
       {
         '@type': 'MedicalBusiness',
+        '@id': `${canonicalUrl}#business`,
         name: `${specialty.plural} en ${city} — Med Connect`,
         description: specialty.shortDesc(city),
         url: canonicalUrl,
@@ -226,12 +239,37 @@ export default async function EspecialistasCiudadPage({ params }) {
           addressCountry: 'ES',
         },
         medicalSpecialty: specialty.name,
-        priceRange: '€€',
+        knowsAbout: [
+          specialty.name,
+          specialty.plural,
+          ...(Array.isArray(specialty.aliases) ? specialty.aliases : []),
+        ].filter(Boolean),
+        priceRange: '€5–€29',
+        currenciesAccepted: 'EUR',
+        paymentAccepted: ['Credit Card', 'Apple Pay', 'Google Pay'],
         openingHoursSpecification: {
           '@type': 'OpeningHoursSpecification',
           dayOfWeek: ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday'],
           opens: '09:00',
           closes: '19:00',
+        },
+        availableService: {
+          '@type': 'MedicalProcedure',
+          name: `Reserva prioritaria de ${specialty.name.toLowerCase()} en ${city}`,
+          description: `Med Connect gestiona la reserva con clínicas concertadas en ${city}. El paciente paga una tarifa de prioridad (€5 a €29 según la urgencia) y la consulta queda cubierta por su aseguradora privada.`,
+          offers: {
+            '@type': 'AggregateOffer',
+            priceCurrency: 'EUR',
+            lowPrice: '5',
+            highPrice: '29',
+            offerCount: '4',
+            offers: [
+              { '@type': 'Offer', name: 'Esta semana',     price: '29', priceCurrency: 'EUR' },
+              { '@type': 'Offer', name: '8–15 días',       price: '19', priceCurrency: 'EUR' },
+              { '@type': 'Offer', name: '16–30 días',      price: '10', priceCurrency: 'EUR' },
+              { '@type': 'Offer', name: 'Más adelante',    price:  '5', priceCurrency: 'EUR' },
+            ],
+          },
         },
       },
       {
