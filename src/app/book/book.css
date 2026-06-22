@@ -616,6 +616,60 @@
   background: white;
   font-family: inherit;
   min-height: 48px;
+  position: relative;
+}
+
+/* 2026-06-22 — Skeleton overlay durante el hydrate del CardElement.
+   Clarity 15-22 jun registró 30 dead clicks acumulados sobre el
+   placeholder "•••• •••• ••••" del CardElement. Causa: hidrate de
+   Stripe.js tarda 300-800ms y mientras tanto el campo está VACÍO,
+   sin handler, sin feedback — los users hacen click y nada.
+   El overlay catches los clicks y muestra cursor:progress + texto
+   "Cargando..." Lo desmontamos cuando CardElement firae onReady. */
+.payment-stripe-element--loading {
+  cursor: progress;
+}
+.payment-stripe-skeleton {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: var(--space-md);
+  background: white;
+  border-radius: var(--radius-md);
+  /* z-index aboveStripe iframe — el iframe es z-index:auto, así que
+     cualquier número positivo basta para que el overlay quede ENCIMA
+     y absorba el click. */
+  z-index: 2;
+  cursor: progress;
+  user-select: none;
+}
+.payment-stripe-skeleton-shimmer {
+  flex: 1;
+  height: 14px;
+  border-radius: 4px;
+  background: linear-gradient(
+    90deg,
+    rgba(0, 0, 0, 0.04) 0%,
+    rgba(0, 0, 0, 0.10) 50%,
+    rgba(0, 0, 0, 0.04) 100%
+  );
+  background-size: 200% 100%;
+  animation: payment-stripe-shimmer 1.2s ease-in-out infinite;
+}
+.payment-stripe-skeleton-text {
+  font-size: 12px;
+  color: var(--fg-muted);
+  white-space: nowrap;
+  font-family: var(--font-body);
+}
+@keyframes payment-stripe-shimmer {
+  0%   { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .payment-stripe-skeleton-shimmer { animation: none; }
 }
 
 /* The pre-PaymentForm "Cargando los datos de tu reserva…" block on the
