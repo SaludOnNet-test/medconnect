@@ -3,6 +3,13 @@ import Icon from '@/components/icons/Icon';
 import { formatEUR } from '@/lib/format';
 import { getPricingDisplay, applyPartnerDiscount, STANDARD_TIERS, PARTNER_DISCOUNT_PCT } from '@/lib/pricing';
 import { isPartnerClinic } from '@/lib/partnerClinics';
+// SaludOnNet video-consultation pilot — utmFor() builds the
+// outbound URL's UTM block; trackEvent fires the click telemetry
+// (GA4 + Clarity + analytics_events DB row) so we can measure the
+// pilot's funnel. Cleanup of the pilot: revert dispatchOpen() back
+// to a direct onOpenModal call and drop these imports.
+import { utmFor } from '@/lib/videoPilot';
+import { trackEvent } from '@/lib/analytics';
 import './ClinicCardV2.css';
 
 function getInitials(name) {
@@ -67,6 +74,38 @@ export default function ClinicCardV2({
     : availableSlots.filter((s) => s.tier === 1).length;
   const isLastSlotThisWeek = tierOneCount === 1;
 
+  // SaludOnNet video-consultation pilot — providers carrying
+  // `deliveryMode === 'video'` short-circuit every CTA on this card.
+  // Instead of opening ClinicBookingModal, we fire a Clarity event
+  // + Sentry breadcrumb and open SaludOnNet's booking page in a new
+  // tab with UTM params attached. Removing the pilot reverts every
+  // dispatchOpen() call below to the direct onOpenModal() form.
+  const isVideoProvider = provider?.deliveryMode === 'video';
+  const dispatchOpen = (slot) => {
+    if (isVideoProvider) {
+      // Telemetry — trackEvent fans out to GA4, Clarity, and the
+      // analytics_events Azure SQL table. Lets us measure pilot
+      // CTR + correlate clicks against downstream conversion (via
+      // sticky UTM attribution already captured by analytics.js).
+      try {
+        trackEvent('video_pilot_cta_click', {
+          providerId: String(provider.id),
+          specialty: provider.specialtyDisplay || '',
+          slotDate: slot?.date || null,
+          slotTime: slot?.time || null,
+          externalBookingUrl: provider.externalBookingUrl || null,
+        });
+      } catch {}
+      if (typeof window !== 'undefined' && provider.externalBookingUrl) {
+        const sep = provider.externalBookingUrl.includes('?') ? '&' : '?';
+        const targetUrl = `${provider.externalBookingUrl}${sep}${utmFor(provider.specialtyDisplay)}`;
+        window.open(targetUrl, '_blank', 'noopener,noreferrer');
+      }
+      return;
+    }
+    if (onOpenModal) onOpenModal(provider, slot);
+  };
+
   // 2026-06-04 — Dead-click fix.
   // Clarity recorded heavy dead-click activity on the clinic name, logo
   // avatar, address and insurance tags. Patients expected the card to be
@@ -76,7 +115,7 @@ export default function ClinicCardV2({
   // as the "Ver todos los horarios →" CTA. Slot chips are SIBLINGS of
   // this container, not children, so their click handlers are unaffected.
   const openBrowseMode = () => {
-    if (onOpenModal) onOpenModal(provider, null);
+    dispatchOpen(null);
   };
   const handleBodyKey = (e) => {
     if (e.key === 'Enter' || e.key === ' ') {
@@ -116,21 +155,31 @@ export default function ClinicCardV2({
                   que NO se dispare ALSO el openBrowseMode del card-body
                   (sin eso, el click haría las dos cosas — abrir modal Y
                   Maps — porque el link queda DENTRO del card clickeable). */}
-              <a
-                href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(
-                  `${provider.name}, ${provider.address || ''}, ${provider.city || ''}`.trim()
-                )}`}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="cv2-address cv2-address--link"
-                onClick={(e) => e.stopPropagation()}
-                onKeyDown={(e) => e.stopPropagation()}
-                title="Ver en Google Maps"
-                aria-label={`Ver ${provider.name} en Google Maps`}
-              >
-                <Icon name="map-pin" size={14} className="cv2-icon" />
-                {provider.address}, {provider.city}
-              </a>
+              {isVideoProvider ? (
+                // Video pilot — no physical address, so the line is
+                // plain text. Icon swapped from map-pin to video to
+                // reinforce the modality at-a-glance.
+                <span className="cv2-address">
+                  <Icon name="video" size={14} className="cv2-icon" />
+                  {provider.address || 'Videoconsulta online'}
+                </span>
+              ) : (
+                <a
+                  href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(
+                    `${provider.name}, ${provider.address || ''}, ${provider.city || ''}`.trim()
+                  )}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="cv2-address cv2-address--link"
+                  onClick={(e) => e.stopPropagation()}
+                  onKeyDown={(e) => e.stopPropagation()}
+                  title="Ver en Google Maps"
+                  aria-label={`Ver ${provider.name} en Google Maps`}
+                >
+                  <Icon name="map-pin" size={14} className="cv2-icon" />
+                  {provider.address}, {provider.city}
+                </a>
+              )}
             </div>
 
             {/* 2026-06-12 — Dead-click fix follow-up.
@@ -167,12 +216,22 @@ export default function ClinicCardV2({
           </div>
 
           <div className="cv2-tags">
+            {/* SaludOnNet video-consultation pilot — sits FIRST so it
+                reads as the headline differentiator on the card, the
+                same slot the partner pill would occupy for in-person
+                providers (the two are mutually exclusive — video
+                providers never receive the partner pill). */}
+            {isVideoProvider && (
+              <span className="cv2-tag cv2-tag--video" title="Consulta por videollamada con un médico de la red SaludOnNet">
+                🎥 Videoconsulta
+              </span>
+            )}
             {/* 2026-06-08 — Partner badge. Cea Bermúdez (and any future
                 PARTNER_CLINIC_IDS member) earns a visible green chip
                 advertising the extra -30% discount applied to all its
                 slots. Sits FIRST in the row so it reads as the headline
                 differentiator. */}
-            {isPartnerClinic(provider.id) && (
+            {!isVideoProvider && isPartnerClinic(provider.id) && (
               <span className="cv2-tag cv2-tag--partner" title="Tarifa de prioridad con descuento adicional del 30%">
                 ✨ Centro destacado · −{Math.round(PARTNER_DISCOUNT_PCT * 100)}%
               </span>
@@ -206,7 +265,7 @@ export default function ClinicCardV2({
             // remaining tier-1 slot pre-selected → 1 click away from book.
             const firstTier1 = availableSlots?.find((s) => s.tier === 1);
             const handleBannerClick = () => {
-              if (firstTier1 && onOpenModal) onOpenModal(provider, firstTier1);
+              if (firstTier1) dispatchOpen(firstTier1);
             };
             return (
               <div
@@ -240,6 +299,15 @@ export default function ClinicCardV2({
                 (best, s) => (Number(s.price) < Number(best.price) ? s : best),
                 priced[0],
               );
+              // SaludOnNet video pilot — service price flows straight
+              // through with no priority-fee framing. Plain "desde X €"
+              // copy, no strikethrough (no partner discount applies to
+              // video providers in this round).
+              if (isVideoProvider) {
+                return (
+                  <> · videoconsulta · <strong>desde {formatEUR(Number(cheapest.price) || 0)}</strong></>
+                );
+              }
               const display = getPricingDisplay(cheapest, provider.id);
               return (
                 <> · tarifa de prioridad{' '}
@@ -252,7 +320,7 @@ export default function ClinicCardV2({
                 </>
               );
             })()}
-            {!isSinSeguro && (
+            {!isSinSeguro && !isVideoProvider && (
               <span className="cv2-slots-coverage"> · tu seguro cubre la consulta</span>
             )}
             :
@@ -265,7 +333,7 @@ export default function ClinicCardV2({
                   <button
                     key={i}
                     className={`cv2-slot-chip tier-${slot.tier ?? 0}`}
-                    onClick={() => onOpenModal && onOpenModal(provider, slot)}
+                    onClick={() => dispatchOpen(slot)}
                     title={slot.tierLabel || ''}
                   >
                     <span className="cv2-slot-date">{formatSlotDate(slot.date)} · {slot.time}</span>
@@ -275,6 +343,23 @@ export default function ClinicCardV2({
               // 2026-06-08 — Strikethrough display for each slot chip.
               // Sin-seguro path still includes the consultation cost
               // (basePrice) on top of the discounted priority fee.
+              // SaludOnNet video pilot — skip priority-fee math and
+              // render the SaludOnNet service price as a single number.
+              if (isVideoProvider) {
+                return (
+                  <button
+                    key={i}
+                    className={`cv2-slot-chip tier-${slot.tier ?? 0}`}
+                    onClick={() => dispatchOpen(slot)}
+                    title={slot.tierLabel || ''}
+                  >
+                    <span className="cv2-slot-date">{formatSlotDate(slot.date)} · {slot.time}</span>
+                    <span className="cv2-slot-fee-group">
+                      <span className="cv2-slot-fee">{formatEUR(Number(slot.price) || 0)}</span>
+                    </span>
+                  </button>
+                );
+              }
               const display = getPricingDisplay(slot, provider.id);
               const activeWithService = isSinSeguro
                 ? display.active + Number(basePrice || 0)
@@ -286,7 +371,7 @@ export default function ClinicCardV2({
                 <button
                   key={i}
                   className={`cv2-slot-chip tier-${slot.tier ?? 0}`}
-                  onClick={() => onOpenModal && onOpenModal(provider, slot)}
+                  onClick={() => dispatchOpen(slot)}
                   title={slot.tierLabel || ''}
                 >
                   <span className="cv2-slot-date">{formatSlotDate(slot.date)} · {slot.time}</span>
@@ -301,17 +386,17 @@ export default function ClinicCardV2({
             })}
             <button
               className="cv2-slot-chip cv2-slot-chip--more"
-              onClick={() => onOpenModal && onOpenModal(provider, null)}
+              onClick={() => dispatchOpen(null)}
             >
-              Ver todos los horarios →
+              {isVideoProvider ? 'Reservar en SaludOnNet →' : 'Ver todos los horarios →'}
             </button>
           </div>
         </div>
       ) : (
         <div className="cv2-no-slots">
           Sin disponibilidad próxima ·{' '}
-          <button className="cv2-link" onClick={() => onOpenModal && onOpenModal(provider, null)}>
-            Ver opciones
+          <button className="cv2-link" onClick={() => dispatchOpen(null)}>
+            {isVideoProvider ? 'Ver en SaludOnNet' : 'Ver opciones'}
           </button>
         </div>
       )}

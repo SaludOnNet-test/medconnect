@@ -1,0 +1,138 @@
+{
+  "scrapedAt": "2026-06-23T03:00:00Z",
+  "providers": [
+    {
+      "id": "video-derma-001",
+      "name": "Ana López — Videoconsulta",
+      "specialtySlugs": ["dermatologia"],
+      "specialtyDisplay": "Dermatología",
+      "city": "Madrid",
+      "province": "Madrid",
+      "address": "Videoconsulta — atendido desde Madrid",
+      "deliveryMode": "video",
+      "servicePrice": 45,
+      "currency": "EUR",
+      "rating": 4.7,
+      "reviewCount": 128,
+      "bookingUrl": "https://www.saludonnet.com/video-consulta-agendas",
+      "availability": [
+        { "date": "2026-06-25", "time": "10:00" },
+        { "date": "2026-06-25", "time": "10:30" },
+        { "date": "2026-06-26", "time": "16:15" },
+        { "date": "2026-07-02", "time": "11:00" },
+        { "date": "2026-07-10", "time": "09:30" },
+        { "date": "2026-07-20", "time": "12:00" }
+      ]
+    },
+    {
+      "id": "video-derma-002",
+      "name": "Carlos Méndez — Videoconsulta",
+      "specialtySlugs": ["dermatologia"],
+      "specialtyDisplay": "Dermatología",
+      "city": "Madrid",
+      "province": "Madrid",
+      "address": "Videoconsulta — atendido desde Madrid",
+      "deliveryMode": "video",
+      "servicePrice": 39,
+      "currency": "EUR",
+      "rating": 4.5,
+      "reviewCount": 87,
+      "bookingUrl": "https://www.saludonnet.com/video-consulta-agendas",
+      "availability": [
+        { "date": "2026-06-24", "time": "15:30" },
+        { "date": "2026-06-29", "time": "10:00" },
+        { "date": "2026-07-06", "time": "17:00" },
+        { "date": "2026-07-14", "time": "11:30" },
+        { "date": "2026-07-25", "time": "10:30" }
+      ]
+    },
+    {
+      "id": "video-uro-001",
+      "name": "Roberto Sánchez — Videoconsulta",
+      "specialtySlugs": ["urologia"],
+      "specialtyDisplay": "Urología",
+      "city": "Madrid",
+      "province": "Madrid",
+      "address": "Videoconsulta — atendido desde Madrid",
+      "deliveryMode": "video",
+      "servicePrice": 49,
+      "currency": "EUR",
+      "rating": 4.8,
+      "reviewCount": 215,
+      "bookingUrl": "https://www.saludonnet.com/video-consulta-agendas",
+      "availability": [
+        { "date": "2026-06-25", "time": "09:00" },
+        { "date": "2026-06-27", "time": "11:00" },
+        { "date": "2026-07-04", "time": "10:00" },
+        { "date": "2026-07-11", "time": "12:30" },
+        { "date": "2026-07-22", "time": "16:00" }
+      ]
+    },
+    {
+      "id": "video-uro-002",
+      "name": "Lucía Fernández — Videoconsulta",
+      "specialtySlugs": ["urologia"],
+      "specialtyDisplay": "Urología",
+      "city": "Madrid",
+      "province": "Madrid",
+      "address": "Videoconsulta — atendido desde Madrid",
+      "deliveryMode": "video",
+      "servicePrice": 45,
+      "currency": "EUR",
+      "rating": 4.6,
+      "reviewCount": 142,
+      "bookingUrl": "https://www.saludonnet.com/video-consulta-agendas",
+      "availability": [
+        { "date": "2026-06-26", "time": "14:00" },
+        { "date": "2026-06-30", "time": "10:30" },
+        { "date": "2026-07-07", "time": "09:15" },
+        { "date": "2026-07-18", "time": "11:00" }
+      ]
+    },
+    {
+      "id": "video-gine-001",
+      "name": "María Ruiz — Videoconsulta",
+      "specialtySlugs": ["ginecologia"],
+      "specialtyDisplay": "Ginecología",
+      "city": "Madrid",
+      "province": "Madrid",
+      "address": "Videoconsulta — atendido desde Madrid",
+      "deliveryMode": "video",
+      "servicePrice": 55,
+      "currency": "EUR",
+      "rating": 4.9,
+      "reviewCount": 311,
+      "bookingUrl": "https://www.saludonnet.com/video-consulta-agendas",
+      "availability": [
+        { "date": "2026-06-25", "time": "12:00" },
+        { "date": "2026-06-25", "time": "12:30" },
+        { "date": "2026-06-30", "time": "16:00" },
+        { "date": "2026-07-08", "time": "10:00" },
+        { "date": "2026-07-15", "time": "11:30" },
+        { "date": "2026-07-23", "time": "15:00" }
+      ]
+    },
+    {
+      "id": "video-gine-002",
+      "name": "Elena Castro — Videoconsulta",
+      "specialtySlugs": ["ginecologia"],
+      "specialtyDisplay": "Ginecología",
+      "city": "Madrid",
+      "province": "Madrid",
+      "address": "Videoconsulta — atendido desde Madrid",
+      "deliveryMode": "video",
+      "servicePrice": 49,
+      "currency": "EUR",
+      "rating": 4.7,
+      "reviewCount": 168,
+      "bookingUrl": "https://www.saludonnet.com/video-consulta-agendas",
+      "availability": [
+        { "date": "2026-06-24", "time": "10:00" },
+        { "date": "2026-06-26", "time": "15:30" },
+        { "date": "2026-07-03", "time": "09:30" },
+        { "date": "2026-07-09", "time": "12:00" },
+        { "date": "2026-07-21", "time": "10:30" }
+      ]
+    }
+  ]
+}

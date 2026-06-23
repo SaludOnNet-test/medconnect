@@ -29,6 +29,12 @@ import MobileStickyBar from '@/components/MobileStickyBar';
 import Icon from '@/components/icons/Icon';
 import { insuranceCompanies } from '@/data/mock';
 import { PARTNER_CLINIC_IDS } from '@/lib/partnerClinics';
+// SaludOnNet video-consultation pilot — the Modalidad filter on
+// /especialistas only renders when the landing's specialty is in the
+// pilot scope. Outside the scope the search returns zero video
+// providers anyway, so showing the filter would be misleading.
+// Cleanup: drop this import + the chip-group conditional below.
+import { PILOT_SPECIALTIES } from '@/lib/videoPilot';
 import '../../../search-v2/search-v2.css';
 
 // Per-(specialty, city) tier caps: how many non-partner clinics can
@@ -85,6 +91,13 @@ export default function SearchResults({ specialtySlug, city, expectedClinicCount
   // on the same page after toggling. Add ?tier= sync later if it becomes
   // a shared-link use case.
   const [tierFilter, setTierFilter] = useState(new Set());
+  // SaludOnNet video-consultation pilot — modality filter. Only the
+  // chip group renders when the landing's specialty is in pilot scope
+  // (see `videoPilotInScope` below). State lives unconditionally so the
+  // displayClinics predicate stays simple; on out-of-scope landings the
+  // filter is always '' so the predicate is a no-op.
+  const videoPilotInScope = PILOT_SPECIALTIES.has(specialtySlug);
+  const [modalityFilter, setModalityFilter] = useState('');
   // Desktop opens the map by default, mobile keeps it hidden until toggled.
   const [showMap, setShowMap] = useState(false);
   // 2026-06-16 — Mobile filter drawer state.
@@ -161,12 +174,27 @@ export default function SearchResults({ specialtySlug, city, expectedClinicCount
         Array.isArray(c.acceptedInsurance) && c.acceptedInsurance.includes(insuranceFilter)
       );
     }
+    // SaludOnNet video-consultation pilot — modality predicate. Same
+    // semantics as on /search-v2. No-op when modalityFilter is ''.
+    if (modalityFilter === 'video') {
+      list = list.filter((c) => c.deliveryMode === 'video');
+    } else if (modalityFilter === 'in_person') {
+      list = list.filter((c) => c.deliveryMode !== 'video');
+    }
+    // SaludOnNet video-consultation pilot — video providers ranked
+    // between partners and the rest so they survive the tier cap
+    // below. See the matching comment in /search-v2/page.js.
     list.sort((a, b) => {
-      if (!!a.isPartner !== !!b.isPartner) return a.isPartner ? -1 : 1;
+      const aIsPartner = !!a.isPartner;
+      const bIsPartner = !!b.isPartner;
+      if (aIsPartner !== bIsPartner) return aIsPartner ? -1 : 1;
+      const aIsVideo = a.deliveryMode === 'video';
+      const bIsVideo = b.deliveryMode === 'video';
+      if (aIsVideo !== bIsVideo) return aIsVideo ? -1 : 1;
       return 0;
     });
     return list;
-  }, [clinics, insuranceFilter]);
+  }, [clinics, insuranceFilter, modalityFilter]);
 
   // Tier filter + cap pass — mirrors /search-v2. See the comment block
   // there for the full semantics. Partners bypass caps.
@@ -184,9 +212,12 @@ export default function SearchResults({ specialtySlug, city, expectedClinicCount
         ? new Set([...slotTiers].filter((t) => userTiers.has(t)))
         : slotTiers;
       const isPartner = !!p.isPartner || PARTNER_CLINIC_IDS.has(p.id);
+      // Video providers bypass the tier cap — see /search-v2 page.
+      const isVideoProvider = p.deliveryMode === 'video';
+      const bypassCap = isPartner || isVideoProvider;
       const allowedTiers = new Set();
       for (const t of candidateTiers) {
-        if (isPartner) allowedTiers.add(t);
+        if (bypassCap) allowedTiers.add(t);
         else if (budget[t] > 0) { allowedTiers.add(t); budget[t] -= 1; }
       }
       if (allowedTiers.size === 0) continue;
@@ -326,6 +357,36 @@ export default function SearchResults({ specialtySlug, city, expectedClinicCount
             </select>
           </div>
 
+          {/* SaludOnNet video-consultation pilot — only renders for
+              derma / uro / gine landings. On other landings the
+              search returns zero video providers so the filter would
+              do nothing. Cleanup: drop this entire <div>. */}
+          {videoPilotInScope && (
+            <div className="sv2-filter-group">
+              <label className="sv2-filter-label">Modalidad</label>
+              <div className="sv2-tier-chips" role="group" aria-label="Filtrar por modalidad de consulta">
+                {[
+                  { value: '',          label: 'Todos' },
+                  { value: 'in_person', label: 'Presencial' },
+                  { value: 'video',     label: 'Videoconsulta' },
+                ].map(({ value, label }) => {
+                  const active = modalityFilter === value;
+                  return (
+                    <button
+                      key={value || 'all'}
+                      type="button"
+                      aria-pressed={active}
+                      className={`sv2-tier-chip ${active ? 'sv2-tier-chip--active' : ''}`}
+                      onClick={() => setModalityFilter(value)}
+                    >
+                      {label}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+
           <div className="sv2-filter-group">
             <label className="sv2-filter-label">Disponibilidad</label>
             <div className="sv2-tier-chips" role="group" aria-label="Filtrar por ventana de disponibilidad">
@@ -452,7 +513,7 @@ export default function SearchResults({ specialtySlug, city, expectedClinicCount
                 <button
                   type="button"
                   className="btn btn-gold"
-                  onClick={() => { setInsuranceFilter(''); setTierFilter(new Set()); }}
+                  onClick={() => { setInsuranceFilter(''); setTierFilter(new Set()); setModalityFilter(''); }}
                 >
                   Limpiar filtros
                 </button>
@@ -522,7 +583,9 @@ export default function SearchResults({ specialtySlug, city, expectedClinicCount
           the dynamic ClinicMap panel that's hidden by default on mobile. */}
       <MobileStickyBar
         filterCount={
-          (insuranceFilter ? 1 : 0) + (tierFilter.size > 0 ? 1 : 0)
+          (insuranceFilter ? 1 : 0)
+          + (tierFilter.size > 0 ? 1 : 0)
+          + (modalityFilter ? 1 : 0)
         }
         onOpenFilters={() => {
           // 2026-06-16 — Previously a no-op scrollIntoView on an anchor
