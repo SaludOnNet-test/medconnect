@@ -80,7 +80,7 @@ const organizationSchema = {
   areaServed: { '@type': 'Country', name: 'España' },
   serviceType: 'Reserva de citas médicas privadas',
   sameAs: [
-    'https://maps.google.com/?cid=827679985435262619',
+    'https://www.google.com/maps/place/MedConnect/data=!4m2!3m1!1s0xd4183a410c7f5e1:0x6aeb657b640c08c9',
   ],
 };
 
