@@ -28,6 +28,8 @@ export const BLOG_POSTS = [
     readingMinutes: 6,
     relatedSpecialty: null,
     relatedCity: null,
+    coverImage: 'https://images.unsplash.com/photo-1519494026892-80bbd2d6fd0d?w=900&h=500&fit=crop&q=80',
+    coverAlt: 'Sala de espera de hospital',
     content: `
 <p>Según el <strong>Barómetro Sanitario 2024</strong> del Ministerio de Sanidad, la espera media para ver a un especialista en la Seguridad Social española supera los <strong>68 días</strong>. Para especialidades como reumatología, oftalmología o cardiología, ese plazo puede llegar a los 90-120 días según la comunidad autónoma.</p>
 
@@ -68,6 +70,8 @@ export const BLOG_POSTS = [
     readingMinutes: 5,
     relatedSpecialty: null,
     relatedCity: null,
+    coverImage: 'https://images.unsplash.com/photo-1450101499163-c8848c66ca85?w=900&h=500&fit=crop&q=80',
+    coverAlt: 'Documentos de póliza de seguro médico',
     content: `
 <p>España tiene más de <strong>12 millones de asegurados de salud privada</strong> (datos UNESPA 2024). La mayoría contrató su seguro con una expectativa razonable: si necesito un médico, lo tengo. Lo que no imaginaban es que "tenerlo" no significa "tenerlo ahora".</p>
 
@@ -103,6 +107,8 @@ export const BLOG_POSTS = [
     readingMinutes: 7,
     relatedSpecialty: null,
     relatedCity: null,
+    coverImage: 'https://images.unsplash.com/photo-1576091160550-2173dba999ef?w=900&h=500&fit=crop&q=80',
+    coverAlt: 'Médico con estetoscopio en clínica moderna',
     content: `
 <p>En España convivimos con tres sistemas de acceso a la salud y casi nadie entiende bien qué garantiza cada uno. Lo cual lleva a dos errores frecuentes: infrautilizar el sistema público cuando es la mejor opción, y esperar del seguro privado lo que no puede ofrecer.</p>
 
@@ -149,6 +155,8 @@ export const BLOG_POSTS = [
     readingMinutes: 5,
     relatedSpecialty: 'cardiologia',
     relatedCity: null,
+    coverImage: 'https://images.unsplash.com/photo-1628348070889-cb656235b4eb?w=900&h=500&fit=crop&q=80',
+    coverAlt: 'Cardiólogo revisando electrocardiograma',
     content: `
 <p>El corazón raramente avisa con claridad. Los síntomas cardíacos a menudo son vagos, intermitentes o fácilmente confundibles con ansiedad, reflujo o cansancio. Por eso, saber cuándo acudir al cardiólogo — y con qué urgencia — puede marcar una diferencia importante.</p>
 
@@ -187,6 +195,8 @@ export const BLOG_POSTS = [
     readingMinutes: 5,
     relatedSpecialty: 'dermatologia',
     relatedCity: null,
+    coverImage: 'https://images.unsplash.com/photo-1612349317150-e413f6a5b16d?w=900&h=500&fit=crop&q=80',
+    coverAlt: 'Dermatólogo examinando la piel de un paciente',
     content: `
 <p>La piel es el órgano más visible del cuerpo y, paradójicamente, el que más tardamos en consultar. Nos habituamos a las manchas, a los lunares que cambian despacio, a las erupciones que "seguro que no es nada". A veces tienen razón. Otras veces, no.</p>
 
@@ -223,6 +233,8 @@ export const BLOG_POSTS = [
     readingMinutes: 5,
     relatedSpecialty: 'ginecologia',
     relatedCity: null,
+    coverImage: 'https://images.unsplash.com/photo-1579154204601-01588f351e67?w=900&h=500&fit=crop&q=80',
+    coverAlt: 'Médica especialista en consulta',
     content: `
 <p>La revisión ginecológica anual es rutinaria, pero hay síntomas que no pueden esperar al siguiente chequeo programado. Identificar cuándo la consulta ginecológica es urgente puede marcar la diferencia en el diagnóstico precoz de patologías que responden muy bien al tratamiento temprano.</p>
 
@@ -252,6 +264,8 @@ export const BLOG_POSTS = [
     readingMinutes: 5,
     relatedSpecialty: 'urologia',
     relatedCity: null,
+    coverImage: 'https://images.unsplash.com/photo-1551190822-a9333d879b1f?w=900&h=500&fit=crop&q=80',
+    coverAlt: 'Médico revisando resultados de laboratorio',
     content: `
 <p>La urología abarca una amplia gama de patologías, desde infecciones de orina hasta cáncer de próstata, pasando por cálculos renales, disfunción eréctil e incontinencia. Muchos de estos problemas se tratan mejor cuanto antes se diagnostican.</p>
 
@@ -288,6 +302,8 @@ export const BLOG_POSTS = [
     readingMinutes: 5,
     relatedSpecialty: 'cardiologia',
     relatedCity: null,
+    coverImage: 'https://images.unsplash.com/photo-1530026186672-2cd00ffc50fe?w=900&h=500&fit=crop&q=80',
+    coverAlt: 'Electrocardiograma mostrando ritmo cardíaco',
     content: `
 <p>Las palpitaciones — esa sensación de notar los propios latidos, de que el corazón late fuerte, rápido o de forma irregular — son uno de los motivos de consulta cardiológica más frecuentes. Y también uno de los que más angustia generan, precisamente porque el corazón está implicado.</p>
 <p>La buena noticia: la gran mayoría de las palpitaciones no indican ninguna enfermedad cardíaca grave. La mala: algunas sí, y saber distinguirlas importa.</p>
@@ -332,6 +348,8 @@ export const BLOG_POSTS = [
     readingMinutes: 6,
     relatedSpecialty: 'traumatologia',
     relatedCity: null,
+    coverImage: 'https://images.unsplash.com/photo-1559757175-0eb30cd8c063?w=900&h=500&fit=crop&q=80',
+    coverAlt: 'Fisioterapeuta tratando dolor de espalda',
     content: `
 <p>El dolor de espalda baja (lumbalgia) es la principal causa de discapacidad laboral en España y uno de los motivos de consulta médica más frecuentes. La buena noticia: el 90% de los episodios agudos de lumbalgia se resuelven solos en 4-6 semanas con reposo relativo, antiinflamatorios y movimiento progresivo. La mala: un 10% tiene causas que requieren diagnóstico y tratamiento especializado.</p>
 
@@ -371,6 +389,8 @@ export const BLOG_POSTS = [
     readingMinutes: 5,
     relatedSpecialty: 'dermatologia',
     relatedCity: null,
+    coverImage: 'https://images.unsplash.com/photo-1584308666744-24d5c474f2ae?w=900&h=500&fit=crop&q=80',
+    coverAlt: 'Dermatoscopia revisión de lunares',
     content: `
 <p>La piel de un adulto tiene de media entre 10 y 40 lunares. Añade manchas solares, angiomas, verrugas y otras lesiones benignas comunes, y resulta que revisarse la piel puede parecer una tarea interminable. La clave es saber en qué fijarse.</p>
 
