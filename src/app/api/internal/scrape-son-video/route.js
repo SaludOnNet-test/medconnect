@@ -125,9 +125,13 @@ export async function GET(request) {
       });
       uploaded = true;
       uploadReason = 'scrape_ok';
-    } else if (!(await blobAlreadyHasManifest())) {
-      // First-run bootstrap — seed Blob with the committed example so
-      // the loader's primary path is exercised on the next request.
+    } else {
+      // Until the real HTML parser ships, the route ALWAYS re-uploads
+      // the committed example. This keeps Blob in sync with the
+      // example whenever ops edits it (e.g. price tweak, new doctor,
+      // copy fix on the address field). When the real parser lands
+      // this branch is replaced by the scraped-providers upload at
+      // the top of the if/else.
       await blobPut(MANIFEST_BLOB_KEY, JSON.stringify(exampleManifest, null, 2), {
         access: 'public',
         contentType: 'application/json',
@@ -135,7 +139,7 @@ export async function GET(request) {
         allowOverwrite: true,
       });
       uploaded = true;
-      uploadReason = 'bootstrap_example';
+      uploadReason = (await blobAlreadyHasManifest()) ? 'refresh_example' : 'bootstrap_example';
     }
   } catch (err) {
     captureException(err, { feature: 'video-pilot', step: 'blob_upload' });

@@ -8,11 +8,6 @@ import Eyebrow from '@/components/brand/Eyebrow';
 export const metadata = {
   title: 'Preguntas frecuentes — Med Connect',
   description: 'Lo que aclaramos antes de que lo preguntes en recepción. Tarifa de prioridad, seguros, cancelaciones y más.',
-  // Without an explicit canonical, Google saw both the www and non-www
-  // versions of this page as duplicates and indexed neither
-  // ("Duplicate without user-selected canonical" in Search Console
-  // 2026-05-07 export). `metadataBase` in src/app/layout.js makes the
-  // relative path resolve to the absolute www URL.
   alternates: { canonical: '/faq' },
 };
 
@@ -51,9 +46,84 @@ const FAQ_ITEMS = [
   },
 ];
 
+const faqSchema = {
+  '@context': 'https://schema.org',
+  '@type': 'FAQPage',
+  mainEntity: [
+    {
+      '@type': 'Question',
+      name: 'Si ya tengo seguro, ¿por qué tengo que pagaros algo?',
+      acceptedAnswer: {
+        '@type': 'Answer',
+        text: 'Porque tu seguro te garantiza la consulta, pero no el cuándo. Cuando necesitas cita esta semana y tu cuadro médico te ofrece dentro de un mes, somos el atajo legítimo: clínicas que ya tienen acuerdo con tu aseguradora, con una reserva prioritaria reservada para ti.',
+      },
+    },
+    {
+      '@type': 'Question',
+      name: '¿Qué pasa exactamente cuando llegue a la clínica?',
+      acceptedAnswer: {
+        '@type': 'Answer',
+        text: 'Acudes con tu tarjeta de asegurado. Te atienden bajo tu póliza. La clínica factura la consulta a tu aseguradora, no a ti. Lo único nuevo es que la cita es para mañana, no para dentro de seis semanas.',
+      },
+    },
+    {
+      '@type': 'Question',
+      name: '¿Mi aseguradora se entera? ¿Me penaliza?',
+      acceptedAnswer: {
+        '@type': 'Answer',
+        text: 'No. Para tu aseguradora es una cita concertada normal — la clínica está en su cuadro y tú estás cubierto por tu póliza. La tarifa de prioridad es un acuerdo entre tú y Med Connect, separado.',
+      },
+    },
+    {
+      '@type': 'Question',
+      name: '¿Qué incluye la tarifa de prioridad?',
+      acceptedAnswer: {
+        '@type': 'Answer',
+        text: 'Una reserva prioritaria, escalonada por urgencia: 5 € si la cita es a más de 30 días, 10 € entre 15 y 30 días, 19 € entre 7 y 14 días, y 29 € si necesitas cita en menos de 7 días. Nada más — el acto médico es entre tu aseguradora y la clínica.',
+      },
+    },
+    {
+      '@type': 'Question',
+      name: '¿Y si no tengo seguro?',
+      acceptedAnswer: {
+        '@type': 'Answer',
+        text: 'Te conseguimos cita privada en la misma red de clínicas. En este caso pagas la consulta completa, con precio cerrado de antemano y sin sorpresas en recepción. Te decimos el total antes de pagar.',
+      },
+    },
+    {
+      '@type': 'Question',
+      name: '¿Puedo cancelar?',
+      acceptedAnswer: {
+        '@type': 'Answer',
+        text: 'Sí. Hasta 24 horas antes de la cita cancelas gratis por cualquier motivo y te devolvemos el importe íntegro en 72 h. Pasado ese plazo, la tarifa de prioridad no es reembolsable salvo causa justificada.',
+      },
+    },
+    {
+      '@type': 'Question',
+      name: '¿Mis datos están seguros?',
+      acceptedAnswer: {
+        '@type': 'Answer',
+        text: 'Sí. No tratamos historiales clínicos — la información médica de la consulta se queda en la clínica y en tu aseguradora. Solo manejamos los datos mínimos para gestionar la reserva (nombre, contacto, póliza).',
+      },
+    },
+    {
+      '@type': 'Question',
+      name: '¿Qué pasa si la clínica cancela el día de la cita?',
+      acceptedAnswer: {
+        '@type': 'Answer',
+        text: 'Te avisamos por email + SMS y te ofrecemos un slot alternativo en otra clínica concertada con tu aseguradora. Si no encaja, te reembolsamos la tarifa íntegra.',
+      },
+    },
+  ],
+};
+
 export default function FAQPage() {
   return (
     <>
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(faqSchema) }}
+      />
       <Header />
       <PageHeader
         eyebrow="Preguntas frecuentes"

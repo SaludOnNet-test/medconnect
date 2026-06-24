@@ -6,6 +6,7 @@
  */
 
 import { getAllSpecialtyCityCombinations, specialtyPageUrl } from '@/lib/seoData';
+import { getAllBlogSlugs } from '@/lib/blogData';
 
 const BASE_URL = process.env.NEXT_PUBLIC_BASE_URL || 'https://www.medconnect.es';
 
@@ -53,5 +54,16 @@ export default function sitemap() {
     })
   );
 
-  return [...corePages, ...legalPages, ...specialtyPages];
+  // ── Blog posts ───────────────────────────────────────────────
+  const blogIndexPage = [
+    { url: `${BASE_URL}/blog`, lastModified: now, changeFrequency: 'weekly', priority: 0.7 },
+  ];
+  const blogPostPages = getAllBlogSlugs().map((slug) => ({
+    url: `${BASE_URL}/blog/${slug}`,
+    lastModified: now,
+    changeFrequency: 'monthly',
+    priority: 0.65,
+  }));
+
+  return [...corePages, ...legalPages, ...specialtyPages, ...blogIndexPage, ...blogPostPages];
 }
