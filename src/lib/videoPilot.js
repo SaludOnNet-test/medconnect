@@ -8,7 +8,13 @@
 // from here (search route, batch-slots route, ClinicCardV2,
 // search-v2 page, especialistas SearchResults, vercel.json cron).
 
-export const VIDEO_PILOT_ENABLED = true;
+// 2026-06-24 — TEMPORARILY OFF. The committed manifest carried
+// invented doctor names + prices + ratings (placeholders that
+// should never have shipped to production). The pilot stays
+// code-complete behind this flag while we replace the manifest
+// with authentic SaludOnNet catalog data. Flip back to `true`
+// once the manifest carries real entries.
+export const VIDEO_PILOT_ENABLED = false;
 
 // Specialties in scope for the pilot. Anything outside this set will
 // not receive video providers, even if the manifest contains entries
