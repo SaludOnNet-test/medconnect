@@ -166,6 +166,68 @@ export function buildSlotsFromAvailability(availability, servicePrice, now = new
 }
 
 /**
+ * Build a slot array from a doctor's weekly availability pattern.
+ * The pattern is keyed by lowercase weekday abbreviation
+ * (sun/mon/tue/wed/thu/fri/sat) → array of HH:MM strings. For each
+ * of the next 8 weeks we materialise one slot per (weekday, time).
+ *
+ * This is what SaludOnNet's UI shows: "this doctor attends Mon at
+ * 10:00 and 10:30, Wed at 16:00 — every week". Storing the pattern
+ * instead of dated slots keeps the manifest small and prevents the
+ * pilot from going dark when slots roll past their date.
+ *
+ * Past slots and slots beyond the tier-4 window (45 days) are
+ * dropped, same as the dated-availability variant above.
+ */
+export function buildSlotsFromWeeklyPattern(weeklyPattern, servicePrice, now = new Date()) {
+  if (!weeklyPattern || typeof weeklyPattern !== 'object') return [];
+  const DAYS = ['sun', 'mon', 'tue', 'wed', 'thu', 'fri', 'sat'];
+  const todayStart = new Date(now);
+  todayStart.setHours(0, 0, 0, 0);
+  const todayDow = todayStart.getDay();
+  const oneDayMs = 24 * 60 * 60 * 1000;
+  const out = [];
+  const NUM_WEEKS = 8;
+  for (let week = 0; week < NUM_WEEKS; week++) {
+    for (let wd = 0; wd < 7; wd++) {
+      const dayKey = DAYS[wd];
+      const times = weeklyPattern[dayKey];
+      if (!Array.isArray(times) || times.length === 0) continue;
+      const daysUntil = ((wd - todayDow + 7) % 7) + 7 * week;
+      const slotDate = new Date(todayStart);
+      slotDate.setDate(todayStart.getDate() + daysUntil);
+      const yyyy = slotDate.getFullYear();
+      const mm = String(slotDate.getMonth() + 1).padStart(2, '0');
+      const dd = String(slotDate.getDate()).padStart(2, '0');
+      const dateStr = `${yyyy}-${mm}-${dd}`;
+      for (const t of times) {
+        const slotDateTime = new Date(`${dateStr}T${t}:00`);
+        if (Number.isNaN(slotDateTime.getTime())) continue;
+        if (slotDateTime <= now) continue;
+        const daysOut = Math.floor((slotDateTime - todayStart) / oneDayMs);
+        const tier = PRICING_TIERS.find((tr) => daysOut >= tr.dayMin && daysOut <= tr.dayMax);
+        if (!tier) continue;
+        out.push({
+          date: dateStr,
+          time: t,
+          available: true,
+          tier: tier.tier,
+          tierName: tier.name,
+          tierLabel: tier.label,
+          price: Number(servicePrice) || 0,
+          paymentToClinic: 0,
+          isVideoSlot: true,
+        });
+      }
+    }
+  }
+  out.sort((a, b) =>
+    a.date === b.date ? a.time.localeCompare(b.time) : a.date.localeCompare(b.date),
+  );
+  return out;
+}
+
+/**
  * For test / debug only. Force the in-memory cache to refresh on the
  * next call.
  */
