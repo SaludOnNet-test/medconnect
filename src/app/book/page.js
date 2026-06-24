@@ -144,6 +144,19 @@ function BookContent() {
   const procedureNameParam = searchParams.get('procedureName') || '';
   const procedurePriceParam = Number(searchParams.get('procedurePrice') || 0);
 
+  // SaludOnNet video-consultation pilot — the modal forwards
+  // deliveryMode=video + servicePrice + specialtyDisplay. When set,
+  // the page collapses the insurance question (always sin-seguro),
+  // charges only the service price (priorityFee=0), and the bookings
+  // POST routes the row through the Ops-handoff path
+  // (status=awaiting_voucher, ops notification email). Cleanup of the
+  // pilot: drop the next 3 lines and the `isVideoBooking` branches
+  // below — search for it in this file.
+  const deliveryModeParam   = searchParams.get('deliveryMode') || '';
+  const isVideoBooking      = deliveryModeParam === 'video' || String(providerId).startsWith('video-');
+  const specialtyDisplayParam = searchParams.get('specialtyDisplay') || '';
+  const servicePriceParam   = Number(searchParams.get('servicePrice') || 0);
+
   const service = services.find((s) => s.id === Number(serviceId));
   // Prefer the per-clinic procedure price from the URL; fall back to the legacy
   // mock service basePrice only as a safety net.
@@ -354,9 +367,12 @@ function BookContent() {
   const [holdExpired, setHoldExpired] = useState(false);
   // Capture the (clinicId, date, time) we acquired the hold for. We
   // need this verbatim for PATCH (extend) and DELETE (release), and to
-  // build the redirect target when the timer hits zero.
+  // build the redirect target when the timer hits zero. For
+  // video-pilot providers the id is a string ("video-derma-001") —
+  // pass it through unchanged so the slot-holds endpoint (which now
+  // accepts both shapes) can address Redis.
   const holdSlotRef = useRef({
-    clinicId: Number(providerId) || null,
+    clinicId: isVideoBooking ? providerId : (Number(providerId) || null),
     date,
     time,
   });
@@ -889,9 +905,13 @@ function BookContent() {
         id,
         patientEmail: pEmail,
         patientName: pName,
-        providerId: Number(providerId) || null,
+        // Video providers have string ids that don't fit the bookings
+        // INT column — reserve a row with provider_id=null and rely on
+        // procedure_slug (videoconsulta-…) + specialty + provider_name
+        // to identify the booking server-side.
+        providerId: isVideoBooking ? null : (Number(providerId) || null),
         providerName: lockInData?.providerName || providerName,
-        specialty: service?.name || null,
+        specialty: isVideoBooking ? (specialtyDisplayParam || null) : (service?.name || null),
         slotDate: sDate,
         slotTime: sTime,
         amount: totalPrice,
@@ -957,15 +977,24 @@ function BookContent() {
           // pre-migration deploys don't drop the booking.
           patientDateOfBirth: form.dateOfBirth || null,
           patientNationalId: form.nationalId ? form.nationalId.trim() : null,
-          providerId: Number(providerId) || null,
+          // For video providers the id is a string ("video-derma-001")
+          // not a DB row — pass it through under videoProviderId, and
+          // leave providerId null so the existing INT column stays
+          // happy. /api/bookings POST branches on videoProviderId.
+          providerId: isVideoBooking ? null : (Number(providerId) || null),
+          videoProviderId: isVideoBooking ? String(providerId) : null,
           providerName: clinicName,
-          specialty: service?.name || null,
+          specialty: isVideoBooking ? (specialtyDisplayParam || null) : (service?.name || null),
+          deliveryMode: isVideoBooking ? 'video' : 'in_person',
           slotDate: slotDateToUse,
           slotTime: slotTimeToUse,
           amount: totalPrice,
           // Sin seguro: status starts at awaiting_voucher (ops must upload SON
           // voucher manually). Con seguro: confirmed straight away.
-          status: hasInsurance === true ? 'confirmed' : 'awaiting_voucher',
+          // Video bookings also land in awaiting_voucher — Ops books the
+          // SaludOnNet appointment manually and emails the patient the
+          // link + voucher (no Stripe webhook auto-confirms them).
+          status: (isVideoBooking || hasInsurance !== true) ? 'awaiting_voucher' : 'confirmed',
           cardLast4: last4,
           hasInsurance: hasInsurance === true,
           insuranceCompany: selectedInsurance || null,
@@ -976,7 +1005,12 @@ function BookContent() {
           // New: procedure (acto médico) + price split snapshots.
           procedureSlug: procedureSlugParam || null,
           procedureName: serviceLabel || null,
-          servicePrice: hasInsurance === false ? Number(servicePrice) || 0 : 0,
+          // For video bookings the full charge is the SaludOnNet
+          // service price; for in-person sin-seguro it's the same
+          // shape (service + priority). Asegurados pay only the
+          // priority fee — service column stays 0 because the
+          // insurance carrier covers it.
+          servicePrice: (isVideoBooking || hasInsurance === false) ? Number(servicePrice) || 0 : 0,
           platformFee: Number(activeFee) || 0,
         }),
       });
@@ -1023,22 +1057,41 @@ function BookContent() {
       ? `${baseUrl.replace(/\/$/, '')}/booking/${selfServiceToken}`
       : null;
 
-    // Send confirmation emails
-    sendEmail('bookingConfirmation', {
-      patientEmail,
-      patientName,
-      providerName: clinicName,
-      slotDate: slotDateToUse,
-      slotTime: slotTimeToUse,
-      totalPrice,
-      reference,
-      calendarUrl,
-      hasInsurance,
-      feeAmount: activeFee,
-      procedureName: serviceLabel || null,
-      servicePrice: hasInsurance === false ? Number(servicePrice) || 0 : 0,
-      selfServiceUrl,
-    });
+    // Send confirmation emails. Video bookings go through the
+    // pilot-specific templates: the patient gets a "we're confirming
+    // your video appointment" pending email (instead of the standard
+    // "voucher coming in 24h" one), and Ops gets a clearer "ACCIÓN
+    // REQUERIDA — book this manually on SaludOnNet" alert addressed
+    // to info@medconnect.es + francisco.
+    if (isVideoBooking) {
+      sendEmail('videoBookingPending', {
+        patientEmail,
+        patientName,
+        providerName: clinicName,
+        procedureName: serviceLabel || null,
+        slotDate: slotDateToUse,
+        slotTime: slotTimeToUse,
+        totalPrice,
+        reference,
+        selfServiceUrl,
+      });
+    } else {
+      sendEmail('bookingConfirmation', {
+        patientEmail,
+        patientName,
+        providerName: clinicName,
+        slotDate: slotDateToUse,
+        slotTime: slotTimeToUse,
+        totalPrice,
+        reference,
+        calendarUrl,
+        hasInsurance,
+        feeAmount: activeFee,
+        procedureName: serviceLabel || null,
+        servicePrice: hasInsurance === false ? Number(servicePrice) || 0 : 0,
+        selfServiceUrl,
+      });
+    }
     sendEmail('paymentReceipt', {
       patientEmail,
       patientName,
@@ -1049,37 +1102,56 @@ function BookContent() {
       totalPrice,
       last4,
     });
-    sendEmail('operationsBookingAlert', {
-      bookingId: reference,
-      caseId: opsCaseId,
-      clinicId: providerId,
-      // The clinic phone isn't on this client (only providerName comes
-      // through the URL); ops can resolve it from `clinicId` server-side.
-      // Previously this read `provider?.telephone`, but `provider` was
-      // never declared in this scope — optional chaining doesn't shield
-      // against a ReferenceError on an undeclared identifier, so the whole
-      // handler threw before reaching `setStep('success')` and the patient
-      // got stuck on "Procesando…". Caught in 2026-05 review.
-      clinicPhone: null,
-      patientName,
-      patientEmail,
-      patientPhone: lockInData?.patientPhone || form.phone || null,
-      patientDateOfBirth: form.dateOfBirth || null,
-      patientNationalId: form.nationalId ? form.nationalId.trim() : null,
-      providerName: clinicName,
-      slotDate: slotDateToUse,
-      slotTime: slotTimeToUse,
-      amount: totalPrice,
-      tier,
-      paymentToClinic,
-      specialty: service?.name || null,
-      hasInsurance: hasInsurance === true,
-      insuranceCompany: selectedInsurance || null,
-      procedureSlug: procedureSlugParam || null,
-      procedureName: serviceLabel || null,
-      servicePrice: hasInsurance === false ? Number(servicePrice) || 0 : 0,
-      platformFee: Number(activeFee) || 0,
-    });
+    if (isVideoBooking) {
+      sendEmail('videoBookingOpsAlert', {
+        bookingId: reference,
+        patientName,
+        patientEmail,
+        patientPhone: lockInData?.patientPhone || form.phone || null,
+        patientDateOfBirth: form.dateOfBirth || null,
+        patientNationalId: form.nationalId ? form.nationalId.trim() : null,
+        providerName: clinicName,
+        providerSpecialty: specialtyDisplayParam || null,
+        videoProviderId: String(providerId),
+        externalBookingUrl: searchParams.get('externalBookingUrl') || null,
+        slotDate: slotDateToUse,
+        slotTime: slotTimeToUse,
+        procedureName: serviceLabel || null,
+        amount: totalPrice,
+      });
+    } else {
+      sendEmail('operationsBookingAlert', {
+        bookingId: reference,
+        caseId: opsCaseId,
+        clinicId: providerId,
+        // The clinic phone isn't on this client (only providerName comes
+        // through the URL); ops can resolve it from `clinicId` server-side.
+        // Previously this read `provider?.telephone`, but `provider` was
+        // never declared in this scope — optional chaining doesn't shield
+        // against a ReferenceError on an undeclared identifier, so the whole
+        // handler threw before reaching `setStep('success')` and the patient
+        // got stuck on "Procesando…". Caught in 2026-05 review.
+        clinicPhone: null,
+        patientName,
+        patientEmail,
+        patientPhone: lockInData?.patientPhone || form.phone || null,
+        patientDateOfBirth: form.dateOfBirth || null,
+        patientNationalId: form.nationalId ? form.nationalId.trim() : null,
+        providerName: clinicName,
+        slotDate: slotDateToUse,
+        slotTime: slotTimeToUse,
+        amount: totalPrice,
+        tier,
+        paymentToClinic,
+        specialty: service?.name || null,
+        hasInsurance: hasInsurance === true,
+        insuranceCompany: selectedInsurance || null,
+        procedureSlug: procedureSlugParam || null,
+        procedureName: serviceLabel || null,
+        servicePrice: hasInsurance === false ? Number(servicePrice) || 0 : 0,
+        platformFee: Number(activeFee) || 0,
+      });
+    }
 
     // Email: Derivador gets notified patient confirmed and paid
     if (lockInData?.professionalEmail) {

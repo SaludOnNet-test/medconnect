@@ -31,14 +31,48 @@ const HAS_UPSTASH = !!(UPSTASH_URL && UPSTASH_TOKEN);
 const DEFAULT_HOLD_SECONDS = 15 * 60;       // 15 minutes
 const MAX_HOLD_SECONDS     = 30 * 60;       // hard cap after one auto-extend
 
+/**
+ * True for the SaludOnNet video-consultation pilot's provider ids
+ * (e.g. "video-derma-001"). Video providers are NOT in the `clinics`
+ * SQL table, so the DB mirror skips them — Redis is the sole hold
+ * store for them. Strict pattern so a typo can't slip past as a
+ * pseudo-video id.
+ */
+function isVideoProviderId(id) {
+  return typeof id === 'string' && /^video-[a-z0-9-]+$/i.test(id);
+}
+
+/**
+ * True for a clinic id that maps to a DB row (positive integer).
+ * Accepts both number and numeric-string forms.
+ */
+function isDbClinicId(id) {
+  const n = Number(id);
+  return Number.isFinite(n) && Number.isInteger(n) && n > 0;
+}
+
+/**
+ * Normalise a clinic id for use in Redis keys. For DB clinics we
+ * stringify the integer; for video-pilot providers we pass the
+ * string id through unchanged. Returns `null` if the id matches
+ * neither shape — callers should bail out.
+ */
+function normalizeClinicId(clinicId) {
+  if (isDbClinicId(clinicId)) return String(Number(clinicId));
+  if (isVideoProviderId(clinicId)) return String(clinicId);
+  return null;
+}
+
 /** Compose the Redis key for a (clinicId, date, time) triple. */
 export function holdKey(clinicId, date, time) {
-  return `hold:${Number(clinicId)}|${date}|${time}`;
+  const norm = normalizeClinicId(clinicId);
+  return `hold:${norm}|${date}|${time}`;
 }
 
 /** Compose the listing-filter shape used by `pickSlotsForTier`. */
 function listingKey(clinicId, date, time) {
-  return `${Number(clinicId)}|${date}|${time}`;
+  const norm = normalizeClinicId(clinicId);
+  return `${norm}|${date}|${time}`;
 }
 
 // ─────────────────────────────────────────────────────────
@@ -107,6 +141,7 @@ async function upstashPipeline(commands, opts = {}) {
 export async function createHold({ clinicId, date, time, sessionId, seconds = DEFAULT_HOLD_SECONDS }) {
   if (!sessionId) return { ok: false, reason: 'no_session' };
   if (!clinicId || !date || !time) return { ok: false, reason: 'bad_input' };
+  if (normalizeClinicId(clinicId) === null) return { ok: false, reason: 'bad_input' };
 
   const key = holdKey(clinicId, date, time);
   const ttl = Math.min(Math.max(60, Math.floor(seconds)), MAX_HOLD_SECONDS);
@@ -218,9 +253,12 @@ export async function getHeldKeys(clinicIds, excludeSessionId = null) {
   // is cheap on Upstash for small key spaces.
   const allKeys = [];
   for (const rawId of clinicIds) {
-    const cid = Number(rawId);
-    if (!Number.isFinite(cid) || cid <= 0) continue;
-    const pattern = `hold:${cid}|*`;
+    // Accept numeric DB clinic ids AND video-pilot string ids
+    // ("video-derma-001"). Anything else is silently skipped so
+    // arbitrary garbage in the input can't poison the SCAN.
+    const norm = normalizeClinicId(rawId);
+    if (!norm) continue;
+    const pattern = `hold:${norm}|*`;
     let cursor = '0';
     let iterations = 0;
     do {
@@ -276,6 +314,13 @@ export async function persistHoldRow({
   heldUntil,
 }) {
   if (!DB_AVAILABLE) return { ok: false, reason: 'no_db' };
+  // Video-pilot providers are NOT in the `clinics` table — their ids
+  // are strings like "video-derma-001" while slot_holds.clinic_id is
+  // INT NOT NULL. We skip the DB mirror for them; Redis remains the
+  // sole hold store for video bookings. The recovery cron simply
+  // has no rows to scan for them (which is fine — abandoned-cart
+  // recovery for video isn't part of the pilot scope).
+  if (isVideoProviderId(clinicId)) return { ok: true, skipped: 'video_provider' };
   try {
     const pool = await getPool();
     // Upsert via MERGE-style: if a row exists for the same
@@ -340,6 +385,8 @@ export async function persistHoldRow({
  */
 export async function updateHoldFormSnapshot({ sessionId, clinicId, slotDate, slotTime, formSnapshot }) {
   if (!DB_AVAILABLE) return { ok: false, reason: 'no_db' };
+  // Skip DB mirror for video-pilot providers (see persistHoldRow).
+  if (isVideoProviderId(clinicId)) return { ok: true, skipped: 'video_provider' };
   const patientEmail = formSnapshot && typeof formSnapshot.email === 'string'
     ? formSnapshot.email.trim().toLowerCase()
     : null;
@@ -380,6 +427,8 @@ export async function updateHoldFormSnapshot({ sessionId, clinicId, slotDate, sl
  */
 export async function markHoldConverted({ sessionId, clinicId, slotDate, slotTime }) {
   if (!DB_AVAILABLE) return { ok: false, reason: 'no_db' };
+  // Skip DB mirror for video-pilot providers (see persistHoldRow).
+  if (isVideoProviderId(clinicId)) return { ok: true, skipped: 'video_provider' };
   try {
     const pool = await getPool();
     await pool.request()

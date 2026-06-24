@@ -30,9 +30,9 @@ export const isVideoProviderId = (id) =>
 // (BLOB_READ_WRITE_TOKEN already wired in the project env).
 export const MANIFEST_BLOB_KEY = 'video-pilot/saludonnet-video-providers.json';
 
-// UTM for the outbound redirect — so SaludOnNet-side analytics tag
-// traffic coming from this pilot and we can correlate clicks with
-// downstream conversions.
+// UTM for the SaludOnNet booking URL that Ops forwards to the patient
+// after manually reserving the slot. Lets SaludOnNet attribute the
+// traffic to this pilot in their own analytics.
 export function utmFor(specialty) {
   const tag = (specialty || 'unknown').toLowerCase().replace(/[^a-z0-9]+/g, '-');
   return `utm_source=medconnect&utm_medium=marketplace&utm_campaign=video-pilot&utm_content=${tag}`;

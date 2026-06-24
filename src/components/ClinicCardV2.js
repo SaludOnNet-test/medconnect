@@ -3,12 +3,11 @@ import Icon from '@/components/icons/Icon';
 import { formatEUR } from '@/lib/format';
 import { getPricingDisplay, applyPartnerDiscount, STANDARD_TIERS, PARTNER_DISCOUNT_PCT } from '@/lib/pricing';
 import { isPartnerClinic } from '@/lib/partnerClinics';
-// SaludOnNet video-consultation pilot — utmFor() builds the
-// outbound URL's UTM block; trackEvent fires the click telemetry
-// (GA4 + Clarity + analytics_events DB row) so we can measure the
-// pilot's funnel. Cleanup of the pilot: revert dispatchOpen() back
-// to a direct onOpenModal call and drop these imports.
-import { utmFor } from '@/lib/videoPilot';
+// SaludOnNet video-consultation pilot — trackEvent fires the click
+// telemetry (GA4 + Clarity + analytics_events DB row) so we can
+// measure the pilot's funnel and compare CTR vs. in-person.
+// Cleanup of the pilot: drop this import and the
+// video_pilot_card_click trackEvent below.
 import { trackEvent } from '@/lib/analytics';
 import './ClinicCardV2.css';
 
@@ -84,24 +83,17 @@ export default function ClinicCardV2({
   const dispatchOpen = (slot) => {
     if (isVideoProvider) {
       // Telemetry — trackEvent fans out to GA4, Clarity, and the
-      // analytics_events Azure SQL table. Lets us measure pilot
-      // CTR + correlate clicks against downstream conversion (via
-      // sticky UTM attribution already captured by analytics.js).
+      // analytics_events Azure SQL table. Lets us measure the
+      // pilot's CTR (card click → modal open) and compare against
+      // in-person card CTR by isolating the event name.
       try {
-        trackEvent('video_pilot_cta_click', {
+        trackEvent('video_pilot_card_click', {
           providerId: String(provider.id),
           specialty: provider.specialtyDisplay || '',
           slotDate: slot?.date || null,
           slotTime: slot?.time || null,
-          externalBookingUrl: provider.externalBookingUrl || null,
         });
       } catch {}
-      if (typeof window !== 'undefined' && provider.externalBookingUrl) {
-        const sep = provider.externalBookingUrl.includes('?') ? '&' : '?';
-        const targetUrl = `${provider.externalBookingUrl}${sep}${utmFor(provider.specialtyDisplay)}`;
-        window.open(targetUrl, '_blank', 'noopener,noreferrer');
-      }
-      return;
     }
     if (onOpenModal) onOpenModal(provider, slot);
   };
@@ -388,7 +380,7 @@ export default function ClinicCardV2({
               className="cv2-slot-chip cv2-slot-chip--more"
               onClick={() => dispatchOpen(null)}
             >
-              {isVideoProvider ? 'Reservar en SaludOnNet →' : 'Ver todos los horarios →'}
+              Ver todos los horarios →
             </button>
           </div>
         </div>
@@ -396,7 +388,7 @@ export default function ClinicCardV2({
         <div className="cv2-no-slots">
           Sin disponibilidad próxima ·{' '}
           <button className="cv2-link" onClick={() => dispatchOpen(null)}>
-            {isVideoProvider ? 'Ver en SaludOnNet' : 'Ver opciones'}
+            Ver opciones
           </button>
         </div>
       )}

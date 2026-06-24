@@ -14,6 +14,10 @@ import {
   patientFinalConfirmation,
   patientRefunded,
   voucherDelivery,
+  // SaludOnNet video-consultation pilot — patient/ops emails routed
+  // through the same /api/email/send dispatcher.
+  videoBookingPending,
+  videoBookingOpsAlert,
 } from '@/lib/emailTemplates';
 
 const TEMPLATES = {
@@ -30,6 +34,8 @@ const TEMPLATES = {
   patientFinalConfirmation,
   patientRefunded,
   voucherDelivery,
+  videoBookingPending,
+  videoBookingOpsAlert,
 };
 
 export async function POST(request) {
@@ -64,13 +70,35 @@ export async function POST(request) {
     if (templateName === 'clinicPatientCompleted') {
       to = data.clinicEmail || process.env.OPERATIONS_EMAIL || 'operaciones@medconnect.es';
     }
+    // SaludOnNet video pilot — alert goes to the shared ops inbox
+    // with Francisco in cc. Hardcoded recipient list because the
+    // user's rule is "todos los correos de compras que tengan
+    // impacto en ops llegan a info@medconnect.es + copia a francisco".
+    // For arrays the sendEmail wrapper splits into per-address sends so
+    // a per-address bounce doesn't take the others down with it.
+    if (templateName === 'videoBookingOpsAlert') {
+      to = ['info@medconnect.es', 'francisco.pizarro@saludonnet.com'];
+    }
 
     if (!to) {
       return Response.json({ success: false, error: 'No recipient email found in data.to or data.patientEmail' }, { status: 400 });
     }
 
-    const result = await sendEmail({ to, subject, html });
-    return Response.json({ success: result.ok, mock: result.mock, error: result.error });
+    // sendEmail accepts string or array — fan out per-address when
+    // multiple targets are configured (currently only the video Ops
+    // alert) so a single bounce doesn't drop the rest.
+    const recipients = Array.isArray(to) ? to : [to];
+    const results = await Promise.all(
+      recipients.map((r) => sendEmail({ to: r, subject, html }).catch((err) => ({ ok: false, error: err?.message }))),
+    );
+    const okCount = results.filter((r) => r.ok).length;
+    return Response.json({
+      success: okCount > 0,
+      mock: results.some((r) => r.mock),
+      sent: okCount,
+      attempted: recipients.length,
+      error: okCount === 0 ? results[0]?.error : undefined,
+    });
   } catch (err) {
     console.error('[/api/email/send Error]', err);
     return Response.json({ success: false, error: err.message }, { status: 500 });
