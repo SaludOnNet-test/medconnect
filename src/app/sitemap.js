@@ -5,8 +5,9 @@
  * Priority scale: 1.0 (highest) → 0.1 (lowest)
  */
 
-import { getAllSpecialtyCityCombinations, specialtyPageUrl } from '@/lib/seoData';
+import { getAllSpecialtyCityCombinations, specialtyPageUrl, SPECIALTY_MAP } from '@/lib/seoData';
 import { getAllBlogSlugs } from '@/lib/blogData';
+import { getAllInsurerSpecialtyCombinations, insurerSpecialtyPageUrl } from '@/lib/insurerData';
 
 const BASE_URL = process.env.NEXT_PUBLIC_BASE_URL || 'https://www.medconnect.es';
 
@@ -65,5 +66,15 @@ export default function sitemap() {
     priority: 0.65,
   }));
 
-  return [...corePages, ...legalPages, ...specialtyPages, ...blogIndexPage, ...blogPostPages];
+  // ── Insurer × specialty landing pages (8 × 18 = 144) ───────────────
+  const insurerPages = getAllInsurerSpecialtyCombinations(SPECIALTY_MAP).map(
+    ({ aseguradora, especialidad }) => ({
+      url: insurerSpecialtyPageUrl(aseguradora, especialidad),
+      lastModified: now,
+      changeFrequency: 'monthly',
+      priority: 0.75,
+    })
+  );
+
+  return [...corePages, ...legalPages, ...specialtyPages, ...blogIndexPage, ...blogPostPages, ...insurerPages];
 }

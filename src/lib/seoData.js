@@ -205,6 +205,250 @@ export const SPECIALTY_MAP = {
       },
     ],
   },
+
+  // ── Wave 2 specialties (June 2026) ────────────────────────────────────────
+  // All verified against Azure SQL: ≥2 providers in Madrid, Barcelona,
+  // Valencia, Sevilla. Auto-noindex handles thin city pages (<3 clinics).
+
+  psicologia: {
+    id: 9,
+    name: 'Psicología',
+    plural: 'Psicólogos',
+    prep: 'en',
+    articleName: 'psicología',
+    shortDesc: (city) =>
+      `Psicólogos privados en ${city} con cita esta semana. Ansiedad, depresión, terapia cognitivo-conductual y apoyo emocional. Sin lista de espera.`,
+    faqs: [
+      {
+        q: '¿Cuándo debo consultar con un psicólogo?',
+        a: 'Cuando el malestar emocional (ansiedad, tristeza persistente, estrés, insomnio) interfiere con tu vida diaria durante más de dos semanas, o ante situaciones de duelo, ruptura, burnout o crisis de identidad.',
+      },
+      {
+        q: '¿Cuántas sesiones de psicología suelen necesitarse?',
+        a: 'Depende del motivo de consulta. Para problemas específicos (fobias, ansiedad situacional) pueden bastar 8-12 sesiones de terapia cognitivo-conductual. Procesos más complejos requieren mayor duración.',
+      },
+      {
+        q: '¿La psicología privada está cubierta por el seguro?',
+        a: 'Algunos seguros cubren un número limitado de sesiones (6-12 al año). Con Med Connect accedes a psicólogos en la red de tu aseguradora con plaza prioritaria esta semana.',
+      },
+    ],
+  },
+
+  neurologia: {
+    id: 10,
+    name: 'Neurología',
+    plural: 'Neurólogos',
+    prep: 'en',
+    articleName: 'neurología',
+    shortDesc: (city) =>
+      `Neurólogos privados en ${city}: migraña, epilepsia, vértigo, neuropatías y cefaleas. Cita esta semana sin esperar meses en la pública.`,
+    faqs: [
+      {
+        q: '¿Qué enfermedades trata el neurólogo?',
+        a: 'El neurólogo trata enfermedades del sistema nervioso: migraña crónica, epilepsia, esclerosis múltiple, Parkinson, demencias, neuropatías periféricas, vértigo de origen central y cefaleas de repetición.',
+      },
+      {
+        q: '¿Cuándo debo ir urgentemente al neurólogo?',
+        a: 'Ante pérdida brusca de fuerza o sensibilidad en un lado del cuerpo, dificultad para hablar o entender, visión doble de inicio súbito o cefalea "la peor de mi vida": acude a urgencias. Para el resto de síntomas neurológicos crónicos, pide cita prioritaria.',
+      },
+      {
+        q: '¿Cuánto espera media hay para neurología en la sanidad pública?',
+        a: 'La espera para neurología supera los 60-90 días en muchas comunidades. Con Med Connect obtienes cita neurológica privada esta semana.',
+      },
+    ],
+  },
+
+  endocrinologia: {
+    id: 11,
+    name: 'Endocrinología',
+    plural: 'Endocrinólogos',
+    prep: 'en',
+    articleName: 'endocrinología',
+    shortDesc: (city) =>
+      `Endocrinólogos privados en ${city}: diabetes, tiroides, obesidad, hormonal. Diagnóstico y control con cita disponible esta semana.`,
+    faqs: [
+      {
+        q: '¿Qué trata el endocrinólogo?',
+        a: 'El endocrinólogo se ocupa de las glándulas y las hormonas: diabetes tipo 1 y 2, hipotiroidismo, hipertiroidismo, nódulos tiroideos, obesidad, síndrome metabólico, síndrome de ovario poliquístico (SOP) y osteoporosis.',
+      },
+      {
+        q: '¿Cuándo debo ir al endocrinólogo por la tiroides?',
+        a: 'Si tu analítica muestra TSH alterada, tienes un nódulo tiroideo en la ecografía, o presentas síntomas de hipo o hipertiroidismo (fatiga, frío, taquicardia, cambio de peso sin causa), debes consultar con el endocrinólogo.',
+      },
+      {
+        q: '¿El endocrinólogo puede ayudarme a perder peso?',
+        a: 'Sí, cuando el sobrepeso tiene un componente metabólico u hormonal. El endocrinólogo diseña un plan médico que puede incluir dieta, ejercicio, fármacos o cirugía bariátrica según el caso.',
+      },
+    ],
+  },
+
+  neumologia: {
+    id: 12,
+    name: 'Neumología',
+    plural: 'Neumólogos',
+    prep: 'en',
+    articleName: 'neumología',
+    shortDesc: (city) =>
+      `Neumólogos privados en ${city}: asma, EPOC, apnea del sueño y enfermedades respiratorias. Cita urgente sin espera con tu seguro.`,
+    faqs: [
+      {
+        q: '¿Qué enfermedades trata el neumólogo?',
+        a: 'El neumólogo trata enfermedades del sistema respiratorio: asma, EPOC, bronquitis crónica, neumonía, apnea del sueño, fibrosis pulmonar, tos crónica y nódulos pulmonares.',
+      },
+      {
+        q: '¿Cuándo debo consultar con un neumólogo?',
+        a: 'Tos que dura más de 3 semanas, dificultad para respirar que limita tu actividad diaria, ronquidos intensos con pausas en la respiración nocturna, o diagnóstico previo de asma o EPOC que no se controla bien.',
+      },
+      {
+        q: '¿Qué es la espirometría y cuándo se hace?',
+        a: 'La espirometría mide la capacidad pulmonar y el flujo de aire. Es la prueba clave para diagnosticar y controlar el asma y la EPOC. Se realiza en la consulta, dura 15-20 minutos y no es dolorosa.',
+      },
+    ],
+  },
+
+  reumatologia: {
+    id: 13,
+    name: 'Reumatología',
+    plural: 'Reumatólogos',
+    prep: 'en',
+    articleName: 'reumatología',
+    shortDesc: (city) =>
+      `Reumatólogos privados en ${city}: artritis, lupus, fibromialgia, gota. Diagnóstico y tratamiento biológico. Cita esta semana sin esperas.`,
+    faqs: [
+      {
+        q: '¿Qué trata la reumatología?',
+        a: 'La reumatología trata enfermedades autoinmunes y del aparato locomotor: artritis reumatoide, lupus eritematoso sistémico, espondilitis anquilosante, gota, fibromialgia, Sjögren y otras enfermedades del tejido conectivo.',
+      },
+      {
+        q: '¿Cuándo debo ir al reumatólogo?',
+        a: 'Si tienes articulaciones hinchadas, dolorosas y rígidas durante más de 6 semanas, especialmente por las mañanas; si te diagnosticaron una enfermedad autoinmune; o si los análisis muestran factor reumatoide o ANA positivos.',
+      },
+      {
+        q: '¿La espera para reumatología es larga en la pública?',
+        a: 'Sí, es una de las especialidades con mayor espera en España: entre 60 y 120 días según comunidad. En enfermedades autoinmunes activas, esa espera puede empeorar el pronóstico. Med Connect te da cita esta semana.',
+      },
+    ],
+  },
+
+  alergologia: {
+    id: 14,
+    name: 'Alergología',
+    plural: 'Alergólogos',
+    prep: 'en',
+    articleName: 'alergología',
+    shortDesc: (city) =>
+      `Alergólogos privados en ${city}: pruebas de alergia, inmunoterapia, alergia al polen, alimentos y medicamentos. Cita disponible esta semana.`,
+    faqs: [
+      {
+        q: '¿Qué trata el alergólogo?',
+        a: 'El alergólogo diagnostica y trata alergias respiratorias (rinitis, asma alérgica), alergias a alimentos, medicamentos, insectos, látex y materiales de contacto. También gestiona la inmunoterapia (vacuna de la alergia).',
+      },
+      {
+        q: '¿Cómo son las pruebas de alergia?',
+        a: 'Las pruebas cutáneas (prick test) se realizan en el antebrazo con pequeñas picaduras indoloras. En 20 minutos se obtiene el resultado. También se pueden hacer análisis de sangre (IgE específica) para confirmar el diagnóstico.',
+      },
+      {
+        q: '¿La inmunoterapia cura la alergia?',
+        a: 'La inmunoterapia (vacuna de alergia) reduce significativamente los síntomas y puede producir tolerancia duradera. El tratamiento dura 3-5 años, pero la mejoría se nota desde el primer año.',
+      },
+    ],
+  },
+
+  pediatria: {
+    id: 15,
+    name: 'Pediatría',
+    plural: 'Pediatras',
+    prep: 'en',
+    articleName: 'pediatría',
+    shortDesc: (city) =>
+      `Pediatras privados en ${city}: revisiones del niño, vacunación, fiebre, infecciones y desarrollo. Cita este mismo día con tu seguro.`,
+    faqs: [
+      {
+        q: '¿Hasta qué edad atiende el pediatra?',
+        a: 'El pediatra atiende a pacientes desde el nacimiento hasta los 14-16 años (según comunidad autónoma en la pública). En medicina privada muchos pediatras aceptan hasta los 18 años.',
+      },
+      {
+        q: '¿Con qué urgencia debo llevar a mi hijo al pediatra?',
+        a: 'Ante fiebre superior a 39°C en menores de 3 meses, dificultad para respirar, manchas en la piel de aparición súbita, vómitos intensos repetidos, o cualquier síntoma que te preocupe mucho: busca cita ese mismo día.',
+      },
+      {
+        q: '¿Las revisiones del niño sano se pueden hacer en privado?',
+        a: 'Sí. Las revisiones del Programa de Salud Infantil (a los 1, 2, 4, 6, 9, 12, 15, 18 meses y 2, 3, 4, 6, 8, 10, 12, 14 años) se pueden hacer con pediatra privado. Incluyen peso, talla, desarrollo psicomotor y vacunas según calendario.',
+      },
+    ],
+  },
+
+  rehabilitacion: {
+    id: 16,
+    name: 'Rehabilitación',
+    plural: 'Especialistas en Rehabilitación',
+    prep: 'en',
+    articleName: 'rehabilitación',
+    shortDesc: (city) =>
+      `Especialistas en rehabilitación en ${city}: fisioterapia médica, recuperación de lesiones, ictus y cirugías. Cita prioritaria con tu seguro.`,
+    faqs: [
+      {
+        q: '¿Qué diferencia hay entre rehabilitación y fisioterapia?',
+        a: 'La rehabilitación es una especialidad médica: el médico rehabilitador diagnostica, diseña el plan de recuperación y lo supervisa. La fisioterapia es la aplicación práctica del tratamiento. Ambos trabajan juntos en el proceso de recuperación.',
+      },
+      {
+        q: '¿Cuándo necesito un médico rehabilitador?',
+        a: 'Tras una fractura, cirugía articular, ictus, lesión medular, o cuando el dolor musculoesquelético crónico no mejora con tratamiento convencional. El rehabilitador coordina la fisioterapia, infiltraciones y otras terapias.',
+      },
+      {
+        q: '¿El seguro cubre las sesiones de rehabilitación?',
+        a: 'La mayoría de seguros privados cubren un número de sesiones de rehabilitación al año (habitualmente 20-30). Med Connect facilita el acceso prioritario al especialista que prescriba el plan.',
+      },
+    ],
+  },
+
+  psiquiatria: {
+    id: 17,
+    name: 'Psiquiatría',
+    plural: 'Psiquiatras',
+    prep: 'en',
+    articleName: 'psiquiatría',
+    shortDesc: (city) =>
+      `Psiquiatras privados en ${city}: depresión, ansiedad severa, trastorno bipolar, TDAH adulto y tratamiento farmacológico. Sin espera.`,
+    faqs: [
+      {
+        q: '¿Cuál es la diferencia entre psicólogo y psiquiatra?',
+        a: 'El psiquiatra es médico especialista y puede prescribir medicación. El psicólogo realiza psicoterapia sin prescripción. Para trastornos que requieren tratamiento farmacológico (depresión mayor, bipolar, psicosis, TDAH), el psiquiatra es imprescindible.',
+      },
+      {
+        q: '¿Cuándo debo ver a un psiquiatra y no solo a un psicólogo?',
+        a: 'Cuando los síntomas son intensos y limitan significativamente tu vida, cuando la psicoterapia sola no está siendo suficiente, o cuando hay riesgo para ti o para otros. El psiquiatra puede combinar medicación y psicoterapia.',
+      },
+      {
+        q: '¿La espera para psiquiatría en la pública es larga?',
+        a: 'Sí, es de las más largas: 60-120 días en muchas comunidades para primera consulta. En crisis de salud mental, esa espera es inasumible. Med Connect ofrece cita esta semana con psiquiatra privado.',
+      },
+    ],
+  },
+
+  fisioterapia: {
+    id: 18,
+    name: 'Fisioterapia',
+    plural: 'Fisioterapeutas',
+    prep: 'en',
+    articleName: 'fisioterapia',
+    shortDesc: (city) =>
+      `Fisioterapeutas privados en ${city}: cervicales, lumbares, lesiones deportivas, recuperación post-cirugía. Cita disponible esta semana.`,
+    faqs: [
+      {
+        q: '¿Necesito receta médica para ir al fisioterapeuta?',
+        a: 'En medicina privada, no. Puedes acudir directamente al fisioterapeuta sin derivación médica. Si es para una lesión específica o post-quirúrgica, el informe del médico ayuda a orientar el tratamiento.',
+      },
+      {
+        q: '¿Cuántas sesiones de fisioterapia necesitaré?',
+        a: 'Depende de la lesión. Una contractura muscular puede resolverse en 3-5 sesiones. Una rehabilitación post-operatoria puede requerir 20-40 sesiones. El fisioterapeuta te dará una estimación tras la primera valoración.',
+      },
+      {
+        q: '¿Mi seguro cubre las sesiones de fisioterapia?',
+        a: 'La mayoría de seguros privados cubren fisioterapia con un límite anual de sesiones (10-30 según la póliza). Med Connect te da acceso prioritario al fisioterapeuta concertado esta semana.',
+      },
+    ],
+  },
 };
 
 // ── City map ───────────────────────────────────────────────────────────────
@@ -237,7 +481,7 @@ export function getAllSpecialtyCityCombinations() {
       combos.push({ especialidad, ciudad });
     }
   }
-  return combos; // 8 specialties × 11 cities = 88 (was 40 before 2026-04-29)
+  return combos; // 18 specialties × 11 cities = 198 (wave 2 added 2026-06-24)
 }
 
 // ── Canonical URL builder ──────────────────────────────────────────────────
