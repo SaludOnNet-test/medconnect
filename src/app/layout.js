@@ -79,7 +79,9 @@ const organizationSchema = {
   email: 'info@medconnect.es',
   areaServed: { '@type': 'Country', name: 'España' },
   serviceType: 'Reserva de citas médicas privadas',
-  sameAs: [],
+  sameAs: [
+    'https://maps.google.com/?cid=827679985435262619',
+  ],
 };
 
 // GA4 and Clarity are loaded ONLY after cookie consent (inside CookieBanner)
