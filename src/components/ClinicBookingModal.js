@@ -334,18 +334,23 @@ export default function ClinicBookingModal({
         : {}),
       date: selectedSlot.date,
       time: selectedSlot.time,
-      // For video providers the priority fee is 0; the SaludOnNet
-      // service price travels through procedurePrice + slot.price
-      // (synthesised procedure has price=0, slot carries the
-      // service price). /book uses deliveryMode=video to skip the
-      // priority math entirely.
+      // For video providers the priority fee is 0; the full SaludOnNet
+      // service price flows in as procedurePrice. The synthesised
+      // procedure object in this modal has price=0 (the slot itself
+      // carries the number to avoid the modal double-charging in its
+      // price computations), but the /book page expects
+      // procedurePrice = the amount to charge — so we forward
+      // selectedSlot.price for video. fee stays at 0; total =
+      // procedurePrice + fee = service price, all-in-one.
       fee: isVideoProvider ? 0 : priorityFee,
       feeLabel: isVideoProvider ? 'Videoconsulta' : fee.label,
       tier: String(fee.tier),
       isSinSeguro: String(effectiveIsSinSeguro),
       procedureSlug,
       procedureName: selectedProcedure?.name || '',
-      procedurePrice: String(procedurePrice),
+      procedurePrice: isVideoProvider
+        ? String(Number(selectedSlot?.price) || 0)
+        : String(procedurePrice),
       ...(isVideoProvider ? {
         deliveryMode: 'video',
         servicePrice: String(selectedSlot.price ?? 0),

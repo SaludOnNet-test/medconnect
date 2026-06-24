@@ -1438,33 +1438,44 @@ function BookContent() {
               <div className="book-price-breakdown animate-fade-in" style={{ marginBottom: 'var(--space-md)' }}>
                 <p className="book-step-label" style={{ marginBottom: 'var(--space-md)' }}>Resumen del pago</p>
 
-                {serviceLabel && (
+                {/* Video pilot — single all-in-one line. Same rationale
+                    as the form-step breakdown above. */}
+                {isVideoBooking ? (
                   <div className="book-price-row">
-                    <span className="book-price-label"><Icon name="stethoscope" size={14} /> {serviceLabel}</span>
-                    <span className="book-price-amount">
-                      {hasInsurance === true
-                        ? <span style={{ color: '#00805a', fontWeight: 600 }}>A cubrir por tu seguro</span>
-                        : formatEUR(servicePrice)}
-                    </span>
+                    <span className="book-price-label"><Icon name="video" size={14} /> {serviceLabel || 'Videoconsulta'} <span style={{ color: 'var(--muted)', fontWeight: 400 }}>· incluye prioridad</span></span>
+                    <span className="book-price-amount">{formatEUR(servicePrice)}</span>
                   </div>
-                )}
-
-                <div className="book-price-row">
-                  <span className="book-price-label">
-                    🎫 Tarifa de prioridad{feeLabel ? ` (${feeLabel.toLowerCase()})` : ''}
-                  </span>
-                  <span className="book-price-amount">
-                    {/* 2026-06-08 — Strikethrough on the "tarifa habitual"
-                        anchor alongside the active fee. The savings line
-                        renders below the breakdown. */}
-                    {feePricingDisplay.showStrikethrough && activeFee > 0 && (
-                      <span style={{ textDecoration: 'line-through', color: 'var(--muted)', fontWeight: 500, fontSize: '0.85em', marginRight: 6 }}>
-                        {feePricingDisplay.standardLabel}
-                      </span>
+                ) : (
+                  <>
+                    {serviceLabel && (
+                      <div className="book-price-row">
+                        <span className="book-price-label"><Icon name="stethoscope" size={14} /> {serviceLabel}</span>
+                        <span className="book-price-amount">
+                          {hasInsurance === true
+                            ? <span style={{ color: '#00805a', fontWeight: 600 }}>A cubrir por tu seguro</span>
+                            : formatEUR(servicePrice)}
+                        </span>
+                      </div>
                     )}
-                    {activeFee > 0 ? formatEUR(activeFee) : '0 €'}
-                  </span>
-                </div>
+
+                    <div className="book-price-row">
+                      <span className="book-price-label">
+                        🎫 Tarifa de prioridad{feeLabel ? ` (${feeLabel.toLowerCase()})` : ''}
+                      </span>
+                      <span className="book-price-amount">
+                        {/* 2026-06-08 — Strikethrough on the "tarifa habitual"
+                            anchor alongside the active fee. The savings line
+                            renders below the breakdown. */}
+                        {feePricingDisplay.showStrikethrough && activeFee > 0 && (
+                          <span style={{ textDecoration: 'line-through', color: 'var(--muted)', fontWeight: 500, fontSize: '0.85em', marginRight: 6 }}>
+                            {feePricingDisplay.standardLabel}
+                          </span>
+                        )}
+                        {activeFee > 0 ? formatEUR(activeFee) : '0 €'}
+                      </span>
+                    </div>
+                  </>
+                )}
 
                 <div className="book-price-row total">
                   <span>Total que pagas hoy</span>
@@ -1477,8 +1488,10 @@ function BookContent() {
                     universal launch-offer + the partner extra (when
                     applicable) into one positive frame. No external
                     €60-120 comparison — replaced by self-referential
-                    strikethrough above. */}
-                {feePricingDisplay.savings > 0 && activeFee > 0 && (
+                    strikethrough above. Skipped for video bookings —
+                    there's no "tarifa habitual" anchor to strikethrough
+                    against; the SaludOnNet price is the only number. */}
+                {!isVideoBooking && feePricingDisplay.savings > 0 && activeFee > 0 && (
                   <p style={{ marginTop: 'var(--space-sm)', fontSize: '0.78rem', color: '#1b4332', lineHeight: 1.4, fontWeight: 500 }}>
                     💸 <strong>Ahorras {feePricingDisplay.savingsLabel}</strong> sobre la tarifa habitual.
                     {feePricingDisplay.isPartner && (
@@ -1507,7 +1520,9 @@ function BookContent() {
                 style={{ marginBottom: 'var(--space-md)' }}
               >
                 Cargo único de <strong>{totalPrice > 0 ? formatEUR(totalPrice) : '0 €'}</strong>
-                {hasInsurance === true ? (
+                {isVideoBooking ? (
+                  <> — precio publicado en SaludOnNet, incluye la consulta y la prioridad de la cita.</>
+                ) : hasInsurance === true ? (
                   <> — nuestra tarifa de prioridad. La consulta la cubre tu póliza.</>
                 ) : (
                   <> — consulta ({formatEUR(servicePrice)}) + tarifa de prioridad ({formatEUR(activeFee)}).</>
@@ -2040,26 +2055,41 @@ function BookContent() {
               <div className="book-price-breakdown animate-fade-in">
                 <p className="book-step-label" style={{ marginBottom: 'var(--space-md)' }}>Resumen del pago</p>
 
-                {/* Medical service line — ALWAYS visible to make clear what insurance covers */}
-                {serviceLabel && (
+                {/* SaludOnNet video pilot — for video bookings the
+                    SaludOnNet published price is the all-in-one
+                    number (consulta + prioridad bundled). We render a
+                    single line so the patient doesn't read a "service
+                    0 € + priority 0 €" split that doesn't match the
+                    invoice. Cleanup of the pilot: drop this branch. */}
+                {isVideoBooking ? (
                   <div className="book-price-row">
-                    <span className="book-price-label"><Icon name="stethoscope" size={14} /> {serviceLabel}</span>
-                    <span className="book-price-amount">
-                      {hasInsurance === true
-                        ? <span style={{ color: '#00805a', fontWeight: 600 }}>A cubrir por tu seguro</span>
-                        : formatEUR(servicePrice)}
-                    </span>
+                    <span className="book-price-label"><Icon name="video" size={14} /> {serviceLabel || 'Videoconsulta'} <span style={{ color: 'var(--muted)', fontWeight: 400 }}>· incluye prioridad</span></span>
+                    <span className="book-price-amount">{formatEUR(servicePrice)}</span>
                   </div>
-                )}
+                ) : (
+                  <>
+                    {/* Medical service line — ALWAYS visible to make clear what insurance covers */}
+                    {serviceLabel && (
+                      <div className="book-price-row">
+                        <span className="book-price-label"><Icon name="stethoscope" size={14} /> {serviceLabel}</span>
+                        <span className="book-price-amount">
+                          {hasInsurance === true
+                            ? <span style={{ color: '#00805a', fontWeight: 600 }}>A cubrir por tu seguro</span>
+                            : formatEUR(servicePrice)}
+                        </span>
+                      </div>
+                    )}
 
-                <div className="book-price-row">
-                  <span className="book-price-label">
-                    🎫 Tarifa de prioridad{feeLabel ? ` (${feeLabel.toLowerCase()})` : ''}
-                  </span>
-                  <span className="book-price-amount">
-                    {activeFee > 0 ? formatEUR(activeFee) : '0 €'}
-                  </span>
-                </div>
+                    <div className="book-price-row">
+                      <span className="book-price-label">
+                        🎫 Tarifa de prioridad{feeLabel ? ` (${feeLabel.toLowerCase()})` : ''}
+                      </span>
+                      <span className="book-price-amount">
+                        {activeFee > 0 ? formatEUR(activeFee) : '0 €'}
+                      </span>
+                    </div>
+                  </>
+                )}
 
                 <div className="book-price-row total">
                   <span>Total que pagas hoy</span>
@@ -2078,13 +2108,25 @@ function BookContent() {
                     it earns its keep — and /book stays focused on the
                     transactional summary. */}
 
-                {hasInsurance === true && (
-                  <p style={{ marginTop: 'var(--space-md)', fontSize: '0.8rem', color: 'var(--muted)', lineHeight: 1.6 }}>
-                    <Icon name="info" size={14} /> Tu seguro cubre la consulta directamente con la clínica. Tú solo pagas la prioridad por la reserva.
-                  </p>
-                )}
-
-                {hasInsurance === false && (
+                {isVideoBooking ? (
+                  <>
+                    <p style={{ marginTop: 'var(--space-md)', fontSize: '0.8rem', color: 'var(--muted)', lineHeight: 1.6 }}>
+                      <Icon name="info" size={14} /> Pagas el precio publicado en SaludOnNet para esta videoconsulta. <strong>Incluye la consulta y la prioridad de la cita</strong> en un único importe — no se cobra nada adicional al iniciar la videollamada.
+                    </p>
+                    <p style={{ marginTop: 'var(--space-sm)', fontSize: '0.78rem', color: 'var(--muted)', lineHeight: 1.6 }}>
+                      <Icon name="shield-check" size={14} /> <strong>Cancelación gratuita hasta 24 h antes de la cita:</strong> reembolso íntegro en 72 h por cualquier motivo. Dentro de las 24 h o no show, el importe no es reembolsable.
+                    </p>
+                  </>
+                ) : hasInsurance === true ? (
+                  <>
+                    <p style={{ marginTop: 'var(--space-md)', fontSize: '0.8rem', color: 'var(--muted)', lineHeight: 1.6 }}>
+                      <Icon name="info" size={14} /> Tu seguro cubre la consulta directamente con la clínica. Tú solo pagas la prioridad por la reserva.
+                    </p>
+                    <p style={{ marginTop: 'var(--space-sm)', fontSize: '0.78rem', color: 'var(--muted)', lineHeight: 1.6 }}>
+                      <Icon name="shield-check" size={14} /> <strong>Cancelación gratuita hasta 24 h antes de la cita:</strong> reembolso íntegro de la prioridad en 72 h por cualquier motivo. Dentro de las 24 h o no show: la prioridad no es reembolsable.
+                    </p>
+                  </>
+                ) : (
                   <>
                     <p style={{ marginTop: 'var(--space-md)', fontSize: '0.8rem', color: 'var(--muted)', lineHeight: 1.6 }}>
                       <Icon name="info" size={14} /> Sin seguro pagas dos cosas en una: la <strong>consulta privada</strong> (tarifa oficial de la clínica, según el catálogo SaludOnNet) y la <strong>tarifa de prioridad</strong> por conseguirte el hueco urgente. Ese es el total — no se vuelve a cobrar en la clínica.
@@ -2093,11 +2135,6 @@ function BookContent() {
                       <Icon name="shield-check" size={14} /> <strong>Cancelación gratuita hasta 24 h antes de la cita:</strong> reembolso íntegro en 72 h por cualquier motivo. Dentro de las 24 h o no show: te devolvemos solo el valor del servicio (la prioridad no es reembolsable).
                     </p>
                   </>
-                )}
-                {hasInsurance === true && (
-                  <p style={{ marginTop: 'var(--space-sm)', fontSize: '0.78rem', color: 'var(--muted)', lineHeight: 1.6 }}>
-                    <Icon name="shield-check" size={14} /> <strong>Cancelación gratuita hasta 24 h antes de la cita:</strong> reembolso íntegro de la prioridad en 72 h por cualquier motivo. Dentro de las 24 h o no show: la prioridad no es reembolsable.
-                  </p>
                 )}
               </div>
             )}
