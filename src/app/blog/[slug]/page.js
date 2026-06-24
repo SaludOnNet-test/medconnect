@@ -1,8 +1,8 @@
 import { notFound } from 'next/navigation';
 import Header from '@/components/Header';
 import Footer from '@/components/Footer';
-import Button from '@/components/brand/Button';
-import { getBlogPost, getAllBlogSlugs, getBlogPostsBySpecialty, BLOG_CATEGORIES } from '@/lib/blogData';
+import BlogCTA from '@/components/BlogCTA';
+import { getBlogPost, getAllBlogSlugs, BLOG_CATEGORIES } from '@/lib/blogData';
 import { SPECIALTY_MAP, CITY_MAP, specialtyPageUrl } from '@/lib/seoData';
 import Link from 'next/link';
 import '../blog.css';
@@ -85,7 +85,7 @@ function formatDate(dateStr) {
   });
 }
 
-function RelatedSpecialtyBox({ specialtySlug }) {
+function RelatedSpecialtyBox({ specialtySlug, articleSlug }) {
   if (!specialtySlug || !SPECIALTY_MAP[specialtySlug]) return null;
   const specialty = SPECIALTY_MAP[specialtySlug];
   const cities = Object.values(CITY_MAP).slice(0, 4);
@@ -107,9 +107,13 @@ function RelatedSpecialtyBox({ specialtySlug }) {
           </Link>
         ))}
       </div>
-      <Button href="/search-v2" variant="primary" size="md">
-        Buscar cita de {specialty.name}
-      </Button>
+      <BlogCTA
+        articleSlug={articleSlug}
+        specialtySlug={specialtySlug}
+        specialtyName={specialty.name}
+        label={`Buscar cita de ${specialty.name}`}
+        size="md"
+      />
     </aside>
   );
 }
@@ -157,16 +161,23 @@ export default async function BlogPostPage({ params }) {
             />
 
             <aside className="blog-post__sidebar">
-              <RelatedSpecialtyBox specialtySlug={post.relatedSpecialty} />
+              <RelatedSpecialtyBox
+                specialtySlug={post.relatedSpecialty}
+                articleSlug={post.slug}
+              />
 
               <div className="blog-cta-box">
                 <p className="blog-cta-box__title">¿Necesitas cita urgente?</p>
                 <p className="blog-cta-box__desc">
                   Accede a plazas prioritarias en clínicas privadas con tu seguro. Cita en 24–72 h.
                 </p>
-                <Button href="/search-v2" variant="primary" size="md">
-                  Buscar mi especialista
-                </Button>
+                <BlogCTA
+                  articleSlug={post.slug}
+                  specialtySlug={post.relatedSpecialty}
+                  specialtyName={post.relatedSpecialty ? SPECIALTY_MAP[post.relatedSpecialty]?.name : null}
+                  label="Buscar mi especialista"
+                  size="md"
+                />
               </div>
             </aside>
           </div>

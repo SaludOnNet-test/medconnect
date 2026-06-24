@@ -4,7 +4,7 @@ import { generateSlotsForClinic, PRICING_TIERS } from '@/lib/slot-validation';
 import { getHeldKeys } from '@/lib/slotHolds';
 import { isPartnerClinic } from '@/lib/partnerClinics';
 import { isVideoProviderId } from '@/lib/videoPilot';
-import { getVideoProviderById, buildSlotsFromAvailability } from '@/lib/videoProviders';
+import { getVideoProviderById, buildSlotsFromAvailability, buildSlotsFromWeeklyPattern } from '@/lib/videoProviders';
 
 // GET /api/clinics/batch-slots?ids=1,2,3,4,5&preview=true
 // Returns: { slots: { "1": [...], "2": [...] }, pricingTiers: [...] }
@@ -172,7 +172,17 @@ export async function GET(request) {
     try {
       const p = await getVideoProviderById(vid);
       if (!p) { result[vid] = []; continue; }
-      const slots = buildSlotsFromAvailability(p.availability, p.servicePrice);
+      // Two ways to express a provider's calendar:
+      //   - weeklyPattern: { mon: ['10:00'], tue: ['11:00'] } → dynamic
+      //     generation for the next ~8 weeks. The canonical shape we
+      //     populate from SaludOnNet screenshots — replicates the
+      //     doctor's recurring agenda without dated slots going stale.
+      //   - availability: [{ date, time }, ...] → one-off dated slots,
+      //     used by the original example manifest and for any
+      //     exception slots layered on top later.
+      const slots = p.weeklyPattern
+        ? buildSlotsFromWeeklyPattern(p.weeklyPattern, p.servicePrice)
+        : buildSlotsFromAvailability(p.availability, p.servicePrice);
       if (preview) {
         const byTier = {};
         for (const s of slots) {
