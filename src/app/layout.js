@@ -69,6 +69,19 @@ export const metadata = {
   },
 };
 
+const organizationSchema = {
+  '@context': 'https://schema.org',
+  '@type': 'Organization',
+  name: 'Med Connect',
+  url: 'https://www.medconnect.es',
+  logo: 'https://www.medconnect.es/logo.png',
+  description: 'Plataforma de reserva de citas médicas privadas con acceso prioritario. Especialistas de todas las especialidades en las principales ciudades de España.',
+  email: 'info@medconnect.es',
+  areaServed: { '@type': 'Country', name: 'España' },
+  serviceType: 'Reserva de citas médicas privadas',
+  sameAs: [],
+};
+
 // GA4 and Clarity are loaded ONLY after cookie consent (inside CookieBanner)
 //
 // Defensive trim — the Vercel env var was set with a trailing newline
@@ -114,6 +127,10 @@ export default async function RootLayout({ children }) {
       <html lang="es" className={fontClassNames}>
         <head>
           <PerformanceHints />
+          <script
+            type="application/ld+json"
+            dangerouslySetInnerHTML={{ __html: JSON.stringify(organizationSchema) }}
+          />
         </head>
         <body>
           <ClerkProvider publishableKey={publishableKey}>
@@ -143,6 +160,10 @@ export default async function RootLayout({ children }) {
     <html lang="es" className={fontClassNames}>
       <head>
         <PerformanceHints />
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{ __html: JSON.stringify(organizationSchema) }}
+        />
       </head>
       <body>
         {children}

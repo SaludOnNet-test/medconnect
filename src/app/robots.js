@@ -30,6 +30,7 @@ export default function robots() {
           '/para-clinicas-o-medicos',
           '/contacto',
           '/derivadores',
+          '/blog',
           '/privacidad',
           '/legal',
           '/cookies',
