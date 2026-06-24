@@ -15,8 +15,14 @@ export const VIDEO_PILOT_ENABLED = true;
 // for it. Pilot launched 2026-06-23 with derma + uro + gine.
 export const PILOT_SPECIALTIES = new Set(['dermatologia', 'urologia', 'ginecologia']);
 
-// Cities in scope.
-export const PILOT_CITIES = new Set(['Madrid']);
+// 2026-06-24 — Cities are intentionally NOT gated. Videoconsultations
+// are remote, so a Vigo patient on `/especialistas/dermatologia/vigo`
+// can consult Ana López who is based in Madrid via video. Listing the
+// same video doctors on every city landing for a pilot specialty
+// matches the actual delivery model. The constant is retained as
+// `null` for backwards-compatibility with any imports — the loader
+// no longer reads it.
+export const PILOT_CITIES = null;
 
 // Provider ids live in a separate ID-space so they cannot collide
 // with DB clinic ids (which are numeric INTs). Card rendering and

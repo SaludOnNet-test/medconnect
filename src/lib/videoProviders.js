@@ -12,7 +12,6 @@ import {
   VIDEO_PILOT_ENABLED,
   MANIFEST_BLOB_KEY,
   PILOT_SPECIALTIES,
-  PILOT_CITIES,
 } from './videoPilot';
 import { PRICING_TIERS } from './slot-validation';
 import exampleManifest from '@/data/videoProviders.example.json';
@@ -47,9 +46,15 @@ async function loadManifest() {
  * and let scope decide whether anything comes back.
  */
 export async function getVideoProviders({ specialtySlug, city } = {}) {
+  // eslint-disable-next-line no-unused-vars
+  void city; // 2026-06-24 — city is accepted for API symmetry but
+             // ignored: videoconsultations are remote, so the same
+             // doctors appear on every city's landing within the
+             // pilot specialties (e.g. Ana López shows on
+             // dermatologia/madrid AND dermatologia/vigo).
+
   if (!VIDEO_PILOT_ENABLED) return [];
   if (specialtySlug && !PILOT_SPECIALTIES.has(specialtySlug)) return [];
-  if (city && !PILOT_CITIES.has(city)) return [];
 
   if (!cache || Date.now() - cache.fetchedAt > CACHE_TTL_MS) {
     cache = { fetchedAt: Date.now(), providers: await loadManifest() };
@@ -57,9 +62,6 @@ export async function getVideoProviders({ specialtySlug, city } = {}) {
   let list = cache.providers;
   if (specialtySlug) {
     list = list.filter((p) => Array.isArray(p.specialtySlugs) && p.specialtySlugs.includes(specialtySlug));
-  }
-  if (city) {
-    list = list.filter((p) => p.city === city);
   }
   return list;
 }
