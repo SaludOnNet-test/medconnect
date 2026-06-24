@@ -264,8 +264,8 @@ export const BLOG_POSTS = [
     readingMinutes: 5,
     relatedSpecialty: 'urologia',
     relatedCity: null,
-    coverImage: 'https://images.unsplash.com/photo-1551190822-a9333d879b1f?w=900&h=500&fit=crop&q=80',
-    coverAlt: 'Médico revisando resultados de laboratorio',
+    coverImage: 'https://images.unsplash.com/photo-1631549916768-4119b2e5f926?w=900&h=500&fit=crop&q=80',
+    coverAlt: 'Consulta de urología',
     content: `
 <p>La urología abarca una amplia gama de patologías, desde infecciones de orina hasta cáncer de próstata, pasando por cálculos renales, disfunción eréctil e incontinencia. Muchos de estos problemas se tratan mejor cuanto antes se diagnostican.</p>
 
@@ -348,8 +348,8 @@ export const BLOG_POSTS = [
     readingMinutes: 6,
     relatedSpecialty: 'traumatologia',
     relatedCity: null,
-    coverImage: 'https://images.unsplash.com/photo-1559757175-0eb30cd8c063?w=900&h=500&fit=crop&q=80',
-    coverAlt: 'Fisioterapeuta tratando dolor de espalda',
+    coverImage: 'https://images.unsplash.com/photo-1544367567-0f2fcb009e0b?w=900&h=500&fit=crop&q=80',
+    coverAlt: 'Persona con dolor de espalda baja',
     content: `
 <p>El dolor de espalda baja (lumbalgia) es la principal causa de discapacidad laboral en España y uno de los motivos de consulta médica más frecuentes. La buena noticia: el 90% de los episodios agudos de lumbalgia se resuelven solos en 4-6 semanas con reposo relativo, antiinflamatorios y movimiento progresivo. La mala: un 10% tiene causas que requieren diagnóstico y tratamiento especializado.</p>
 
