@@ -28,6 +28,46 @@
   padding-bottom: var(--space-12);
 }
 
+/* Masthead */
+.blog-masthead {
+  padding: var(--space-10) 0 var(--space-8);
+  border-bottom: 1px solid var(--bone-300);
+}
+
+.blog-masthead__inner {
+  max-width: 680px;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+.blog-masthead__label {
+  font-size: var(--text-xs);
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--stone-400);
+  margin: 0;
+}
+
+.blog-masthead__title {
+  font-family: var(--font-display);
+  font-size: clamp(var(--text-3xl), 5vw, 3.5rem);
+  font-weight: 700;
+  line-height: 1.1;
+  color: var(--stone-900);
+  margin: 0;
+  font-style: italic;
+}
+
+.blog-masthead__sub {
+  font-size: var(--text-base);
+  color: var(--stone-500);
+  line-height: 1.6;
+  max-width: 520px;
+  margin: 0;
+}
+
 /* ── Hero ────────────────────────────────────────────────────────────────── */
 
 .blog-hero {
