@@ -177,6 +177,8 @@ export function videoBookingPending({
   totalPrice,
   reference,
   selfServiceUrl,
+  hasInsurance,
+  insuranceCompany,
 }) {
   const formattedDate = slotDate
     ? new Date(slotDate + 'T00:00:00').toLocaleDateString('es-ES', {
@@ -220,6 +222,16 @@ export function videoBookingPending({
         <p style="margin:0 0 6px;font-size:13px;color:#065f46;line-height:1.6;">2) También te enviaremos el voucher de SaludOnNet (PDF) por si te lo piden al iniciar la sesión.</p>
         <p style="margin:0;font-size:13px;color:#065f46;line-height:1.6;">3) Conéctate al enlace unos minutos antes de la hora con DNI a mano.</p>
       </div>
+      ${hasInsurance ? `
+      <div style="background:#f5f3ff;border:1px solid #ddd6fe;border-radius:8px;padding:16px;margin-bottom:24px;">
+        <p style="margin:0 0 8px;font-size:14px;color:#4c1d95;font-weight:700;">💳 Reembolso con tu seguro${insuranceCompany ? ` (${insuranceCompany})` : ''}</p>
+        <p style="margin:0;font-size:13px;color:#4c1d95;line-height:1.6;">
+          Para las videoconsultas, por ahora <strong>solo trabajamos por reembolso</strong>. Adjunta
+          el voucher de SaludOnNet que te enviaremos al solicitar el reembolso a tu aseguradora —
+          el voucher incluye el detalle del servicio y el importe.
+        </p>
+      </div>
+      ` : ''}
       <p style="margin:0 0 16px;font-size:13px;color:#6b7280;line-height:1.55;">
         ¿Preguntas? Escríbenos a <a href="mailto:info@medconnect.es" style="color:#5b21b6;">info@medconnect.es</a>.
       </p>
@@ -268,6 +280,8 @@ export function videoBookingOpsAlert({
   slotTime,
   procedureName,
   amount,
+  hasInsurance,
+  insuranceCompany,
 }) {
   const formattedDate = slotDate
     ? new Date(slotDate + 'T00:00:00').toLocaleDateString('es-ES', {
@@ -304,13 +318,15 @@ export function videoBookingOpsAlert({
         ${patientPhone ? infoRow('Teléfono', patientPhone) : ''}
         ${patientDateOfBirth ? infoRow('Fecha de nacimiento', patientDateOfBirth) : ''}
         ${patientNationalId ? infoRow('DNI / NIE / Pasaporte', patientNationalId) : ''}
+        ${infoRow('Seguro privado', hasInsurance ? (insuranceCompany || 'Sí (sin especificar)') : 'No')}
+        ${hasInsurance ? infoRow('Vía de cobro', 'Reembolso al paciente (no facturación a la aseguradora)') : ''}
       </table>
       <div style="background:#fffbeb;border:1px solid #fde68a;border-radius:8px;padding:14px 16px;margin-bottom:20px;">
         <p style="margin:0 0 8px;font-size:14px;color:#78350f;font-weight:700;">Siguiente paso (~24h)</p>
         <ol style="margin:0;padding-left:18px;font-size:13px;color:#78350f;line-height:1.6;">
           <li>Reserva el hueco en SaludOnNet para este médico/fecha/hora.</li>
           <li>Genera el enlace de la videollamada (Zoom / Meet / etc.).</li>
-          <li>Envía al paciente: enlace + voucher + recordatorio.</li>
+          <li>Envía al paciente: enlace + voucher + recordatorio${hasInsurance ? ' (mencionar que adjunte el voucher al solicitar reembolso a su aseguradora)' : ''}.</li>
           <li>Marca el booking como <code>confirmed</code> en el admin.</li>
         </ol>
       </div>

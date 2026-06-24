@@ -29,17 +29,29 @@ const CLAIMS = [
   { icon: '🏥', short: 'Tu seguro cubre la consulta', label: 'Tu seguro sigue cubriendo la consulta' },
 ];
 
-export default function TrustStrip({ variant = 'inline', className = '' }) {
+// SaludOnNet video-consultation pilot — swap the third claim. The
+// patient isn't billing through their insurance for a video booking;
+// the relevant guarantee is that the link arrives by email. Cleanup
+// of the pilot: drop the VIDEO_CLAIMS array and the mode='video'
+// branch below.
+const VIDEO_CLAIMS = [
+  { icon: '🔒', short: 'Stripe seguro', label: 'Pago seguro con Stripe' },
+  { icon: '💸', short: 'Cancela hasta 24 h antes', label: 'Cancelación gratuita hasta 24 h antes de la cita' },
+  { icon: '🎥', short: 'Enlace por email', label: 'Enlace de la videollamada por email antes de la cita' },
+];
+
+export default function TrustStrip({ variant = 'inline', mode = 'default', className = '' }) {
   const cls = `trust-strip trust-strip--${variant}${className ? ' ' + className : ''}`;
+  const claimsList = mode === 'video' ? VIDEO_CLAIMS : CLAIMS;
 
   if (variant === 'inline') {
     return (
       <p className={cls} aria-label="Garantías de Med Connect">
-        {CLAIMS.map((c, i) => (
+        {claimsList.map((c, i) => (
           <span key={c.label} className="trust-strip-inline-item">
             <span className="trust-strip-icon" aria-hidden="true">{c.icon}</span>
             <span className="trust-strip-label">{c.short}</span>
-            {i < CLAIMS.length - 1 && <span className="trust-strip-sep" aria-hidden="true"> · </span>}
+            {i < claimsList.length - 1 && <span className="trust-strip-sep" aria-hidden="true"> · </span>}
           </span>
         ))}
       </p>
@@ -48,7 +60,7 @@ export default function TrustStrip({ variant = 'inline', className = '' }) {
 
   return (
     <ul className={cls} aria-label="Garantías de Med Connect">
-      {CLAIMS.map((c) => (
+      {claimsList.map((c) => (
         <li key={c.label} className="trust-strip-item">
           <span className="trust-strip-icon" aria-hidden="true">{c.icon}</span>
           <span className="trust-strip-label">{c.label}</span>

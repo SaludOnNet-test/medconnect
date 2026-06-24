@@ -509,8 +509,9 @@ export default function ClinicBookingModal({
           )}
           {isVideoProvider ? (
             <p className="cbm-procedure-hint">
-              Reservas la consulta directamente con el médico. Tras la compra te enviamos el enlace de la
-              videollamada y el voucher de SaludOnNet por email antes de la cita.
+              Pagas el precio publicado en SaludOnNet (consulta + prioridad, todo incluido). Tras la compra te
+              enviamos por email el enlace de la videollamada + el voucher. Si tienes seguro privado, por
+              ahora solo tramitamos por reembolso — adjuntas el voucher al solicitarlo a tu aseguradora.
             </p>
           ) : effectiveIsSinSeguro && selectedProcedure ? (
             <p className="cbm-procedure-hint">
@@ -665,7 +666,7 @@ export default function ClinicBookingModal({
               pushed slots out of view. */}
           {canBook && (
             <div style={{ marginBottom: 8 }}>
-              <TrustStrip variant="inline" />
+              <TrustStrip variant="inline" mode={isVideoProvider ? 'video' : 'default'} />
             </div>
           )}
           {canBook ? (
