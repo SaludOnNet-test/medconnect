@@ -157,6 +157,195 @@ export function bookingConfirmation({ patientName, providerName, providerAddress
 }
 
 // ─────────────────────────────────────────────
+// 2b. Video booking — patient pending email (SaludOnNet pilot)
+// ─────────────────────────────────────────────
+//
+// Sent instead of `bookingConfirmation` when the booking is a video
+// consultation with a SaludOnNet doctor. The reservation is paid but
+// not yet "booked" on SaludOnNet's side — Ops handles that manually
+// and emails the patient the video link + voucher separately. The
+// patient needs to understand that the video link arrives later.
+//
+// Cleanup of the video-pilot: drop this function + the
+// `videoBookingPending` entry in /api/email/send TEMPLATES.
+export function videoBookingPending({
+  patientName,
+  providerName,
+  procedureName,
+  slotDate,
+  slotTime,
+  totalPrice,
+  reference,
+  selfServiceUrl,
+  hasInsurance,
+  insuranceCompany,
+}) {
+  const formattedDate = slotDate
+    ? new Date(slotDate + 'T00:00:00').toLocaleDateString('es-ES', {
+        weekday: 'long', day: 'numeric', month: 'long', year: 'numeric',
+      })
+    : slotDate;
+
+  const html = baseWrapper(`
+    <tr><td style="background:#5b21b6;padding:24px;text-align:center;">
+      <div style="width:60px;height:60px;background:rgba(255,255,255,0.18);border-radius:50%;margin:0 auto 12px;display:flex;align-items:center;justify-content:center;font-size:28px;">🎥</div>
+      <h2 style="margin:0;color:#ffffff;font-size:22px;font-weight:800;">Pago recibido — preparando tu videoconsulta</h2>
+      <p style="margin:8px 0 0;color:rgba(255,255,255,0.85);font-size:14px;">Referencia: <strong>${reference}</strong></p>
+    </td></tr>
+    ${bodySection(`
+      <p style="margin:0 0 16px;font-size:15px;color:#374151;line-height:1.55;">Hola <strong>${patientName}</strong>,</p>
+      <p style="margin:0 0 16px;font-size:15px;color:#374151;line-height:1.55;">
+        Recibimos tu pago para la videoconsulta con <strong>${providerName}</strong>.
+        Nuestro equipo está confirmando la cita con SaludOnNet y te enviaremos por
+        email <strong>el enlace de la videollamada + el voucher de SaludOnNet</strong>
+        antes de la fecha.
+      </p>
+      <div style="background:#ede9fe;border:1px solid #c4b5fd;border-radius:8px;padding:14px 16px;margin-bottom:20px;">
+        <p style="margin:0;font-size:13px;color:#4c1d95;line-height:1.55;">
+          <strong>Importante:</strong> hasta que confirmemos la cita en SaludOnNet, este hueco aún no está garantizado.
+          Si surge cualquier problema con la disponibilidad, te avisaremos y te devolveremos el dinero
+          automáticamente.
+        </p>
+      </div>
+      <table width="100%" cellpadding="0" cellspacing="0" style="margin-bottom:24px;border:1px solid #e5e7eb;border-radius:8px;overflow:hidden;">
+        <tr style="background:#f9fafb;"><th colspan="2" style="padding:12px 16px;text-align:left;font-size:13px;color:#6b7280;font-weight:600;text-transform:uppercase;letter-spacing:0.05em;">Tu reserva</th></tr>
+        ${infoRow('Médico', providerName)}
+        ${procedureName ? infoRow('Consulta', procedureName) : ''}
+        ${infoRow('Modalidad', '🎥 Videoconsulta online')}
+        ${infoRow('Fecha', formattedDate)}
+        ${infoRow('Hora', slotTime)}
+        ${totalPrice ? infoRow('Importe pagado', formatEUR(totalPrice)) : ''}
+      </table>
+      <div style="background:#ecfdf5;border:1px solid #6ee7b7;border-radius:8px;padding:16px;margin-bottom:24px;">
+        <p style="margin:0 0 8px;font-size:14px;color:#065f46;font-weight:700;">📧 Próximos pasos</p>
+        <p style="margin:0 0 6px;font-size:13px;color:#065f46;line-height:1.6;">1) Recibirás un email con el enlace de la videollamada (Zoom o similar) cuando confirmemos la cita.</p>
+        <p style="margin:0 0 6px;font-size:13px;color:#065f46;line-height:1.6;">2) También te enviaremos el voucher de SaludOnNet (PDF) por si te lo piden al iniciar la sesión.</p>
+        <p style="margin:0;font-size:13px;color:#065f46;line-height:1.6;">3) Conéctate al enlace unos minutos antes de la hora con DNI a mano.</p>
+      </div>
+      ${hasInsurance ? `
+      <div style="background:#f5f3ff;border:1px solid #ddd6fe;border-radius:8px;padding:16px;margin-bottom:24px;">
+        <p style="margin:0 0 8px;font-size:14px;color:#4c1d95;font-weight:700;">💳 Reembolso con tu seguro${insuranceCompany ? ` (${insuranceCompany})` : ''}</p>
+        <p style="margin:0;font-size:13px;color:#4c1d95;line-height:1.6;">
+          Para las videoconsultas, por ahora <strong>solo trabajamos por reembolso</strong>. Adjunta
+          el voucher de SaludOnNet que te enviaremos al solicitar el reembolso a tu aseguradora —
+          el voucher incluye el detalle del servicio y el importe.
+        </p>
+      </div>
+      ` : ''}
+      <p style="margin:0 0 16px;font-size:13px;color:#6b7280;line-height:1.55;">
+        ¿Preguntas? Escríbenos a <a href="mailto:info@medconnect.es" style="color:#5b21b6;">info@medconnect.es</a>.
+      </p>
+      ${selfServiceUrl ? `
+      <div style="margin-top:16px;padding-top:16px;border-top:1px solid #e5e7eb;">
+        <p style="margin:0 0 8px;font-size:13px;color:#6b7280;line-height:1.55;">
+          ¿Necesitas <strong>cancelar</strong> o <strong>cambiar la fecha</strong>?
+        </p>
+        <a href="${selfServiceUrl}" style="display:inline-block;font-size:13px;color:#5b21b6;font-weight:600;text-decoration:underline;">
+          Gestionar mi cita
+        </a>
+      </div>
+      ` : ''}
+    `)}
+  `);
+
+  return {
+    subject: `Videoconsulta reservada con ${providerName} — te enviaremos el enlace pronto`,
+    html,
+  };
+}
+
+// ─────────────────────────────────────────────
+// 2c. Video booking — Ops alert (SaludOnNet pilot)
+// ─────────────────────────────────────────────
+//
+// Sent to Ops (info@medconnect.es + francisco@saludonnet.com via the
+// internal-watcher fan-out) when a video booking is paid. Ops MUST
+// manually book the appointment on SaludOnNet using the patient
+// details below, then send the patient the video link + voucher.
+//
+// Cleanup of the video-pilot: drop this function + the
+// `videoBookingOpsAlert` entry in /api/email/send TEMPLATES.
+export function videoBookingOpsAlert({
+  bookingId,
+  patientName,
+  patientEmail,
+  patientPhone,
+  patientDateOfBirth,
+  patientNationalId,
+  providerName,
+  providerSpecialty,
+  videoProviderId,
+  externalBookingUrl,
+  slotDate,
+  slotTime,
+  procedureName,
+  amount,
+  hasInsurance,
+  insuranceCompany,
+}) {
+  const formattedDate = slotDate
+    ? new Date(slotDate + 'T00:00:00').toLocaleDateString('es-ES', {
+        weekday: 'long', day: 'numeric', month: 'long', year: 'numeric',
+      })
+    : slotDate;
+
+  const html = baseWrapper(`
+    <tr><td style="background:#7f1d1d;padding:24px;text-align:center;">
+      <div style="width:60px;height:60px;background:rgba(255,255,255,0.18);border-radius:50%;margin:0 auto 12px;display:flex;align-items:center;justify-content:center;font-size:28px;">⚠️</div>
+      <h2 style="margin:0;color:#ffffff;font-size:22px;font-weight:800;">Acción requerida — Reservar videoconsulta en SaludOnNet</h2>
+      <p style="margin:8px 0 0;color:rgba(255,255,255,0.85);font-size:14px;">Booking: <strong>${bookingId}</strong></p>
+    </td></tr>
+    ${bodySection(`
+      <div style="background:#fef2f2;border:1px solid #fecaca;border-radius:8px;padding:14px 16px;margin-bottom:20px;">
+        <p style="margin:0;font-size:14px;color:#991b1b;line-height:1.55;">
+          <strong>Pago capturado</strong> en Medconnect (${formatEUR(amount)}). Falta reservar
+          manualmente el hueco en SaludOnNet y enviar al paciente el enlace de la videollamada + voucher.
+        </p>
+      </div>
+      <table width="100%" cellpadding="0" cellspacing="0" style="margin-bottom:24px;border:1px solid #e5e7eb;border-radius:8px;overflow:hidden;">
+        <tr style="background:#f9fafb;"><th colspan="2" style="padding:12px 16px;text-align:left;font-size:13px;color:#6b7280;font-weight:600;text-transform:uppercase;letter-spacing:0.05em;">Hueco solicitado</th></tr>
+        ${infoRow('Médico', providerName)}
+        ${providerSpecialty ? infoRow('Especialidad', providerSpecialty) : ''}
+        ${videoProviderId ? infoRow('ID provider (manifest)', videoProviderId) : ''}
+        ${procedureName ? infoRow('Consulta', procedureName) : ''}
+        ${infoRow('Fecha', formattedDate)}
+        ${infoRow('Hora', slotTime)}
+      </table>
+      <table width="100%" cellpadding="0" cellspacing="0" style="margin-bottom:24px;border:1px solid #e5e7eb;border-radius:8px;overflow:hidden;">
+        <tr style="background:#f9fafb;"><th colspan="2" style="padding:12px 16px;text-align:left;font-size:13px;color:#6b7280;font-weight:600;text-transform:uppercase;letter-spacing:0.05em;">Paciente</th></tr>
+        ${infoRow('Nombre', patientName || '—')}
+        ${infoRow('Email', patientEmail || '—')}
+        ${patientPhone ? infoRow('Teléfono', patientPhone) : ''}
+        ${patientDateOfBirth ? infoRow('Fecha de nacimiento', patientDateOfBirth) : ''}
+        ${patientNationalId ? infoRow('DNI / NIE / Pasaporte', patientNationalId) : ''}
+        ${infoRow('Seguro privado', hasInsurance ? (insuranceCompany || 'Sí (sin especificar)') : 'No')}
+        ${hasInsurance ? infoRow('Vía de cobro', 'Reembolso al paciente (no facturación a la aseguradora)') : ''}
+      </table>
+      <div style="background:#fffbeb;border:1px solid #fde68a;border-radius:8px;padding:14px 16px;margin-bottom:20px;">
+        <p style="margin:0 0 8px;font-size:14px;color:#78350f;font-weight:700;">Siguiente paso (~24h)</p>
+        <ol style="margin:0;padding-left:18px;font-size:13px;color:#78350f;line-height:1.6;">
+          <li>Reserva el hueco en SaludOnNet para este médico/fecha/hora.</li>
+          <li>Genera el enlace de la videollamada (Zoom / Meet / etc.).</li>
+          <li>Envía al paciente: enlace + voucher + recordatorio${hasInsurance ? ' (mencionar que adjunte el voucher al solicitar reembolso a su aseguradora)' : ''}.</li>
+          <li>Marca el booking como <code>confirmed</code> en el admin.</li>
+        </ol>
+      </div>
+      ${externalBookingUrl ? `
+      <p style="margin:0 0 16px;font-size:13px;color:#374151;line-height:1.55;">
+        Página del médico en SaludOnNet:
+        <a href="${externalBookingUrl}" style="color:#5b21b6;">${externalBookingUrl}</a>
+      </p>
+      ` : ''}
+    `)}
+  `);
+
+  return {
+    subject: `[ACCIÓN REQUERIDA] Videoconsulta ${providerName} · ${formattedDate} ${slotTime} (${bookingId})`,
+    html,
+  };
+}
+
+// ─────────────────────────────────────────────
 // 3. Payment Receipt
 // ─────────────────────────────────────────────
 export function paymentReceipt({ patientName, reference, servicePrice, feeAmount, feeLabel, totalPrice, last4 }) {

@@ -42,6 +42,26 @@ function sessionFromHeader(request) {
   return sid;
 }
 
+/**
+ * Accept either a DB clinic id (positive integer) or a video-pilot
+ * provider id ("video-derma-001" etc). Returns the normalised
+ * value (number for DB ids, string for video) or null on failure.
+ * Cleanup of the video pilot: drop the second branch and revert
+ * the call sites to `Number(body?.clinicId)`.
+ */
+function parseClinicIdInput(raw) {
+  if (typeof raw === 'string' && /^video-[a-z0-9-]+$/i.test(raw)) {
+    return raw;
+  }
+  const n = Number(raw);
+  if (Number.isFinite(n) && Number.isInteger(n) && n > 0) return n;
+  return null;
+}
+
+function isVideoClinicId(id) {
+  return typeof id === 'string' && id.startsWith('video-');
+}
+
 // ─────────────────────────────────────────────────────────
 // isLastSlotThisWeek — single-clinic inventory probe
 // ─────────────────────────────────────────────────────────
@@ -139,10 +159,10 @@ export async function POST(request) {
   try { body = await request.json(); }
   catch { return clientError('invalid JSON', 400); }
 
-  const clinicId = Number(body?.clinicId);
+  const clinicId = parseClinicIdInput(body?.clinicId);
   const date = String(body?.date || '').trim();
   const time = String(body?.time || '').trim();
-  if (!Number.isFinite(clinicId) || clinicId <= 0 || !/^\d{4}-\d{2}-\d{2}$/.test(date) || !/^\d{2}:\d{2}$/.test(time)) {
+  if (clinicId === null || !/^\d{4}-\d{2}-\d{2}$/.test(date) || !/^\d{2}:\d{2}$/.test(time)) {
     return clientError('clinicId, date (YYYY-MM-DD) and time (HH:MM) are required', 400);
   }
 
@@ -173,12 +193,17 @@ export async function POST(request) {
       heldUntil:       result.expiresAt,
     }).catch((e) => console.error('[slot-holds POST] persistHoldRow', e?.message));
 
-    // "Última cita" probe — null when we can't determine.
-    const isLastSlotThisWeek = await probeIsLastSlotThisWeek({
-      clinicId,
-      sessionId: sid,
-      holdKeyToInclude: `${clinicId}|${date}|${time}`,
-    });
+    // "Última cita" probe — null when we can't determine. Video
+    // providers skip the probe (they're not in the clinics SQL
+    // table); the client-side scarcity flag drives the banner
+    // alone for them via /book's `lastSlot=1` URL forward.
+    const isLastSlotThisWeek = isVideoClinicId(clinicId)
+      ? null
+      : await probeIsLastSlotThisWeek({
+          clinicId,
+          sessionId: sid,
+          holdKeyToInclude: `${clinicId}|${date}|${time}`,
+        });
 
     return NextResponse.json({
       ok: true,
@@ -207,10 +232,10 @@ export async function PATCH(request) {
   try { body = await request.json(); }
   catch { return clientError('invalid JSON', 400); }
 
-  const clinicId = Number(body?.clinicId);
+  const clinicId = parseClinicIdInput(body?.clinicId);
   const date = String(body?.date || '').trim();
   const time = String(body?.time || '').trim();
-  if (!Number.isFinite(clinicId) || clinicId <= 0 || !/^\d{4}-\d{2}-\d{2}$/.test(date) || !/^\d{2}:\d{2}$/.test(time)) {
+  if (clinicId === null || !/^\d{4}-\d{2}-\d{2}$/.test(date) || !/^\d{2}:\d{2}$/.test(time)) {
     return clientError('clinicId, date and time are required', 400);
   }
 
@@ -263,16 +288,16 @@ export async function DELETE(request) {
 
   let clinicId, date, time;
   if (body && typeof body === 'object') {
-    clinicId = Number(body.clinicId);
+    clinicId = parseClinicIdInput(body.clinicId);
     date = String(body.date || '').trim();
     time = String(body.time || '').trim();
   } else {
     const url = new URL(request.url);
-    clinicId = Number(url.searchParams.get('clinicId'));
+    clinicId = parseClinicIdInput(url.searchParams.get('clinicId'));
     date = String(url.searchParams.get('date') || '').trim();
     time = String(url.searchParams.get('time') || '').trim();
   }
-  if (!Number.isFinite(clinicId) || clinicId <= 0 || !/^\d{4}-\d{2}-\d{2}$/.test(date) || !/^\d{2}:\d{2}$/.test(time)) {
+  if (clinicId === null || !/^\d{4}-\d{2}-\d{2}$/.test(date) || !/^\d{2}:\d{2}$/.test(time)) {
     return clientError('clinicId, date and time are required', 400);
   }
 
@@ -292,10 +317,10 @@ export async function GET(request) {
   if (!sid) return clientError('missing or invalid x-mc-session header', 400);
 
   const url = new URL(request.url);
-  const clinicId = Number(url.searchParams.get('clinicId'));
+  const clinicId = parseClinicIdInput(url.searchParams.get('clinicId'));
   const date = String(url.searchParams.get('date') || '').trim();
   const time = String(url.searchParams.get('time') || '').trim();
-  if (!Number.isFinite(clinicId) || clinicId <= 0 || !/^\d{4}-\d{2}-\d{2}$/.test(date) || !/^\d{2}:\d{2}$/.test(time)) {
+  if (clinicId === null || !/^\d{4}-\d{2}-\d{2}$/.test(date) || !/^\d{2}:\d{2}$/.test(time)) {
     return clientError('clinicId, date and time are required', 400);
   }
 

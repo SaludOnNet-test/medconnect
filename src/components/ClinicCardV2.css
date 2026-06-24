@@ -275,6 +275,21 @@
 }
 .cv2-tag--partner + .cv2-tag::before { content: ''; margin: 0; }
 
+/* SaludOnNet video-consultation pilot — purple pill so the modality
+   reads at a glance, distinct from the partner-green and the
+   insurance-neutral pills next to it. Same chrome as the partner
+   pill (rounded, bold, no inter-pill bullet). */
+.cv2-tag--video {
+  color: #5b21b6 !important;
+  background: #ede9fe;
+  padding: 2px 10px;
+  border-radius: 999px;
+  font-weight: 700;
+  font-size: 0.75rem;
+  white-space: nowrap;
+}
+.cv2-tag--video + .cv2-tag::before { content: ''; margin: 0; }
+
 /* 2026-06-08 — Strikethrough in the "tarifa desde" header label. */
 .cv2-price-old {
   color: var(--fg-muted);

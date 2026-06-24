@@ -183,7 +183,10 @@ export async function POST(request) {
     procedureName,
     servicePrice,
     platformFee,
+    deliveryMode,
+    videoProviderId,
   } = parsed.data;
+  const isVideoBooking = deliveryMode === 'video';
 
   // 2026-06-12 — Partner discount floor enforcement (con-seguro path).
   // Mirror of the clamp in /api/bookings/reserve. Previously the
@@ -626,6 +629,13 @@ export async function POST(request) {
               : CHANNEL_LABELS.derivacion_externa,
         Derivador: referralContext?.derivadorEmail || null,
         'Clínica derivadora': referralContext?.derivadorClinicName || null,
+        // SaludOnNet video pilot — surface the modality + video id so
+        // the internal-watcher digest header makes it obvious that
+        // Ops still needs to reserve this manually on SaludOnNet.
+        ...(isVideoBooking ? {
+          Modalidad: '🎥 Videoconsulta (acción de Ops requerida)',
+          'Video provider id': videoProviderId || null,
+        } : {}),
       },
     });
 
@@ -636,12 +646,17 @@ export async function POST(request) {
     // 2026-06 — release the Redis slot hold (best-effort) and mark the
     // mirror row as converted so the abandoned-cart cron skips it.
     // Failures are logged but never block the booking response — the
-    // hold auto-expires within 15 min anyway.
-    if (providerId && slotDate && slotTime) {
+    // hold auto-expires within 15 min anyway. For video bookings the
+    // hold key uses the manifest id (video-…), so we route off
+    // videoProviderId in that branch; markHoldConverted no-ops for
+    // video (skipped at the slot-holds layer since the DB mirror is
+    // intentionally skipped for video).
+    const releaseClinicId = isVideoBooking ? (videoProviderId || null) : providerId;
+    if (releaseClinicId && slotDate && slotTime) {
       const sessionId = request.headers.get('x-mc-session') || '';
       Promise.all([
-        releaseHold({ clinicId: providerId, date: slotDate, time: slotTime, sessionId: sessionId || undefined }),
-        markHoldConverted({ sessionId, clinicId: providerId, slotDate, slotTime }),
+        releaseHold({ clinicId: releaseClinicId, date: slotDate, time: slotTime, sessionId: sessionId || undefined }),
+        markHoldConverted({ sessionId, clinicId: releaseClinicId, slotDate, slotTime }),
       ]).catch((e) => console.error('[bookings] slot-hold release/convert failed', e?.message));
     }
 

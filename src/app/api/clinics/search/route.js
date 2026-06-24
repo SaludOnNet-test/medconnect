@@ -4,6 +4,12 @@ import { limits } from '@/lib/rateLimit';
 import { internalError } from '@/lib/errors';
 import { isBookableProcedure } from '@/lib/text';
 import { PARTNER_CLINIC_IDS_SQL, isPartnerClinic } from '@/lib/partnerClinics';
+// SaludOnNet video-consultation pilot — injects ~6 video providers
+// into the response when the search lands on derma / uro / gine in
+// Madrid. Returns [] for every other (specialty, city) combination
+// so non-pilot listings stay untouched. Cleanup: delete this import
+// + the inject block near the end of GET.
+import { getVideoProviders, toClinicCardShape } from '@/lib/videoProviders';
 
 const SPECIALTY_SLUG_MAP = {
   1: ['traumatologia', 'cirugia-ortopedica'],
@@ -181,7 +187,29 @@ export async function GET(request) {
       hasRealSchedule: true,
     }));
 
-    return NextResponse.json({ clinics, total, offset, limit, source: 'db' });
+    // SaludOnNet video-consultation pilot — append in-scope video
+    // providers to the response so they render alongside DB clinics
+    // on /especialistas and /search-v2 listings for the pilot
+    // specialties + cities (currently derma + uro + gine in Madrid).
+    // The pilot module returns [] when (specialty, city) is out of
+    // scope, so non-pilot listings stay byte-identical to before.
+    let videoExtras = [];
+    try {
+      const list = await getVideoProviders({ specialtySlug, city });
+      videoExtras = list.map(toClinicCardShape);
+    } catch (err) {
+      console.warn('[search] video pilot append failed (continuing):', err?.message);
+    }
+    const combinedClinics = videoExtras.length > 0 ? [...clinics, ...videoExtras] : clinics;
+    const combinedTotal = total + videoExtras.length;
+
+    return NextResponse.json({
+      clinics: combinedClinics,
+      total: combinedTotal,
+      offset,
+      limit,
+      source: 'db',
+    });
   } catch (err) {
     return internalError(err, '[GET /api/clinics/search]');
   }

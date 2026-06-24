@@ -1,24 +1,12 @@
 {
   "crons": [
     {
-      "path": "/api/referrals/remind",
-      "schedule": "0 8 * * *"
-    },
-    {
-      "path": "/api/reviews/request-batch",
-      "schedule": "0 9 * * *"
-    },
-    {
-      "path": "/api/exec/daily-email",
+      "path": "/api/cron/daily-dispatch",
       "schedule": "0 6 * * *"
     },
     {
-      "path": "/api/slot-holds/recover-abandoned",
-      "schedule": "0 10 * * *"
-    },
-    {
       "path": "/api/bookings/recover-pending-payment",
-      "schedule": "30 9,13,17,20 * * *"
+      "schedule": "30 13 * * *"
     }
   ]
 }

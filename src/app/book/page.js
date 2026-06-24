@@ -144,6 +144,19 @@ function BookContent() {
   const procedureNameParam = searchParams.get('procedureName') || '';
   const procedurePriceParam = Number(searchParams.get('procedurePrice') || 0);
 
+  // SaludOnNet video-consultation pilot — the modal forwards
+  // deliveryMode=video + servicePrice + specialtyDisplay. When set,
+  // the page collapses the insurance question (always sin-seguro),
+  // charges only the service price (priorityFee=0), and the bookings
+  // POST routes the row through the Ops-handoff path
+  // (status=awaiting_voucher, ops notification email). Cleanup of the
+  // pilot: drop the next 3 lines and the `isVideoBooking` branches
+  // below — search for it in this file.
+  const deliveryModeParam   = searchParams.get('deliveryMode') || '';
+  const isVideoBooking      = deliveryModeParam === 'video' || String(providerId).startsWith('video-');
+  const specialtyDisplayParam = searchParams.get('specialtyDisplay') || '';
+  const servicePriceParam   = Number(searchParams.get('servicePrice') || 0);
+
   const service = services.find((s) => s.id === Number(serviceId));
   // Prefer the per-clinic procedure price from the URL; fall back to the legacy
   // mock service basePrice only as a safety net.
@@ -354,9 +367,12 @@ function BookContent() {
   const [holdExpired, setHoldExpired] = useState(false);
   // Capture the (clinicId, date, time) we acquired the hold for. We
   // need this verbatim for PATCH (extend) and DELETE (release), and to
-  // build the redirect target when the timer hits zero.
+  // build the redirect target when the timer hits zero. For
+  // video-pilot providers the id is a string ("video-derma-001") —
+  // pass it through unchanged so the slot-holds endpoint (which now
+  // accepts both shapes) can address Redis.
   const holdSlotRef = useRef({
-    clinicId: Number(providerId) || null,
+    clinicId: isVideoBooking ? providerId : (Number(providerId) || null),
     date,
     time,
   });
@@ -889,9 +905,13 @@ function BookContent() {
         id,
         patientEmail: pEmail,
         patientName: pName,
-        providerId: Number(providerId) || null,
+        // Video providers have string ids that don't fit the bookings
+        // INT column — reserve a row with provider_id=null and rely on
+        // procedure_slug (videoconsulta-…) + specialty + provider_name
+        // to identify the booking server-side.
+        providerId: isVideoBooking ? null : (Number(providerId) || null),
         providerName: lockInData?.providerName || providerName,
-        specialty: service?.name || null,
+        specialty: isVideoBooking ? (specialtyDisplayParam || null) : (service?.name || null),
         slotDate: sDate,
         slotTime: sTime,
         amount: totalPrice,
@@ -957,15 +977,24 @@ function BookContent() {
           // pre-migration deploys don't drop the booking.
           patientDateOfBirth: form.dateOfBirth || null,
           patientNationalId: form.nationalId ? form.nationalId.trim() : null,
-          providerId: Number(providerId) || null,
+          // For video providers the id is a string ("video-derma-001")
+          // not a DB row — pass it through under videoProviderId, and
+          // leave providerId null so the existing INT column stays
+          // happy. /api/bookings POST branches on videoProviderId.
+          providerId: isVideoBooking ? null : (Number(providerId) || null),
+          videoProviderId: isVideoBooking ? String(providerId) : null,
           providerName: clinicName,
-          specialty: service?.name || null,
+          specialty: isVideoBooking ? (specialtyDisplayParam || null) : (service?.name || null),
+          deliveryMode: isVideoBooking ? 'video' : 'in_person',
           slotDate: slotDateToUse,
           slotTime: slotTimeToUse,
           amount: totalPrice,
           // Sin seguro: status starts at awaiting_voucher (ops must upload SON
           // voucher manually). Con seguro: confirmed straight away.
-          status: hasInsurance === true ? 'confirmed' : 'awaiting_voucher',
+          // Video bookings also land in awaiting_voucher — Ops books the
+          // SaludOnNet appointment manually and emails the patient the
+          // link + voucher (no Stripe webhook auto-confirms them).
+          status: (isVideoBooking || hasInsurance !== true) ? 'awaiting_voucher' : 'confirmed',
           cardLast4: last4,
           hasInsurance: hasInsurance === true,
           insuranceCompany: selectedInsurance || null,
@@ -976,7 +1005,12 @@ function BookContent() {
           // New: procedure (acto médico) + price split snapshots.
           procedureSlug: procedureSlugParam || null,
           procedureName: serviceLabel || null,
-          servicePrice: hasInsurance === false ? Number(servicePrice) || 0 : 0,
+          // For video bookings the full charge is the SaludOnNet
+          // service price; for in-person sin-seguro it's the same
+          // shape (service + priority). Asegurados pay only the
+          // priority fee — service column stays 0 because the
+          // insurance carrier covers it.
+          servicePrice: (isVideoBooking || hasInsurance === false) ? Number(servicePrice) || 0 : 0,
           platformFee: Number(activeFee) || 0,
         }),
       });
@@ -1023,22 +1057,43 @@ function BookContent() {
       ? `${baseUrl.replace(/\/$/, '')}/booking/${selfServiceToken}`
       : null;
 
-    // Send confirmation emails
-    sendEmail('bookingConfirmation', {
-      patientEmail,
-      patientName,
-      providerName: clinicName,
-      slotDate: slotDateToUse,
-      slotTime: slotTimeToUse,
-      totalPrice,
-      reference,
-      calendarUrl,
-      hasInsurance,
-      feeAmount: activeFee,
-      procedureName: serviceLabel || null,
-      servicePrice: hasInsurance === false ? Number(servicePrice) || 0 : 0,
-      selfServiceUrl,
-    });
+    // Send confirmation emails. Video bookings go through the
+    // pilot-specific templates: the patient gets a "we're confirming
+    // your video appointment" pending email (instead of the standard
+    // "voucher coming in 24h" one), and Ops gets a clearer "ACCIÓN
+    // REQUERIDA — book this manually on SaludOnNet" alert addressed
+    // to info@medconnect.es + francisco.
+    if (isVideoBooking) {
+      sendEmail('videoBookingPending', {
+        patientEmail,
+        patientName,
+        providerName: clinicName,
+        procedureName: serviceLabel || null,
+        slotDate: slotDateToUse,
+        slotTime: slotTimeToUse,
+        totalPrice,
+        reference,
+        selfServiceUrl,
+        hasInsurance: hasInsurance === true,
+        insuranceCompany: selectedInsurance || null,
+      });
+    } else {
+      sendEmail('bookingConfirmation', {
+        patientEmail,
+        patientName,
+        providerName: clinicName,
+        slotDate: slotDateToUse,
+        slotTime: slotTimeToUse,
+        totalPrice,
+        reference,
+        calendarUrl,
+        hasInsurance,
+        feeAmount: activeFee,
+        procedureName: serviceLabel || null,
+        servicePrice: hasInsurance === false ? Number(servicePrice) || 0 : 0,
+        selfServiceUrl,
+      });
+    }
     sendEmail('paymentReceipt', {
       patientEmail,
       patientName,
@@ -1049,37 +1104,58 @@ function BookContent() {
       totalPrice,
       last4,
     });
-    sendEmail('operationsBookingAlert', {
-      bookingId: reference,
-      caseId: opsCaseId,
-      clinicId: providerId,
-      // The clinic phone isn't on this client (only providerName comes
-      // through the URL); ops can resolve it from `clinicId` server-side.
-      // Previously this read `provider?.telephone`, but `provider` was
-      // never declared in this scope — optional chaining doesn't shield
-      // against a ReferenceError on an undeclared identifier, so the whole
-      // handler threw before reaching `setStep('success')` and the patient
-      // got stuck on "Procesando…". Caught in 2026-05 review.
-      clinicPhone: null,
-      patientName,
-      patientEmail,
-      patientPhone: lockInData?.patientPhone || form.phone || null,
-      patientDateOfBirth: form.dateOfBirth || null,
-      patientNationalId: form.nationalId ? form.nationalId.trim() : null,
-      providerName: clinicName,
-      slotDate: slotDateToUse,
-      slotTime: slotTimeToUse,
-      amount: totalPrice,
-      tier,
-      paymentToClinic,
-      specialty: service?.name || null,
-      hasInsurance: hasInsurance === true,
-      insuranceCompany: selectedInsurance || null,
-      procedureSlug: procedureSlugParam || null,
-      procedureName: serviceLabel || null,
-      servicePrice: hasInsurance === false ? Number(servicePrice) || 0 : 0,
-      platformFee: Number(activeFee) || 0,
-    });
+    if (isVideoBooking) {
+      sendEmail('videoBookingOpsAlert', {
+        bookingId: reference,
+        patientName,
+        patientEmail,
+        patientPhone: lockInData?.patientPhone || form.phone || null,
+        patientDateOfBirth: form.dateOfBirth || null,
+        patientNationalId: form.nationalId ? form.nationalId.trim() : null,
+        providerName: clinicName,
+        providerSpecialty: specialtyDisplayParam || null,
+        videoProviderId: String(providerId),
+        externalBookingUrl: searchParams.get('externalBookingUrl') || null,
+        slotDate: slotDateToUse,
+        slotTime: slotTimeToUse,
+        procedureName: serviceLabel || null,
+        amount: totalPrice,
+        hasInsurance: hasInsurance === true,
+        insuranceCompany: selectedInsurance || null,
+      });
+    } else {
+      sendEmail('operationsBookingAlert', {
+        bookingId: reference,
+        caseId: opsCaseId,
+        clinicId: providerId,
+        // The clinic phone isn't on this client (only providerName comes
+        // through the URL); ops can resolve it from `clinicId` server-side.
+        // Previously this read `provider?.telephone`, but `provider` was
+        // never declared in this scope — optional chaining doesn't shield
+        // against a ReferenceError on an undeclared identifier, so the whole
+        // handler threw before reaching `setStep('success')` and the patient
+        // got stuck on "Procesando…". Caught in 2026-05 review.
+        clinicPhone: null,
+        patientName,
+        patientEmail,
+        patientPhone: lockInData?.patientPhone || form.phone || null,
+        patientDateOfBirth: form.dateOfBirth || null,
+        patientNationalId: form.nationalId ? form.nationalId.trim() : null,
+        providerName: clinicName,
+        slotDate: slotDateToUse,
+        slotTime: slotTimeToUse,
+        amount: totalPrice,
+        tier,
+        paymentToClinic,
+        specialty: service?.name || null,
+        hasInsurance: hasInsurance === true,
+        insuranceCompany: selectedInsurance || null,
+        procedureSlug: procedureSlugParam || null,
+        procedureName: serviceLabel || null,
+        servicePrice: hasInsurance === false ? Number(servicePrice) || 0 : 0,
+        platformFee: Number(activeFee) || 0,
+      });
+    }
 
     // Email: Derivador gets notified patient confirmed and paid
     if (lockInData?.professionalEmail) {
@@ -1291,31 +1367,52 @@ function BookContent() {
             {hasInsurance === null && (
               <div className="book-form" style={{ marginBottom: 'var(--space-md)' }}>
                 <div style={{
-                  background: '#f0f9ff',
-                  border: '1px solid #bae6fd',
+                  background: isVideoBooking ? '#ede9fe' : '#f0f9ff',
+                  border: `1px solid ${isVideoBooking ? '#c4b5fd' : '#bae6fd'}`,
                   borderRadius: '10px',
                   padding: '0.75rem 1rem',
                   marginBottom: 'var(--space-md)',
                   fontSize: '0.85rem',
-                  color: '#0c4a6e',
+                  color: isVideoBooking ? '#4c1d95' : '#0c4a6e',
                   lineHeight: 1.6,
                 }}>
-                  <strong>Un último paso antes del pago:</strong> el acto médico lo paga tu seguro a la clínica. A nosotros solo nos pagas la <strong>tarifa de prioridad</strong> por gestionarte la reserva prioritaria.
+                  {isVideoBooking ? (
+                    <><strong>Un último paso antes del pago:</strong> en videoconsultas pagas el precio publicado en SaludOnNet (consulta + prioridad, todo incluido). Si tienes seguro, por ahora <strong>solo tramitamos por reembolso</strong> — pagas ahora y solicitas el reembolso a tu seguro adjuntando el voucher que te enviaremos.</>
+                  ) : (
+                    <><strong>Un último paso antes del pago:</strong> el acto médico lo paga tu seguro a la clínica. A nosotros solo nos pagas la <strong>tarifa de prioridad</strong> por gestionarte la reserva prioritaria.</>
+                  )}
                 </div>
-                <label className="form-label">¿Tienes seguro médico privado para esta consulta?</label>
+                <label className="form-label">
+                  ¿Tienes seguro médico privado para esta consulta?
+                  {isVideoBooking && (
+                    <span style={{ display: 'block', fontWeight: 400, fontSize: '0.78rem', color: 'var(--muted)', marginTop: 2 }}>
+                      El precio es el mismo en ambos casos — la respuesta nos ayuda a darte la info correcta para el reembolso.
+                    </span>
+                  )}
+                </label>
                 <div className="book-insurance-toggle">
                   <div
                     className={`book-insurance-option ${hasInsurance === true ? 'active' : ''}`}
                     onClick={() => handleHasInsuranceClick(true)}
                   >
                     <strong>Sí, tengo seguro</strong>
-                    {activeFee > 0 && (
-                      <span style={{ display: 'block', fontSize: '0.95rem', color: 'var(--ink-1000, #0e1a2b)', marginTop: '4px', fontWeight: 700 }}>
-                        Pagas {formatEUR(activeFee)}
-                      </span>
+                    {isVideoBooking ? (
+                      servicePrice > 0 && (
+                        <span style={{ display: 'block', fontSize: '0.95rem', color: 'var(--ink-1000, #0e1a2b)', marginTop: '4px', fontWeight: 700 }}>
+                          Pagas {formatEUR(servicePrice)}
+                        </span>
+                      )
+                    ) : (
+                      activeFee > 0 && (
+                        <span style={{ display: 'block', fontSize: '0.95rem', color: 'var(--ink-1000, #0e1a2b)', marginTop: '4px', fontWeight: 700 }}>
+                          Pagas {formatEUR(activeFee)}
+                        </span>
+                      )
                     )}
                     <span style={{ display: 'block', fontSize: '0.78rem', color: 'var(--muted)', marginTop: '2px', fontWeight: 400 }}>
-                      Solo la tarifa de prioridad. La consulta va por tu póliza.
+                      {isVideoBooking
+                        ? 'Pagas ahora y solicitas el reembolso a tu seguro después de la videoconsulta.'
+                        : 'Solo la tarifa de prioridad. La consulta va por tu póliza.'}
                     </span>
                   </div>
                   <div
@@ -1323,13 +1420,23 @@ function BookContent() {
                     onClick={() => handleHasInsuranceClick(false)}
                   >
                     <strong>No tengo seguro</strong>
-                    {(activeFee + servicePrice) > 0 && (
-                      <span style={{ display: 'block', fontSize: '0.95rem', color: 'var(--ink-1000, #0e1a2b)', marginTop: '4px', fontWeight: 700 }}>
-                        Pagas {formatEUR(activeFee + servicePrice)}
-                      </span>
+                    {isVideoBooking ? (
+                      servicePrice > 0 && (
+                        <span style={{ display: 'block', fontSize: '0.95rem', color: 'var(--ink-1000, #0e1a2b)', marginTop: '4px', fontWeight: 700 }}>
+                          Pagas {formatEUR(servicePrice)}
+                        </span>
+                      )
+                    ) : (
+                      (activeFee + servicePrice) > 0 && (
+                        <span style={{ display: 'block', fontSize: '0.95rem', color: 'var(--ink-1000, #0e1a2b)', marginTop: '4px', fontWeight: 700 }}>
+                          Pagas {formatEUR(activeFee + servicePrice)}
+                        </span>
+                      )
                     )}
                     <span style={{ display: 'block', fontSize: '0.78rem', color: 'var(--muted)', marginTop: '2px', fontWeight: 400 }}>
-                      Consulta ({formatEUR(servicePrice)}) + prioridad ({formatEUR(activeFee)}). Total final, sin sorpresas.
+                      {isVideoBooking
+                        ? 'Precio publicado en SaludOnNet, todo incluido. Total final, sin sorpresas.'
+                        : `Consulta (${formatEUR(servicePrice)}) + prioridad (${formatEUR(activeFee)}). Total final, sin sorpresas.`}
                     </span>
                   </div>
                 </div>
@@ -1366,33 +1473,44 @@ function BookContent() {
               <div className="book-price-breakdown animate-fade-in" style={{ marginBottom: 'var(--space-md)' }}>
                 <p className="book-step-label" style={{ marginBottom: 'var(--space-md)' }}>Resumen del pago</p>
 
-                {serviceLabel && (
+                {/* Video pilot — single all-in-one line. Same rationale
+                    as the form-step breakdown above. */}
+                {isVideoBooking ? (
                   <div className="book-price-row">
-                    <span className="book-price-label"><Icon name="stethoscope" size={14} /> {serviceLabel}</span>
-                    <span className="book-price-amount">
-                      {hasInsurance === true
-                        ? <span style={{ color: '#00805a', fontWeight: 600 }}>A cubrir por tu seguro</span>
-                        : formatEUR(servicePrice)}
-                    </span>
+                    <span className="book-price-label"><Icon name="video" size={14} /> {serviceLabel || 'Videoconsulta'} <span style={{ color: 'var(--muted)', fontWeight: 400 }}>· incluye prioridad</span></span>
+                    <span className="book-price-amount">{formatEUR(servicePrice)}</span>
                   </div>
-                )}
-
-                <div className="book-price-row">
-                  <span className="book-price-label">
-                    🎫 Tarifa de prioridad{feeLabel ? ` (${feeLabel.toLowerCase()})` : ''}
-                  </span>
-                  <span className="book-price-amount">
-                    {/* 2026-06-08 — Strikethrough on the "tarifa habitual"
-                        anchor alongside the active fee. The savings line
-                        renders below the breakdown. */}
-                    {feePricingDisplay.showStrikethrough && activeFee > 0 && (
-                      <span style={{ textDecoration: 'line-through', color: 'var(--muted)', fontWeight: 500, fontSize: '0.85em', marginRight: 6 }}>
-                        {feePricingDisplay.standardLabel}
-                      </span>
+                ) : (
+                  <>
+                    {serviceLabel && (
+                      <div className="book-price-row">
+                        <span className="book-price-label"><Icon name="stethoscope" size={14} /> {serviceLabel}</span>
+                        <span className="book-price-amount">
+                          {hasInsurance === true
+                            ? <span style={{ color: '#00805a', fontWeight: 600 }}>A cubrir por tu seguro</span>
+                            : formatEUR(servicePrice)}
+                        </span>
+                      </div>
                     )}
-                    {activeFee > 0 ? formatEUR(activeFee) : '0 €'}
-                  </span>
-                </div>
+
+                    <div className="book-price-row">
+                      <span className="book-price-label">
+                        🎫 Tarifa de prioridad{feeLabel ? ` (${feeLabel.toLowerCase()})` : ''}
+                      </span>
+                      <span className="book-price-amount">
+                        {/* 2026-06-08 — Strikethrough on the "tarifa habitual"
+                            anchor alongside the active fee. The savings line
+                            renders below the breakdown. */}
+                        {feePricingDisplay.showStrikethrough && activeFee > 0 && (
+                          <span style={{ textDecoration: 'line-through', color: 'var(--muted)', fontWeight: 500, fontSize: '0.85em', marginRight: 6 }}>
+                            {feePricingDisplay.standardLabel}
+                          </span>
+                        )}
+                        {activeFee > 0 ? formatEUR(activeFee) : '0 €'}
+                      </span>
+                    </div>
+                  </>
+                )}
 
                 <div className="book-price-row total">
                   <span>Total que pagas hoy</span>
@@ -1405,8 +1523,10 @@ function BookContent() {
                     universal launch-offer + the partner extra (when
                     applicable) into one positive frame. No external
                     €60-120 comparison — replaced by self-referential
-                    strikethrough above. */}
-                {feePricingDisplay.savings > 0 && activeFee > 0 && (
+                    strikethrough above. Skipped for video bookings —
+                    there's no "tarifa habitual" anchor to strikethrough
+                    against; the SaludOnNet price is the only number. */}
+                {!isVideoBooking && feePricingDisplay.savings > 0 && activeFee > 0 && (
                   <p style={{ marginTop: 'var(--space-sm)', fontSize: '0.78rem', color: '#1b4332', lineHeight: 1.4, fontWeight: 500 }}>
                     💸 <strong>Ahorras {feePricingDisplay.savingsLabel}</strong> sobre la tarifa habitual.
                     {feePricingDisplay.isPartner && (
@@ -1435,7 +1555,9 @@ function BookContent() {
                 style={{ marginBottom: 'var(--space-md)' }}
               >
                 Cargo único de <strong>{totalPrice > 0 ? formatEUR(totalPrice) : '0 €'}</strong>
-                {hasInsurance === true ? (
+                {isVideoBooking ? (
+                  <> — precio publicado en SaludOnNet, incluye la consulta y la prioridad de la cita.</>
+                ) : hasInsurance === true ? (
                   <> — nuestra tarifa de prioridad. La consulta la cubre tu póliza.</>
                 ) : (
                   <> — consulta ({formatEUR(servicePrice)}) + tarifa de prioridad ({formatEUR(activeFee)}).</>
@@ -1506,11 +1628,15 @@ function BookContent() {
           <div className="book-container">
             <div className="book-success">
               <div className="book-success-icon">✓</div>
-              <h2 className="book-success-title">¡Reserva prioritaria confirmada!</h2>
+              <h2 className="book-success-title">
+                {isVideoBooking ? '¡Reserva de videoconsulta confirmada!' : '¡Reserva prioritaria confirmada!'}
+              </h2>
               <p className="book-success-subtitle">
-                {hasInsurance === true
-                  ? 'Hemos confirmado tu reserva prioritaria. Acude con tu tarjeta de asegurado — la consulta corre por tu póliza.'
-                  : 'Hemos confirmado tu cita y la consulta privada. Llega 10 minutos antes; en recepción ya saben quién eres.'}
+                {isVideoBooking
+                  ? 'Hemos recibido tu pago. Nuestro equipo está confirmando la cita con SaludOnNet y te enviaremos por email el enlace de la videollamada + el voucher antes de la fecha.'
+                  : hasInsurance === true
+                    ? 'Hemos confirmado tu reserva prioritaria. Acude con tu tarjeta de asegurado — la consulta corre por tu póliza.'
+                    : 'Hemos confirmado tu cita y la consulta privada. Llega 10 minutos antes; en recepción ya saben quién eres.'}
               </p>
 
               <div className="book-summary-card" style={{ textAlign: 'left', marginTop: '1.5rem' }}>
@@ -1601,16 +1727,42 @@ function BookContent() {
                 </div>
               )}
 
-              {hasInsurance === true && (
+              {isVideoBooking ? (
+                <>
+                  <div className="book-info-box book-info-box--green" style={{ marginTop: '1rem', textAlign: 'left' }}>
+                    <strong><Icon name="mail" size={16} /> Enlace + voucher en camino</strong>
+                    <p style={{ marginTop: '0.5rem', marginBottom: 0, fontSize: '0.9rem', lineHeight: 1.6 }}>
+                      Nuestro equipo está reservando la cita en <strong>SaludOnNet</strong>. Te
+                      enviaremos por email el enlace de la videollamada y el voucher de SaludOnNet antes
+                      de la fecha — atento a tu bandeja de entrada (y a la carpeta de spam).
+                    </p>
+                  </div>
+                  <div className="book-info-box" style={{ marginTop: '1rem', textAlign: 'left' }}>
+                    <strong>Antes de la videoconsulta</strong>
+                    <p style={{ marginTop: '0.5rem', marginBottom: 0, fontSize: '0.9rem', lineHeight: 1.6 }}>
+                      Conéctate al enlace unos minutos antes de la hora, con DNI a mano. La consulta
+                      ya está pagada — no se vuelve a cobrar nada al iniciar la videollamada.
+                    </p>
+                  </div>
+                  {hasInsurance === true && (
+                    <div className="book-info-box" style={{ marginTop: '1rem', textAlign: 'left', background: '#f5f3ff', border: '1px solid #ddd6fe' }}>
+                      <strong>💳 Reembolso con tu seguro</strong>
+                      <p style={{ marginTop: '0.5rem', marginBottom: 0, fontSize: '0.9rem', lineHeight: 1.6 }}>
+                        Para videoconsultas tu seguro tramita por reembolso. Adjunta el voucher que te
+                        enviamos por email al solicitar el reembolso a {selectedInsurance || 'tu aseguradora'}{' '}
+                        — incluye el detalle del servicio y el importe.
+                      </p>
+                    </div>
+                  )}
+                </>
+              ) : hasInsurance === true ? (
                 <div className="book-info-box" style={{ marginTop: '1rem', textAlign: 'left' }}>
                   <strong>Cuando llegues a la clínica</strong>
                   <p style={{ marginTop: '0.5rem', marginBottom: 0, fontSize: '0.9rem', lineHeight: 1.6 }}>
                     Entrega tu <strong>tarjeta de asegurado</strong> en recepción, como en cualquier cita concertada. La clínica facturará la consulta a tu aseguradora. Tu pago de hoy cubre solo la <strong>tarifa de prioridad</strong> — no se vuelve a cobrar.
                   </p>
                 </div>
-              )}
-
-              {hasInsurance === false && (
+              ) : (
                 <>
                   <div className="book-info-box book-info-box--green" style={{ marginTop: '1rem', textAlign: 'left' }}>
                     <strong><Icon name="mail" size={16} /> Voucher en camino (en menos de 24 h)</strong>
@@ -1793,32 +1945,53 @@ function BookContent() {
             <div className="book-form">
               <div className="form-group">
                 <div style={{
-                  background: '#f0f9ff',
-                  border: '1px solid #bae6fd',
+                  background: isVideoBooking ? '#ede9fe' : '#f0f9ff',
+                  border: `1px solid ${isVideoBooking ? '#c4b5fd' : '#bae6fd'}`,
                   borderRadius: '10px',
                   padding: '0.75rem 1rem',
                   marginBottom: 'var(--space-md)',
                   fontSize: '0.85rem',
-                  color: '#0c4a6e',
+                  color: isVideoBooking ? '#4c1d95' : '#0c4a6e',
                   lineHeight: 1.6,
                 }}>
-                  Tu seguro paga la consulta a la clínica.
-                  {' '}<strong>Tú solo pagas la tarifa de prioridad</strong> por la cita urgente.
+                  {isVideoBooking ? (
+                    <>Para las videoconsultas pagas el <strong>precio publicado en SaludOnNet</strong> (incluye consulta + prioridad de la cita). Si tienes seguro privado, por ahora <strong>solo tramitamos por reembolso</strong>: pagas ahora y solicitas el reembolso a tu seguro adjuntando el voucher que te enviaremos por email.</>
+                  ) : (
+                    <>Tu seguro paga la consulta a la clínica.
+                    {' '}<strong>Tú solo pagas la tarifa de prioridad</strong> por la cita urgente.</>
+                  )}
                 </div>
-                <label className="form-label">¿{isReferral ? 'El paciente tiene' : 'Tienes'} seguro médico privado?</label>
+                <label className="form-label">
+                  ¿{isReferral ? 'El paciente tiene' : 'Tienes'} seguro médico privado?
+                  {isVideoBooking && (
+                    <span style={{ display: 'block', fontWeight: 400, fontSize: '0.78rem', color: 'var(--muted)', marginTop: 2 }}>
+                      El precio es el mismo en ambos casos — la respuesta nos ayuda a darte la info correcta para el reembolso.
+                    </span>
+                  )}
+                </label>
                 <div className="book-insurance-toggle">
                   <div
                     className={`book-insurance-option ${hasInsurance === true ? 'active' : ''}`}
                     onClick={() => handleHasInsuranceClick(true)}
                   >
                     <strong>Sí, {isReferral ? 'tiene' : 'tengo'} seguro</strong>
-                    {activeFee > 0 && (
-                      <span style={{ display: 'block', fontSize: '0.95rem', color: 'var(--ink-1000, #0e1a2b)', marginTop: '4px', fontWeight: 700 }}>
-                        Pagas {formatEUR(activeFee)}
-                      </span>
+                    {isVideoBooking ? (
+                      servicePrice > 0 && (
+                        <span style={{ display: 'block', fontSize: '0.95rem', color: 'var(--ink-1000, #0e1a2b)', marginTop: '4px', fontWeight: 700 }}>
+                          Pagas {formatEUR(servicePrice)}
+                        </span>
+                      )
+                    ) : (
+                      activeFee > 0 && (
+                        <span style={{ display: 'block', fontSize: '0.95rem', color: 'var(--ink-1000, #0e1a2b)', marginTop: '4px', fontWeight: 700 }}>
+                          Pagas {formatEUR(activeFee)}
+                        </span>
+                      )
                     )}
                     <span style={{ display: 'block', fontSize: '0.78rem', color: 'var(--muted)', marginTop: '2px', fontWeight: 400 }}>
-                      Solo la tarifa de prioridad. La consulta va por tu póliza.
+                      {isVideoBooking
+                        ? 'Pagas ahora y solicitas el reembolso a tu seguro después de la videoconsulta.'
+                        : 'Solo la tarifa de prioridad. La consulta va por tu póliza.'}
                     </span>
                   </div>
                   <div
@@ -1826,13 +1999,23 @@ function BookContent() {
                     onClick={() => handleHasInsuranceClick(false)}
                   >
                     <strong>No {isReferral ? 'tiene' : 'tengo'} seguro</strong>
-                    {(activeFee + servicePrice) > 0 && (
-                      <span style={{ display: 'block', fontSize: '0.95rem', color: 'var(--ink-1000, #0e1a2b)', marginTop: '4px', fontWeight: 700 }}>
-                        Pagas {formatEUR(activeFee + servicePrice)}
-                      </span>
+                    {isVideoBooking ? (
+                      servicePrice > 0 && (
+                        <span style={{ display: 'block', fontSize: '0.95rem', color: 'var(--ink-1000, #0e1a2b)', marginTop: '4px', fontWeight: 700 }}>
+                          Pagas {formatEUR(servicePrice)}
+                        </span>
+                      )
+                    ) : (
+                      (activeFee + servicePrice) > 0 && (
+                        <span style={{ display: 'block', fontSize: '0.95rem', color: 'var(--ink-1000, #0e1a2b)', marginTop: '4px', fontWeight: 700 }}>
+                          Pagas {formatEUR(activeFee + servicePrice)}
+                        </span>
+                      )
                     )}
                     <span style={{ display: 'block', fontSize: '0.78rem', color: 'var(--muted)', marginTop: '2px', fontWeight: 400 }}>
-                      Consulta ({formatEUR(servicePrice)}) + prioridad ({formatEUR(activeFee)}). Total final, sin sorpresas.
+                      {isVideoBooking
+                        ? 'Precio publicado en SaludOnNet, todo incluido. Total final, sin sorpresas.'
+                        : `Consulta (${formatEUR(servicePrice)}) + prioridad (${formatEUR(activeFee)}). Total final, sin sorpresas.`}
                     </span>
                   </div>
                 </div>
@@ -1860,8 +2043,30 @@ function BookContent() {
               {/* Coverage clarifier — see top-of-block comment for the
                   2026-06-12 removal of the "Te avisamos en 24 h" branch.
                   Only the positive "suele cubrir esta especialidad" box
-                  remains. */}
-              {hasInsurance === true && selectedInsurance && (() => {
+                  remains. For video bookings we never check coverage —
+                  we only do reimbursement — so we render a different
+                  message that explains the reimbursement path. */}
+              {hasInsurance === true && selectedInsurance && isVideoBooking && (
+                <div
+                  role="status"
+                  style={{
+                    marginTop: 'var(--space-md)',
+                    padding: '10px 14px',
+                    background: '#f5f3ff',
+                    border: '1px solid #ddd6fe',
+                    color: '#4c1d95',
+                    borderRadius: 8,
+                    fontSize: '0.88rem',
+                    lineHeight: 1.45,
+                  }}
+                >
+                  <strong>💳 Cómo funciona el reembolso con {selectedInsurance}:</strong>{' '}
+                  pagas la videoconsulta ahora. Después de la cita te enviamos por email
+                  un voucher con el detalle del servicio que puedes adjuntar al solicitar
+                  el reembolso a {selectedInsurance}.
+                </div>
+              )}
+              {hasInsurance === true && selectedInsurance && !isVideoBooking && (() => {
                 const specialtyForLookup =
                   service?.id ||
                   searchParams.get('specialty') ||
@@ -1893,7 +2098,9 @@ function BookContent() {
 
               {hasInsurance === true && (
                 <p style={{ marginTop: 'var(--space-md)', fontSize: '0.85rem', color: 'var(--muted)', fontStyle: 'italic' }}>
-                  * Te hemos reservado este hueco con prioridad. Acude con tu tarjeta de asegurado y la clínica te atenderá bajo tu póliza, como cualquier otra cita concertada.
+                  {isVideoBooking
+                    ? '* Recibirás por email el enlace de la videoconsulta + el voucher de SaludOnNet antes de la cita. Adjunta el voucher al solicitar el reembolso a tu seguro.'
+                    : '* Te hemos reservado este hueco con prioridad. Acude con tu tarjeta de asegurado y la clínica te atenderá bajo tu póliza, como cualquier otra cita concertada.'}
                 </p>
               )}
             </div>
@@ -1968,26 +2175,41 @@ function BookContent() {
               <div className="book-price-breakdown animate-fade-in">
                 <p className="book-step-label" style={{ marginBottom: 'var(--space-md)' }}>Resumen del pago</p>
 
-                {/* Medical service line — ALWAYS visible to make clear what insurance covers */}
-                {serviceLabel && (
+                {/* SaludOnNet video pilot — for video bookings the
+                    SaludOnNet published price is the all-in-one
+                    number (consulta + prioridad bundled). We render a
+                    single line so the patient doesn't read a "service
+                    0 € + priority 0 €" split that doesn't match the
+                    invoice. Cleanup of the pilot: drop this branch. */}
+                {isVideoBooking ? (
                   <div className="book-price-row">
-                    <span className="book-price-label"><Icon name="stethoscope" size={14} /> {serviceLabel}</span>
-                    <span className="book-price-amount">
-                      {hasInsurance === true
-                        ? <span style={{ color: '#00805a', fontWeight: 600 }}>A cubrir por tu seguro</span>
-                        : formatEUR(servicePrice)}
-                    </span>
+                    <span className="book-price-label"><Icon name="video" size={14} /> {serviceLabel || 'Videoconsulta'} <span style={{ color: 'var(--muted)', fontWeight: 400 }}>· incluye prioridad</span></span>
+                    <span className="book-price-amount">{formatEUR(servicePrice)}</span>
                   </div>
-                )}
+                ) : (
+                  <>
+                    {/* Medical service line — ALWAYS visible to make clear what insurance covers */}
+                    {serviceLabel && (
+                      <div className="book-price-row">
+                        <span className="book-price-label"><Icon name="stethoscope" size={14} /> {serviceLabel}</span>
+                        <span className="book-price-amount">
+                          {hasInsurance === true
+                            ? <span style={{ color: '#00805a', fontWeight: 600 }}>A cubrir por tu seguro</span>
+                            : formatEUR(servicePrice)}
+                        </span>
+                      </div>
+                    )}
 
-                <div className="book-price-row">
-                  <span className="book-price-label">
-                    🎫 Tarifa de prioridad{feeLabel ? ` (${feeLabel.toLowerCase()})` : ''}
-                  </span>
-                  <span className="book-price-amount">
-                    {activeFee > 0 ? formatEUR(activeFee) : '0 €'}
-                  </span>
-                </div>
+                    <div className="book-price-row">
+                      <span className="book-price-label">
+                        🎫 Tarifa de prioridad{feeLabel ? ` (${feeLabel.toLowerCase()})` : ''}
+                      </span>
+                      <span className="book-price-amount">
+                        {activeFee > 0 ? formatEUR(activeFee) : '0 €'}
+                      </span>
+                    </div>
+                  </>
+                )}
 
                 <div className="book-price-row total">
                   <span>Total que pagas hoy</span>
@@ -2006,13 +2228,25 @@ function BookContent() {
                     it earns its keep — and /book stays focused on the
                     transactional summary. */}
 
-                {hasInsurance === true && (
-                  <p style={{ marginTop: 'var(--space-md)', fontSize: '0.8rem', color: 'var(--muted)', lineHeight: 1.6 }}>
-                    <Icon name="info" size={14} /> Tu seguro cubre la consulta directamente con la clínica. Tú solo pagas la prioridad por la reserva.
-                  </p>
-                )}
-
-                {hasInsurance === false && (
+                {isVideoBooking ? (
+                  <>
+                    <p style={{ marginTop: 'var(--space-md)', fontSize: '0.8rem', color: 'var(--muted)', lineHeight: 1.6 }}>
+                      <Icon name="info" size={14} /> Pagas el precio publicado en SaludOnNet para esta videoconsulta. <strong>Incluye la consulta y la prioridad de la cita</strong> en un único importe — no se cobra nada adicional al iniciar la videollamada.
+                    </p>
+                    <p style={{ marginTop: 'var(--space-sm)', fontSize: '0.78rem', color: 'var(--muted)', lineHeight: 1.6 }}>
+                      <Icon name="shield-check" size={14} /> <strong>Cancelación gratuita hasta 24 h antes de la cita:</strong> reembolso íntegro en 72 h por cualquier motivo. Dentro de las 24 h o no show, el importe no es reembolsable.
+                    </p>
+                  </>
+                ) : hasInsurance === true ? (
+                  <>
+                    <p style={{ marginTop: 'var(--space-md)', fontSize: '0.8rem', color: 'var(--muted)', lineHeight: 1.6 }}>
+                      <Icon name="info" size={14} /> Tu seguro cubre la consulta directamente con la clínica. Tú solo pagas la prioridad por la reserva.
+                    </p>
+                    <p style={{ marginTop: 'var(--space-sm)', fontSize: '0.78rem', color: 'var(--muted)', lineHeight: 1.6 }}>
+                      <Icon name="shield-check" size={14} /> <strong>Cancelación gratuita hasta 24 h antes de la cita:</strong> reembolso íntegro de la prioridad en 72 h por cualquier motivo. Dentro de las 24 h o no show: la prioridad no es reembolsable.
+                    </p>
+                  </>
+                ) : (
                   <>
                     <p style={{ marginTop: 'var(--space-md)', fontSize: '0.8rem', color: 'var(--muted)', lineHeight: 1.6 }}>
                       <Icon name="info" size={14} /> Sin seguro pagas dos cosas en una: la <strong>consulta privada</strong> (tarifa oficial de la clínica, según el catálogo SaludOnNet) y la <strong>tarifa de prioridad</strong> por conseguirte el hueco urgente. Ese es el total — no se vuelve a cobrar en la clínica.
@@ -2021,11 +2255,6 @@ function BookContent() {
                       <Icon name="shield-check" size={14} /> <strong>Cancelación gratuita hasta 24 h antes de la cita:</strong> reembolso íntegro en 72 h por cualquier motivo. Dentro de las 24 h o no show: te devolvemos solo el valor del servicio (la prioridad no es reembolsable).
                     </p>
                   </>
-                )}
-                {hasInsurance === true && (
-                  <p style={{ marginTop: 'var(--space-sm)', fontSize: '0.78rem', color: 'var(--muted)', lineHeight: 1.6 }}>
-                    <Icon name="shield-check" size={14} /> <strong>Cancelación gratuita hasta 24 h antes de la cita:</strong> reembolso íntegro de la prioridad en 72 h por cualquier motivo. Dentro de las 24 h o no show: la prioridad no es reembolsable.
-                  </p>
                 )}
               </div>
             )}

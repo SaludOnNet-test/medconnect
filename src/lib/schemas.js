@@ -93,6 +93,13 @@ export const bookingsCreateSchema = z.object({
   procedureName: optionalText(255),
   servicePrice: z.coerce.number().nonnegative().nullable().optional(),
   platformFee: z.coerce.number().nonnegative().nullable().optional(),
+  // SaludOnNet video-consultation pilot — `deliveryMode='video'`
+  // marks the booking as needing manual SaludOnNet reservation by
+  // Ops. `videoProviderId` carries the manifest id ("video-…") that
+  // doesn't fit in bookings.provider_id (INT). Cleanup of the pilot:
+  // drop these two fields.
+  deliveryMode: z.enum(['in_person', 'video']).optional(),
+  videoProviderId: optionalText(80),
 });
 
 // ---------- /api/pro/clinic-alta-request ----------

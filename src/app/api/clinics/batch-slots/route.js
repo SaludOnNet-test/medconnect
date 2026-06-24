@@ -3,19 +3,40 @@ import { getPool, DB_AVAILABLE } from '@/lib/db';
 import { generateSlotsForClinic, PRICING_TIERS } from '@/lib/slot-validation';
 import { getHeldKeys } from '@/lib/slotHolds';
 import { isPartnerClinic } from '@/lib/partnerClinics';
+import { isVideoProviderId } from '@/lib/videoPilot';
+import { getVideoProviderById, buildSlotsFromAvailability } from '@/lib/videoProviders';
 
 // GET /api/clinics/batch-slots?ids=1,2,3,4,5&preview=true
 // Returns: { slots: { "1": [...], "2": [...] }, pricingTiers: [...] }
+//
+// Accepts two id flavours:
+//   - numeric (DB clinic id): goes through the standard
+//     clinic_schedules + bookings + holds → generateSlotsForClinic
+//     pipeline.
+//   - "video-…" (pilot SaludOnNet video providers): goes through
+//     the manifest loader + buildSlotsFromAvailability — see
+//     src/lib/videoProviders.js. Cleanup of the pilot strips the
+//     video- branch and reverts to numeric-only parsing.
 export async function GET(request) {
   const { searchParams } = new URL(request.url);
   const rawIds = searchParams.get('ids') || '';
   const preview = searchParams.get('preview') !== 'false';
 
-  const ids = rawIds
-    .split(',')
-    .map((s) => parseInt(s.trim(), 10))
-    .filter((n) => !isNaN(n) && n > 0)
-    .slice(0, 20);
+  const tokens = rawIds.split(',').map((s) => s.trim()).filter(Boolean).slice(0, 20);
+  const dbIds = [];
+  const videoIds = [];
+  for (const t of tokens) {
+    if (isVideoProviderId(t)) {
+      videoIds.push(t);
+    } else {
+      const n = parseInt(t, 10);
+      if (!Number.isNaN(n) && n > 0) dbIds.push(n);
+    }
+  }
+  // DB pipeline still keys everything by numeric id; the original
+  // code below assumed `ids` was a numeric array, so keep that name
+  // pointing at the numeric subset.
+  const ids = dbIds;
 
   // Optional `topRankedIds=<id>,<id>,<id>` — caller-supplied list of
   // clinic ids that the search view considers "top-ranked" for the
@@ -23,7 +44,9 @@ export async function GET(request) {
   // partner-first → rating DESC ordering). Those clinics get tier-1
   // capped to 1 slot so the "última cita en menos de una semana"
   // scarcity pill fires on their card. Partners are always capped
-  // separately via `isPartnerClinic`.
+  // separately via `isPartnerClinic`. Video provider ids are ignored
+  // for this cap — their slot list comes from a fixed manifest, the
+  // cap concept doesn't apply.
   const rawTopRanked = searchParams.get('topRankedIds') || '';
   const topRankedIds = new Set(
     rawTopRanked
@@ -33,7 +56,7 @@ export async function GET(request) {
       .slice(0, 8),
   );
 
-  if (ids.length === 0) {
+  if (ids.length === 0 && videoIds.length === 0) {
     return NextResponse.json({ slots: {}, pricingTiers: PRICING_TIERS });
   }
 
@@ -47,7 +70,10 @@ export async function GET(request) {
   // 'awaiting_voucher') and slot_date >= today.
   const bookedKeys = new Set();
 
-  if (DB_AVAILABLE) {
+  // DB pipeline only runs if there are numeric ids to look up.
+  // A batch that contains only video- ids skips the entire SQL
+  // block below; their slots come from the manifest at the bottom.
+  if (DB_AVAILABLE && ids.length > 0) {
     try {
       const idList = ids.join(',');
       const pool = await getPool();
@@ -134,6 +160,31 @@ export async function GET(request) {
       result[id] = Object.values(byTier).sort((a, b) => a.tier - b.tier);
     } else {
       result[id] = slots;
+    }
+  }
+
+  // SaludOnNet video-consultation pilot — synthesise slot arrays for
+  // any video-… ids in the batch from the weekly manifest. They go
+  // into the same `result` object so the front-end's slotsMap[p.id]
+  // lookup works uniformly across in-person clinics and video
+  // providers. Cleanup: drop this loop.
+  for (const vid of videoIds) {
+    try {
+      const p = await getVideoProviderById(vid);
+      if (!p) { result[vid] = []; continue; }
+      const slots = buildSlotsFromAvailability(p.availability, p.servicePrice);
+      if (preview) {
+        const byTier = {};
+        for (const s of slots) {
+          if (!byTier[s.tier] || s.date < byTier[s.tier].date) byTier[s.tier] = s;
+        }
+        result[vid] = Object.values(byTier).sort((a, b) => a.tier - b.tier);
+      } else {
+        result[vid] = slots;
+      }
+    } catch (err) {
+      console.warn('[batch-slots] video provider slot build failed for', vid, err?.message);
+      result[vid] = [];
     }
   }
 

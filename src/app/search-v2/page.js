@@ -89,6 +89,15 @@ function SearchV2Content() {
     const raw = searchParams.get('tier') || '';
     return new Set(raw.split(',').map((s) => parseInt(s, 10)).filter((n) => n >= 1 && n <= 4));
   });
+  // SaludOnNet video-consultation pilot — modality filter
+  // ('' / 'in_person' / 'video'). Hydrated from `?modality=video`,
+  // mirrored back on toggle (same pattern as the tier filter).
+  // Cleanup of the pilot: drop this useState + the URL-sync useEffect
+  // + the predicate in displayProviders + the chip-group JSX below.
+  const [modalityFilter, setModalityFilter] = useState(() => {
+    const raw = (searchParams.get('modality') || '').toLowerCase();
+    return raw === 'video' || raw === 'in_person' ? raw : '';
+  });
 
   // Desktop (>900px) opens the map by default; mobile keeps it hidden.
   useEffect(() => {
@@ -257,17 +266,37 @@ function SearchV2Content() {
         Array.isArray(p.acceptedInsurance) && p.acceptedInsurance.includes(insuranceFilter)
       );
     }
+    // SaludOnNet video-consultation pilot — modality predicate.
+    // Empty string = no filter. 'video' keeps only video providers
+    // (deliveryMode === 'video'). 'in_person' keeps everything else
+    // (the historical default — DB clinics never carry the field).
+    if (modalityFilter === 'video') {
+      list = list.filter((p) => p.deliveryMode === 'video');
+    } else if (modalityFilter === 'in_person') {
+      list = list.filter((p) => p.deliveryMode !== 'video');
+    }
     // Partner-first stable sort. The API already returns the page in
     // (is_preferential DESC → rating DESC → name ASC) order, so the
     // only adjustment we make client-side is hoisting partner clinics
     // (PARTNER_CLINIC_IDS) above non-partners regardless of the API's
     // own ordering. Everything else stays in the server's order.
+    // SaludOnNet video-consultation pilot — video providers land
+    // between partners and the long tail of DB clinics. Without
+    // hoisting they get appended at the bottom of the response (after
+    // ~30 DB clinics) and the tier-cap memo below drops them past the
+    // tier-4 cap — they'd never reach the user. Cleanup: drop the
+    // `isVideo` rank.
     list.sort((a, b) => {
-      if (!!a.isPartner !== !!b.isPartner) return a.isPartner ? -1 : 1;
+      const aIsPartner = !!a.isPartner;
+      const bIsPartner = !!b.isPartner;
+      if (aIsPartner !== bIsPartner) return aIsPartner ? -1 : 1;
+      const aIsVideo = a.deliveryMode === 'video';
+      const bIsVideo = b.deliveryMode === 'video';
+      if (aIsVideo !== bIsVideo) return aIsVideo ? -1 : 1;
       return 0;
     });
     return list;
-  }, [baseProviders, insuranceFilter]);
+  }, [baseProviders, insuranceFilter, modalityFilter]);
 
   // Per-clinic tier visibility map after applying the user's tier filter
   // AND the per-tier caps. The map is keyed by clinic id; the value is a
@@ -297,10 +326,18 @@ function SearchV2Content() {
         ? new Set([...slotTiers].filter((t) => userTiers.has(t)))
         : slotTiers;
       const isPartner = !!p.isPartner || PARTNER_CLINIC_IDS.has(p.id);
-      // Partners bypass cap. Non-partners consume budget tier-by-tier.
+      // SaludOnNet video-consultation pilot — video providers also
+      // bypass the cap. There are only ~2-3 per pilot specialty so
+      // they don't risk overwhelming the listing, and consuming
+      // budget would push them off the page (only ~6 tier-1 slots
+      // available before exhaustion).
+      const isVideoProvider = p.deliveryMode === 'video';
+      const bypassCap = isPartner || isVideoProvider;
+      // Partners + video providers bypass cap. Non-partners consume
+      // budget tier-by-tier.
       const allowedTiers = new Set();
       for (const t of candidateTiers) {
-        if (isPartner) {
+        if (bypassCap) {
           allowedTiers.add(t);
         } else if (budget[t] > 0) {
           allowedTiers.add(t);
@@ -325,6 +362,20 @@ function SearchV2Content() {
     }
     window.history.replaceState({}, '', url.toString());
   }, [tierFilter]);
+
+  // SaludOnNet video-consultation pilot — mirror modality filter to
+  // URL so shared links preserve the patient's choice. Same pattern as
+  // tier above. Cleanup: drop this useEffect.
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const url = new URL(window.location.href);
+    if (modalityFilter === 'video' || modalityFilter === 'in_person') {
+      url.searchParams.set('modality', modalityFilter);
+    } else {
+      url.searchParams.delete('modality');
+    }
+    window.history.replaceState({}, '', url.toString());
+  }, [modalityFilter]);
 
   const toggleTier = (tier) => {
     setTierFilter((prev) => {
@@ -551,6 +602,34 @@ function SearchV2Content() {
                   <option key={ins} value={ins}>{ins}</option>
                 ))}
               </select>
+            </div>
+
+            {/* SaludOnNet video-consultation pilot — modality chip
+                group. Reuses .sv2-tier-chip styling for visual
+                consistency with the Disponibilidad row below.
+                Cleanup of the pilot drops this entire <div> block. */}
+            <div className="sv2-filter-group">
+              <label className="sv2-filter-label">Modalidad</label>
+              <div className="sv2-tier-chips" role="group" aria-label="Filtrar por modalidad de consulta">
+                {[
+                  { value: '',          label: 'Todos' },
+                  { value: 'in_person', label: 'Presencial' },
+                  { value: 'video',     label: 'Videoconsulta' },
+                ].map(({ value, label }) => {
+                  const active = modalityFilter === value;
+                  return (
+                    <button
+                      key={value || 'all'}
+                      type="button"
+                      aria-pressed={active}
+                      className={`sv2-tier-chip ${active ? 'sv2-tier-chip--active' : ''}`}
+                      onClick={() => setModalityFilter(value)}
+                    >
+                      {label}
+                    </button>
+                  );
+                })}
+              </div>
             </div>
 
             <div className="sv2-filter-group">

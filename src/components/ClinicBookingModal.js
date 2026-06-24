@@ -49,6 +49,20 @@ export default function ClinicBookingModal({
   onClose,
 }) {
   const router = useRouter();
+  // SaludOnNet video-consultation pilot — when the provider is a
+  // video doctor, the modal collapses several decisions: there's a
+  // single synthesised "Videoconsulta" procedure, no insurance
+  // dropdown (always treated as sin-seguro), no map link in the
+  // header. Cleanup of the pilot strips the `isVideoProvider`
+  // branches below and the synthetic-procedure code path; the
+  // rest of the modal is unchanged.
+  const isVideoProvider = provider?.deliveryMode === 'video';
+  // Video bookings are billed at the SaludOnNet service price only —
+  // no priority fee, no insurance coverage. Forcing sin-seguro here
+  // is the cleanest way to reuse the existing pricing math (which
+  // already knows how to compose servicePrice + priorityFee=0).
+  const effectiveIsSinSeguro = isVideoProvider ? true : isSinSeguro;
+
   const [selectedDate, setSelectedDate] = useState(initialSlot?.date ?? null);
   const [selectedSlot, setSelectedSlot] = useState(initialSlot ?? null);
   const [allSlots, setAllSlots] = useState([]);
@@ -57,7 +71,11 @@ export default function ClinicBookingModal({
   // Procedure selection (mandatory for everyone — SON catalogue price comes from DB).
   const [procedures, setProcedures] = useState([]);
   const [proceduresLoading, setProceduresLoading] = useState(true);
-  const [procedureSlug, setProcedureSlug] = useState(initialProcedureSlug || '');
+  const [procedureSlug, setProcedureSlug] = useState(
+    isVideoProvider
+      ? `videoconsulta-${(provider?.specialtyDisplay || 'general').toLowerCase().replace(/[^a-z0-9]+/g, '-')}`
+      : (initialProcedureSlug || ''),
+  );
 
   // Lock body scroll + track clinic_viewed on mount
   useEffect(() => {
@@ -66,21 +84,52 @@ export default function ClinicBookingModal({
     return () => { document.body.style.overflow = ''; };
   }, []);
 
-  // Fetch real slots from API
+  // Fetch real slots from API. Video providers go through the
+  // batch-slots endpoint (which already accepts `video-…` ids) since
+  // they don't have a `/api/clinics/[id]/available-slots` route —
+  // they're not in the DB.
   useEffect(() => {
     setSlotsLoading(true);
-    const qs = isTopRanked ? '?asTopRanked=true' : '';
-    fetch(`/api/clinics/${provider.id}/available-slots${qs}`)
+    const url = isVideoProvider
+      ? `/api/clinics/batch-slots?ids=${encodeURIComponent(provider.id)}&preview=false`
+      : `/api/clinics/${provider.id}/available-slots${isTopRanked ? '?asTopRanked=true' : ''}`;
+    fetch(url)
       .then((r) => r.json())
       .then((data) => {
-        setAllSlots((data.slots || []).filter((s) => s.available));
+        const slotList = isVideoProvider
+          ? (data.slots?.[provider.id] || [])
+          : (data.slots || []);
+        setAllSlots(slotList.filter((s) => s.available));
       })
       .catch(() => setAllSlots([]))
       .finally(() => setSlotsLoading(false));
-  }, [provider.id, isTopRanked]);
+  }, [provider.id, isTopRanked, isVideoProvider]);
 
   // Fetch procedures for this clinic (filtered by specialty if available).
+  // Video providers skip the DB fetch — they get a single synthesised
+  // procedure ("Videoconsulta — <specialty>") derived from the manifest
+  // entry. Patients never pick a different procedure on a video booking.
   useEffect(() => {
+    if (isVideoProvider) {
+      const slug = `videoconsulta-${(provider?.specialtyDisplay || 'general').toLowerCase().replace(/[^a-z0-9]+/g, '-')}`;
+      // Procedure.price is 0 here on purpose: for video providers the
+      // slot itself carries the full SaludOnNet service price (the
+      // manifest synthesises slot.price = servicePrice). Adding the
+      // procedure price on top would double-charge. The slot picker
+      // and the footer both pull from slot.price; this synthesised
+      // entry is only used to satisfy the modal's "you must pick an
+      // acto médico" precondition.
+      setProcedures([{
+        slug,
+        name: `Videoconsulta — ${provider?.specialtyDisplay || ''}`.trim(),
+        specialty_slug: initialSpecialtySlug || null,
+        specialty_name: provider?.specialtyDisplay || null,
+        price: 0,
+      }]);
+      setProcedureSlug(slug);
+      setProceduresLoading(false);
+      return;
+    }
     setProceduresLoading(true);
     const qs = initialSpecialtySlug ? `?specialtySlug=${encodeURIComponent(initialSpecialtySlug)}` : '';
     fetch(`/api/clinics/${provider.id}/procedures${qs}`)
@@ -171,18 +220,18 @@ export default function ClinicBookingModal({
       const rawSlotPrice = Number(s.price ?? 0);
       if (rawSlotPrice === 0) continue;
       const slotPrice = applyPartnerDiscount(rawSlotPrice, provider.id);
-      const total = isSinSeguro ? procedurePrice + slotPrice : slotPrice;
+      const total = effectiveIsSinSeguro ? procedurePrice + slotPrice : slotPrice;
       if (map[s.date] == null || total < map[s.date]) {
         map[s.date] = total;
         // Track the matching standard (strikethrough) price for the
         // chosen cheapest slot of the day so the date button can
         // render both consistently.
         const display = getPricingDisplay(s, provider.id);
-        standardMap[s.date] = isSinSeguro ? procedurePrice + display.standard : display.standard;
+        standardMap[s.date] = effectiveIsSinSeguro ? procedurePrice + display.standard : display.standard;
       }
     }
     return { active: map, standard: standardMap };
-  }, [allSlots, isSinSeguro, procedurePrice, provider.id]);
+  }, [allSlots, effectiveIsSinSeguro, procedurePrice, provider.id]);
 
   const slotsForDate = selectedDate
     ? allSlots.filter((s) => s.date === selectedDate)
@@ -237,9 +286,9 @@ export default function ClinicBookingModal({
           procedureName: selectedProcedure?.name || null,
           procedurePrice,
           tier: fee.tier,
-          fee: priorityFee,
-          feeLabel: fee.label,
-          hasInsurance: !isSinSeguro,
+          fee: isVideoProvider ? 0 : priorityFee,
+          feeLabel: isVideoProvider ? 'Videoconsulta' : fee.label,
+          hasInsurance: !effectiveIsSinSeguro,
           insuranceCompany: initialInsurance || null,
         }),
       });
@@ -285,17 +334,36 @@ export default function ClinicBookingModal({
         : {}),
       date: selectedSlot.date,
       time: selectedSlot.time,
-      fee: priorityFee,
-      feeLabel: fee.label,
+      // For video providers the priority fee is 0; the full SaludOnNet
+      // service price flows in as procedurePrice. The synthesised
+      // procedure object in this modal has price=0 (the slot itself
+      // carries the number to avoid the modal double-charging in its
+      // price computations), but the /book page expects
+      // procedurePrice = the amount to charge — so we forward
+      // selectedSlot.price for video. fee stays at 0; total =
+      // procedurePrice + fee = service price, all-in-one.
+      fee: isVideoProvider ? 0 : priorityFee,
+      feeLabel: isVideoProvider ? 'Videoconsulta' : fee.label,
       tier: String(fee.tier),
-      isSinSeguro: String(isSinSeguro),
+      isSinSeguro: String(effectiveIsSinSeguro),
       procedureSlug,
       procedureName: selectedProcedure?.name || '',
-      procedurePrice: String(procedurePrice),
+      procedurePrice: isVideoProvider
+        ? String(Number(selectedSlot?.price) || 0)
+        : String(procedurePrice),
+      ...(isVideoProvider ? {
+        deliveryMode: 'video',
+        servicePrice: String(selectedSlot.price ?? 0),
+        specialtyDisplay: provider?.specialtyDisplay || '',
+        // Forwarded so the Ops alert email can deep-link to the
+        // doctor's SaludOnNet booking page for the manual reservation.
+        ...(provider?.externalBookingUrl ? { externalBookingUrl: provider.externalBookingUrl } : {}),
+      } : {}),
       ...(serviceId ? { service: serviceId } : {}),
       // Pass the insurer the user selected in search filters so /book can
-      // pre-select the toggle + dropdown.
-      ...(initialInsurance && !isSinSeguro ? { insurance: initialInsurance } : {}),
+      // pre-select the toggle + dropdown. Skipped for video — those
+      // bookings are always sin-seguro.
+      ...(initialInsurance && !effectiveIsSinSeguro ? { insurance: initialInsurance } : {}),
       // Pro user / explicit derivation entry-point — /book pre-checks the
       // referral toggle and pre-fills the pro fields from Clerk on its end.
       ...(asProfessional ? { asProfessional: 'true' } : {}),
@@ -346,7 +414,7 @@ export default function ClinicBookingModal({
     ? getPricingDisplay(selectedSlot, provider.id)
     : null;
   // Backwards-compatible single number for callers that still expect it.
-  const selectedFee = isSinSeguro ? selectedTotalNoInsurance : selectedPriorityFee;
+  const selectedFee = effectiveIsSinSeguro ? selectedTotalNoInsurance : selectedPriorityFee;
 
   // Date strip horizontal scroll affordances. The row is `overflow-x: auto`
   // and the inline scrollbar is hidden by design, so on small viewports
@@ -398,7 +466,12 @@ export default function ClinicBookingModal({
         <div className="cbm-header">
           <div>
             <h2 className="cbm-title">{provider.name}</h2>
-            <p className="cbm-subtitle"><Icon name="map-pin" size={14} /> {provider.address}, {provider.city}</p>
+            <p className="cbm-subtitle">
+              <Icon name={isVideoProvider ? 'video' : 'map-pin'} size={14} />{' '}
+              {isVideoProvider
+                ? (provider.address || 'Videoconsulta online')
+                : `${provider.address}, ${provider.city}`}
+            </p>
             <div className="cbm-rating">
               <span style={{ color: '#f59e0b' }}>★</span>
               <span style={{ fontWeight: '700', fontSize: '0.9rem' }}>{provider.rating}</span>
@@ -429,22 +502,27 @@ export default function ClinicBookingModal({
             >
               {procedures.map((p) => (
                 <option key={p.slug} value={p.slug}>
-                  {p.name}{isSinSeguro && p.price != null ? ` — ${formatEUR(p.price)}` : ''}
+                  {p.name}{effectiveIsSinSeguro && p.price > 0 ? ` — ${formatEUR(p.price)}` : ''}
                 </option>
               ))}
             </select>
           )}
-          {isSinSeguro && selectedProcedure && (
+          {isVideoProvider ? (
+            <p className="cbm-procedure-hint">
+              Pagas el precio publicado en SaludOnNet (consulta + prioridad, todo incluido). Tras la compra te
+              enviamos por email el enlace de la videollamada + el voucher. Si tienes seguro privado, por
+              ahora solo tramitamos por reembolso — adjuntas el voucher al solicitarlo a tu aseguradora.
+            </p>
+          ) : effectiveIsSinSeguro && selectedProcedure ? (
             <p className="cbm-procedure-hint">
               Pagas <strong>{formatEUR(procedurePrice)}</strong> por el acto + tarifa de prioridad.
               Recibirás el voucher de SaludOnNet por email.
             </p>
-          )}
-          {!isSinSeguro && (
+          ) : !effectiveIsSinSeguro ? (
             <p className="cbm-procedure-hint">
               La consulta la cubre tu seguro. Solo pagas la tarifa de prioridad.
             </p>
-          )}
+          ) : null}
         </div>
 
         {/* Scarcity banner — mirrors the one on the clinic card so the
@@ -542,8 +620,8 @@ export default function ClinicBookingModal({
                     { tier: f.tier, price: f.amount },
                     provider.id,
                   );
-                  const activeFee = isSinSeguro ? procedurePrice + display.active : display.active;
-                  const standardFee = isSinSeguro ? procedurePrice + display.standard : display.standard;
+                  const activeFee = effectiveIsSinSeguro ? procedurePrice + display.active : display.active;
+                  const standardFee = effectiveIsSinSeguro ? procedurePrice + display.standard : display.standard;
                   const isActive = selectedSlot?.time === slot.time;
                   return (
                     <button
@@ -588,7 +666,7 @@ export default function ClinicBookingModal({
               pushed slots out of view. */}
           {canBook && (
             <div style={{ marginBottom: 8 }}>
-              <TrustStrip variant="inline" />
+              <TrustStrip variant="inline" mode={isVideoProvider ? 'video' : 'default'} />
             </div>
           )}
           {canBook ? (
@@ -614,7 +692,7 @@ export default function ClinicBookingModal({
                     both sides; we keep it on a SINGLE line and rely on
                     the existing CSS to wrap on narrow viewports without
                     forcing extra rows. */}
-                {!isSinSeguro && procedurePrice > 0 && selectedPriorityFee > 0 && (
+                {!effectiveIsSinSeguro && procedurePrice > 0 && selectedPriorityFee > 0 && (
                   initialInsurance ? (
                     <p className="cbm-footer-pricehint">
                       {selectedPricingDisplay?.showStrikethrough && (
