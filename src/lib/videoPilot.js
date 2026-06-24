@@ -12,8 +12,29 @@ export const VIDEO_PILOT_ENABLED = true;
 
 // Specialties in scope for the pilot. Anything outside this set will
 // not receive video providers, even if the manifest contains entries
-// for it. Pilot launched 2026-06-23 with derma + uro + gine.
-export const PILOT_SPECIALTIES = new Set(['dermatologia', 'urologia', 'ginecologia']);
+// for it.
+//   2026-06-23 — launched with derma + uro + gine
+//   2026-06-24 — expanded to 11 specialties.
+// The two with existing /especialistas landings (traumatologia +
+// cardiologia, plus the original 3) surface video providers on the
+// landing AND on /search-v2. The six without landings
+// (endocrinologia, medicina-general, nutricion, pediatria,
+// psicologia, psiquiatria) surface only on /search-v2 when filtered
+// by the slug — the modality + specialty filter combination there
+// works as the de-facto landing during the pilot.
+export const PILOT_SPECIALTIES = new Set([
+  'dermatologia',
+  'urologia',
+  'ginecologia',
+  'traumatologia',
+  'cardiologia',
+  'endocrinologia',
+  'medicina-general',
+  'nutricion',
+  'pediatria',
+  'psicologia',
+  'psiquiatria',
+]);
 
 // 2026-06-24 — Cities are intentionally NOT gated. Videoconsultations
 // are remote, so a Vigo patient on `/especialistas/dermatologia/vigo`
