@@ -37,7 +37,7 @@ export default function AnonVisitTracker() {
 
     // Fire-and-forget. We don't await, don't read the response.
     try {
-      fetch('/api/_visit', {
+      fetch('/api/anon-visit', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ path: pathname }),
