@@ -33,7 +33,7 @@ export const SPECIALTY_MAP = {
       },
       {
         q: '¿Cuánto cuesta una consulta de traumatología privada?',
-        a: 'La consulta de traumatología privada tiene un coste base de entre 45 € y 80 € según el centro. A eso se añade únicamente la tarifa de prioridad de Med Connect: 5 € si tu cita es a más de 30 días, 10 € entre 15 y 30 días, 19 € entre 7 y 14 días, o 29 € si necesitas cita en menos de 7 días.',
+        a: 'La consulta de traumatología privada tiene un coste base de entre 45 € y 80 € según el centro. A eso se añade únicamente la tarifa de prioridad de Med Connect: 4 € si tu cita es a más de 30 días, 8 € entre 15 y 30 días, 15 € entre 7 y 14 días, o 19 € si necesitas cita en menos de 7 días.',
       },
     ],
   },
@@ -77,7 +77,7 @@ export const SPECIALTY_MAP = {
       },
       {
         q: '¿Se puede pedir cita con ginecólogo sin seguro médico?',
-        a: 'Sí. Med Connect conecta con centros privados que atienden tanto a pacientes con seguro como sin él. Si no tienes seguro, el coste se divide entre la consulta base del centro y la tarifa de gestión de Med Connect.',
+        a: 'Sí. Med Connect conecta con centros privados que atienden tanto a pacientes con seguro como sin él. Si no tienes seguro, el coste se divide entre la consulta base del centro y la tarifa de prioridad de Med Connect.',
       },
       {
         q: '¿Puedo hacer el seguimiento de embarazo de forma privada?',
@@ -129,7 +129,7 @@ export const SPECIALTY_MAP = {
       },
       {
         q: '¿Cuánto cuesta una consulta de cardiología privada?',
-        a: 'La consulta base de cardiología privada oscila entre 55€ y 100€. El electrocardiograma suele incluirse o tener un coste adicional de 40€ aproximadamente. Med Connect añade únicamente su tarifa de gestión prioritaria.',
+        a: 'La consulta base de cardiología privada oscila entre 55€ y 100€. El electrocardiograma suele incluirse o tener un coste adicional de 40€ aproximadamente. Med Connect añade únicamente su tarifa de prioridad.',
       },
     ],
   },
@@ -201,7 +201,7 @@ export const SPECIALTY_MAP = {
       },
       {
         q: '¿Cuánto cuesta una colonoscopia privada?',
-        a: 'El coste de una colonoscopia privada oscila entre 300€ y 500€ según el centro y si incluye anestesia. Med Connect añade únicamente la tarifa de gestión prioritaria para reservar la prueba.',
+        a: 'El coste de una colonoscopia privada oscila entre 300€ y 500€ según el centro y si incluye anestesia. Med Connect añade únicamente la tarifa de prioridad para reservar la prueba.',
       },
     ],
   },

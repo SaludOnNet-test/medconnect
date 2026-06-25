@@ -23,10 +23,16 @@
  * with a fraction of the vertical real estate.
  */
 
+// 2026-06-24 — Jerarquizar por valor percibido (B4 del audit copy).
+// Antes: Stripe → Cancelación → Seguro (orden de implementación).
+// Ahora: Cancelación → Seguro → Stripe (orden de qué mueve la decisión).
+// El reembolso 24h es nuestro diferenciador más fuerte → primero.
+// "Tu seguro cubre" mata la objeción de precio → segundo. Stripe queda
+// como cierre técnico → tercero.
 const CLAIMS = [
-  { icon: '🔒', short: 'Stripe seguro', label: 'Pago seguro con Stripe' },
   { icon: '💸', short: 'Cancela hasta 24 h antes', label: 'Cancelación gratuita hasta 24 h antes de la cita' },
   { icon: '🏥', short: 'Tu seguro cubre la consulta', label: 'Tu seguro sigue cubriendo la consulta' },
+  { icon: '🔒', short: 'Stripe seguro', label: 'Pago seguro con Stripe' },
 ];
 
 // SaludOnNet video-consultation pilot — swap the third claim. The

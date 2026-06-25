@@ -13,10 +13,14 @@
 //      CHARGED — computeChargeAmount() applies it server-side so a
 //      tampered client can't bypass.
 //
-// To preview the math:
-//   Tier 1 non-partner:  Standard €39 → Active €29   (savings €10)
-//   Tier 1 partner:      Standard €39 → Active €20.50 (savings €18.50, partner -30%)
-//   Tier 4 partner:      Standard €10 → Active €3.50  (savings €6.50)
+// 2026-06-24 — Bajada de precios. Owner approved spec:
+//   Tier 1 non-partner:  Standard €39 → Active €19   (savings €20)
+//   Tier 2 non-partner:  Standard €29 → Active €15   (savings €14)
+//   Tier 3 non-partner:  Standard €19 → Active €8    (savings €11)
+//   Tier 4 non-partner:  Standard €10 → Active €4    (savings €6)
+//   Cea Bermúdez tier 1: Standard €39 → Active €16   (partner -16%)
+//   Cea Bermúdez tier 4: Standard €10 → Active €3    (partner -16%)
+// STANDARD_TIERS sin tocar — el strikethrough queda 2× más impactante.
 
 import { isPartnerClinic } from '@/lib/partnerClinics';
 import { formatEUR } from '@/lib/format';
@@ -28,13 +32,17 @@ export const STANDARD_TIERS = [
   { tier: 4, standard: 10 },
 ];
 
-export const PARTNER_DISCOUNT_PCT = 0.30;
+// 2026-06-24 — Partner discount baja 30% → 16% en lockstep con la
+// bajada general de PRICING_TIERS. Si lo dejábamos en 30% sobre los
+// nuevos precios, Cea tier 1 = €19 × 0.7 = €13.50 — demasiado agresivo.
+// 16% sobre €19 = €16 (lo que el owner pidió explícito).
+export const PARTNER_DISCOUNT_PCT = 0.16;
 
 // Active charge prices keyed by tier. Mirrors PRICING_TIERS but duplicated
 // here so the display layer can compute partner discounts without
 // importing slot-validation (which pulls in server-only deps in places).
 // Keep these in sync with PRICING_TIERS — when one changes, the other does.
-const ACTIVE_PRICE_BY_TIER = { 1: 29, 2: 19, 3: 10, 4: 5 };
+const ACTIVE_PRICE_BY_TIER = { 1: 19, 2: 15, 3: 8, 4: 4 };
 
 function roundTo50Cents(n) {
   return Math.round(n * 2) / 2;

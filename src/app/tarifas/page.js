@@ -27,7 +27,8 @@ export const metadata = {
 // Mirrors the ACTIVE_PRICE_BY_TIER in src/lib/pricing.js.
 // Duplicated here to render the table on the server; do not edit one
 // without editing the other.
-const ACTIVE = { 1: 29, 2: 19, 3: 10, 4: 5 };
+// 2026-06-24 — Bajada de precios. Owner-approved.
+const ACTIVE = { 1: 19, 2: 15, 3: 8, 4: 4 };
 const LABELS = {
   1: 'Cita esta semana',
   2: 'Cita la próxima semana',
@@ -170,7 +171,7 @@ export default function TarifasPage() {
           </p>
 
           <p style={{ fontSize: '0.85rem', color: 'var(--fg-muted)', fontStyle: 'italic' }}>
-            Estas tarifas están vigentes desde el 8 de junio de 2026. Cualquier
+            Estas tarifas están vigentes desde el 24 de junio de 2026. Cualquier
             actualización se publicará en esta misma página con la nueva fecha de vigencia.
             Consulta los{' '}
             <Link href="/legal" style={{ color: 'var(--ink-1000)', textDecoration: 'underline' }}>

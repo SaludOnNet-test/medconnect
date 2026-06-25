@@ -11,13 +11,24 @@ import { SPAIN_NATIONAL as SPANISH_HOLIDAYS_LIST } from './holidays/madrid';
 export const SPANISH_HOLIDAYS = SPANISH_HOLIDAYS_LIST;
 
 export const PRICING_TIERS = [
-  // Tier prices rounded to integers in 2026-05 after Jesús's review —
-  // 9,99/4,99 felt "muy calculados" once added on top of catalogue prices
-  // and broke the round-numbers feel the patient flow needed.
-  { tier: 1, name: 'urgencia',     label: 'Esta semana',         dayMin: 0,  dayMax: 7,  price: 29, paymentToClinic: 15 },
-  { tier: 2, name: 'sweet_spot',   label: 'Próxima semana',      dayMin: 8,  dayMax: 14, price: 19, paymentToClinic: 10 },
-  { tier: 3, name: 'anticipo',     label: 'Este mes',            dayMin: 15, dayMax: 30, price: 10, paymentToClinic:  5 },
-  { tier: 4, name: 'lead_capture', label: 'Más adelante',        dayMin: 31, dayMax: 45, price:  5, paymentToClinic:  2 },
+  // 2026-06-24 — Bajada de precios ~20-35% por canal-Stripe-step
+  // abandonment crónico (40+ pending_payment en 30 días, 0 conversiones
+  // en SEM con 60+ sesiones). Tier 1 €29 → €19 elimina la barrera
+  // psicológica de €20+ donde el patient se queda pensando.
+  //
+  // Lo que dejamos:
+  //   - paymentToClinic ratio (lo que la clínica cobra de nosotros)
+  //     baja proporcional para mantener ~50% margen MedConnect.
+  //   - STANDARD_TIERS (tarifa habitual) NO cambia — el strikethrough
+  //     se vuelve más impactante (savings €20 vs €10 antes).
+  //
+  // Cea Bermúdez (PARTNER) — discount baja de 30% → 16% para
+  // que el precio final aterrice en €16 tier 1 (no €13.50 que sería
+  // 30% sobre €19 — demasiado agresivo).
+  { tier: 1, name: 'urgencia',     label: 'Esta semana',         dayMin: 0,  dayMax: 7,  price: 19, paymentToClinic: 10 },
+  { tier: 2, name: 'sweet_spot',   label: 'Próxima semana',      dayMin: 8,  dayMax: 14, price: 15, paymentToClinic:  8 },
+  { tier: 3, name: 'anticipo',     label: 'Este mes',            dayMin: 15, dayMax: 30, price:  8, paymentToClinic:  4 },
+  { tier: 4, name: 'lead_capture', label: 'Más adelante',        dayMin: 31, dayMax: 45, price:  4, paymentToClinic:  2 },
 ];
 
 export const SLOT_RULES = {

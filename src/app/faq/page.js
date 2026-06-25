@@ -79,7 +79,7 @@ const faqSchema = {
       name: '¿Qué incluye la tarifa de prioridad?',
       acceptedAnswer: {
         '@type': 'Answer',
-        text: 'Una reserva prioritaria, escalonada por urgencia: 5 € si la cita es a más de 30 días, 10 € entre 15 y 30 días, 19 € entre 7 y 14 días, y 29 € si necesitas cita en menos de 7 días. Nada más — el acto médico es entre tu aseguradora y la clínica.',
+        text: 'Una reserva prioritaria, escalonada por urgencia: 4 € si la cita es a más de 30 días, 8 € entre 15 y 30 días, 15 € entre 7 y 14 días, y 19 € si necesitas cita en menos de 7 días. Nada más — el acto médico es entre tu aseguradora y la clínica.',
       },
     },
     {

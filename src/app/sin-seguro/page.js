@@ -28,10 +28,10 @@ export default function SinSeguroPage() {
             <strong>Pagas online</strong>: el coste del acto médico (según el catálogo de SaludOnNet, varía por clínica) + nuestra tarifa de prioridad por gestionar el hueco urgente.
           </li>
           <li>
-            En las próximas <strong>24&nbsp;h</strong> recibes un email aparte con el <strong>voucher de SaludOnNet</strong> (PDF + QR) que cubre el coste del acto médico.
+            En las próximas <strong>24&nbsp;h</strong> recibes un email aparte con tu <strong>código de pago</strong> (PDF + QR) que cubre el coste del acto médico.
           </li>
           <li>
-            Vas a la clínica con tu <strong>DNI + el voucher</strong>. Te atienden y la clínica le cobra el acto a SaludOnNet con ese voucher. Tú no pagas nada en recepción.
+            Vas a la clínica con tu <strong>DNI + el código de pago</strong>. Te atienden y la clínica cobra el acto con ese código. Tú no pagas nada en recepción.
           </li>
         </ol>
 
@@ -47,13 +47,13 @@ export default function SinSeguroPage() {
         </h2>
 
         <h3 style={{ fontSize: '1rem', fontWeight: 700, color: '#1a3c5e', marginTop: '1rem' }}>¿Qué es SaludOnNet?</h3>
-        <p>SaludOnNet es nuestro partner: una red sanitaria con catálogo de actos médicos privados a precios cerrados. Si no tenés póliza privada, SON cubre el coste del acto contra el voucher que recibes.</p>
+        <p>SaludOnNet es nuestro partner: una red sanitaria con catálogo de actos médicos privados a precios cerrados. Si no tienes póliza privada, SON cubre el coste del acto contra el código de pago que recibes.</p>
 
         <h3 style={{ fontSize: '1rem', fontWeight: 700, color: '#1a3c5e', marginTop: '1rem' }}>¿Por qué pago dos cosas (acto + tarifa)?</h3>
         <p>El precio del acto es la tarifa oficial de la clínica en el catálogo SON. La tarifa de prioridad es nuestra: cubre la gestión de conseguirte el hueco urgente cuando la clínica te ofrecía fechas lejanas. Ese es el total — no se vuelve a cobrar nada en recepción.</p>
 
-        <h3 style={{ fontSize: '1rem', fontWeight: 700, color: '#1a3c5e', marginTop: '1rem' }}>¿Cuánto tarda en llegar el voucher?</h3>
-        <p>Lo enviamos en menos de 24&nbsp;h hábiles desde el pago. Si la cita es para mañana mismo, lo emitimos en horas. Si tras 24&nbsp;h no recibes nada, escribinos a <a href="mailto:operaciones@medconnect.es" style={{ color: '#1a3c5e' }}>operaciones@medconnect.es</a>.</p>
+        <h3 style={{ fontSize: '1rem', fontWeight: 700, color: '#1a3c5e', marginTop: '1rem' }}>¿Cuánto tarda en llegar el código de pago?</h3>
+        <p>Lo enviamos en menos de 24&nbsp;h hábiles desde el pago. Si la cita es para mañana mismo, lo emitimos en horas. Si tras 24&nbsp;h no recibes nada, escríbenos a <a href="mailto:operaciones@medconnect.es" style={{ color: '#1a3c5e' }}>operaciones@medconnect.es</a>.</p>
 
         <h3 style={{ fontSize: '1rem', fontWeight: 700, color: '#1a3c5e', marginTop: '1rem' }}>¿Y si el día llego y no me atienden?</h3>
         <p>Te devolvemos el 100% — acto + tarifa — automáticamente. Te avisamos por email del reembolso y aparece en tu cuenta en 1–2 días hábiles.</p>
