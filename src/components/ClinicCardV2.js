@@ -220,11 +220,12 @@ export default function ClinicCardV2({
             )}
             {/* 2026-06-08 — Partner badge. Cea Bermúdez (and any future
                 PARTNER_CLINIC_IDS member) earns a visible green chip
-                advertising the extra -30% discount applied to all its
+                advertising the extra discount applied to all its
                 slots. Sits FIRST in the row so it reads as the headline
-                differentiator. */}
+                differentiator. 2026-06-24 — % se lee de PARTNER_DISCOUNT_PCT
+                (ahora 16%) en lugar de hardcoded. */}
             {!isVideoProvider && isPartnerClinic(provider.id) && (
-              <span className="cv2-tag cv2-tag--partner" title="Tarifa de prioridad con descuento adicional del 30%">
+              <span className="cv2-tag cv2-tag--partner" title={`Tarifa de prioridad con descuento adicional del ${Math.round(PARTNER_DISCOUNT_PCT * 100)}%`}>
                 ✨ Centro destacado · −{Math.round(PARTNER_DISCOUNT_PCT * 100)}%
               </span>
             )}

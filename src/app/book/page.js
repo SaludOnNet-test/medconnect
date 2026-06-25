@@ -1519,20 +1519,20 @@ function BookContent() {
                   </span>
                 </div>
 
-                {/* 2026-06-08 — Single savings line. Combines the
-                    universal launch-offer + the partner extra (when
-                    applicable) into one positive frame. No external
-                    €60-120 comparison — replaced by self-referential
-                    strikethrough above. Skipped for video bookings —
-                    there's no "tarifa habitual" anchor to strikethrough
-                    against; the SaludOnNet price is the only number. */}
-                {!isVideoBooking && feePricingDisplay.savings > 0 && activeFee > 0 && (
+                {/* 2026-06-24 — B1 del audit copy. Reemplaza el savings
+                    self-referencial ("Ahorras X sobre la tarifa habitual")
+                    por anchor EXTERNO: comparación con consulta privada
+                    sin seguro (€60-120). Más creíble que un "tarifa
+                    habitual" interno. Skipped para video bookings —
+                    no aplica la comparación con consulta privada
+                    presencial. Partner discount mention también se
+                    actualiza al nuevo % (16% en lugar de 30%). */}
+                {!isVideoBooking && activeFee > 0 && (
                   <p style={{ marginTop: 'var(--space-sm)', fontSize: '0.78rem', color: '#1b4332', lineHeight: 1.4, fontWeight: 500 }}>
-                    💸 <strong>Ahorras {feePricingDisplay.savingsLabel}</strong> sobre la tarifa habitual.
+                    💡 Una consulta privada equivalente sin seguro cuesta entre <strong>€60 y €120</strong>. Con tu seguro pagas solo <strong>{feePricingDisplay.activeLabel}</strong> de tarifa de prioridad.
                     {feePricingDisplay.isPartner && (
-                      <> Incluye <strong>−30% de centro destacado</strong>.</>
-                    )}{' '}
-                    <a href="/tarifas" style={{ color: 'inherit', textDecoration: 'underline' }}>Ver tarifas</a>.
+                      <> Incluye <strong>−{Math.round(feePricingDisplay.partnerDiscountPct * 100)}% de centro destacado</strong>.</>
+                    )}
                   </p>
                 )}
               </div>

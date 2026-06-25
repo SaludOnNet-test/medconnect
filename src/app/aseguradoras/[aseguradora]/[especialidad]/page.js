@@ -49,12 +49,18 @@ export async function generateMetadata({ params }) {
   const specialty = SPECIALTY_MAP[especialidad];
   if (!insurer || !specialty) return {};
 
-  const title       = `${specialty.plural} con ${insurer.name} — Cita privada sin esperas | Med Connect`;
-  const description = `¿Tienes ${insurer.name} pero esperas semanas para el ${specialty.name.toLowerCase()}? Accede a cita prioritaria esta semana en clínicas concertadas con ${insurer.name}. Sin pagar la consulta.`;
-  const canonical   = insurerSpecialtyPageUrl(aseguradora, especialidad);
-
   const clinicCount = await countClinicsForInsurerSpecialty(especialidad, insurer.dbName);
   const tooThin     = clinicCount !== null && clinicCount < MIN_INDEXABLE_CLINICS;
+
+  // 2026-06-24 — Phase 5 SEO metadata. Mismo template que
+  // /especialistas/[esp]/[ciudad]: precio en title (lidera el snippet)
+  // + #centros en description (trust + counter al "duda de cantidad").
+  const countCopy = clinicCount && clinicCount >= 3
+    ? `${clinicCount} clínicas concertadas con ${insurer.name}. `
+    : '';
+  const title       = `${specialty.plural} con ${insurer.name} desde €4 — Cita en 24-72h | Med Connect`;
+  const description = `Accede a cita prioritaria con ${specialty.name.toLowerCase()} en clínicas concertadas con ${insurer.name}. ${countCopy}Solo €4-€19 de tarifa de prioridad — la consulta la cubre tu seguro. Reembolso íntegro si no encontramos hueco.`;
+  const canonical   = insurerSpecialtyPageUrl(aseguradora, especialidad);
 
   return {
     title,
@@ -77,7 +83,7 @@ function buildSchema(insurer, specialty, aseguradora, especialidad) {
         url,
         description: `Reserva cita prioritaria con ${specialty.plural.toLowerCase()} privados concertados con ${insurer.name}. Sin esperas de semanas.`,
         medicalSpecialty: specialty.name,
-        priceRange: '€5–€29',
+        priceRange: '€4–€19',
         areaServed: { '@type': 'Country', name: 'España' },
       },
       {

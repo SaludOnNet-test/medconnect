@@ -135,15 +135,29 @@ export async function generateMetadata({ params }) {
     return { title: 'Especialistas médicos | Med Connect' };
   }
 
-  const title       = `${specialty.plural} en ${city} — Cita privada sin esperas | Med Connect`;
-  const description = specialty.shortDesc(city);
+  // 2026-06-24 — Phase 5 SEO metadata. Subir CTR (actualmente 0.56%
+  // a position avg 35.9). El title nuevo lidera con precio + tiempo
+  // de respuesta: las 2 dudas que el patient resuelve en la SERP
+  // antes de hacer click. Description añade #centros + reembolso —
+  // numbers concretos que ganan trust en el snippet.
+  //
+  // Formato:
+  //   title       = "Cardiólogos en Madrid desde €4 — Cita en 24-72h | Med Connect"
+  //   description = "[especialidad short-desc]. [N] centros concertados con tu
+  //                  aseguradora. Solo €4-€19 de tarifa de prioridad, consulta
+  //                  cubierta. Reembolso íntegro si no encontramos hueco."
+  const clinicCount = await countIndexableClinics(especialidad, city);
+  const countCopy = clinicCount && clinicCount >= 3
+    ? `${clinicCount} centros concertados con tu aseguradora. `
+    : '';
+  const title       = `${specialty.plural} en ${city} desde €4 — Cita en 24-72h | Med Connect`;
+  const description = `${specialty.shortDesc(city)} ${countCopy}Solo €4-€19 de tarifa de prioridad, consulta cubierta por tu seguro. Reembolso íntegro si no encontramos hueco.`;
   const canonical   = specialtyPageUrl(especialidad, ciudad);
 
   // 2026-06-10 — Auto-noindex when the listing would be thin. See the
   // MIN_INDEXABLE_CLINICS comment above. Pages still serve normally
   // (UX unchanged); we only flip the robots header so Google doesn't
   // include the page in its index until ops onboards more clinics.
-  const clinicCount = await countIndexableClinics(especialidad, city);
   const tooThin = clinicCount !== null && clinicCount < MIN_INDEXABLE_CLINICS;
   const robots = tooThin
     ? { index: false, follow: true } // crawl OK, don't index
@@ -244,7 +258,7 @@ export default async function EspecialistasCiudadPage({ params }) {
           specialty.plural,
           ...(Array.isArray(specialty.aliases) ? specialty.aliases : []),
         ].filter(Boolean),
-        priceRange: '€5–€29',
+        priceRange: '€4–€19',
         currenciesAccepted: 'EUR',
         paymentAccepted: ['Credit Card', 'Apple Pay', 'Google Pay'],
         openingHoursSpecification: {
@@ -260,14 +274,14 @@ export default async function EspecialistasCiudadPage({ params }) {
           offers: {
             '@type': 'AggregateOffer',
             priceCurrency: 'EUR',
-            lowPrice: '5',
-            highPrice: '29',
+            lowPrice: '4',
+            highPrice: '19',
             offerCount: '4',
             offers: [
-              { '@type': 'Offer', name: 'Esta semana',     price: '29', priceCurrency: 'EUR' },
-              { '@type': 'Offer', name: '8–15 días',       price: '19', priceCurrency: 'EUR' },
-              { '@type': 'Offer', name: '16–30 días',      price: '10', priceCurrency: 'EUR' },
-              { '@type': 'Offer', name: 'Más adelante',    price:  '5', priceCurrency: 'EUR' },
+              { '@type': 'Offer', name: 'Esta semana',     price: '19', priceCurrency: 'EUR' },
+              { '@type': 'Offer', name: '8–15 días',       price: '15', priceCurrency: 'EUR' },
+              { '@type': 'Offer', name: '16–30 días',      price:  '8', priceCurrency: 'EUR' },
+              { '@type': 'Offer', name: 'Más adelante',    price:  '4', priceCurrency: 'EUR' },
             ],
           },
         },
@@ -400,11 +414,14 @@ export default async function EspecialistasCiudadPage({ params }) {
             {specialty.shortDesc(city)}
           </p>
 
-          {/* 2026-06-08 — Self-referential strikethrough replaces the
-              external €60-120 comparison. Tarifa habitual published on
-              /tarifas makes the strikethrough legally defensible. The
-              "Oferta de lanzamiento" eyebrow frames it as a current
-              promo, not a fabricated past price. */}
+          {/* 2026-06-24 — B1 del audit copy. El strikethrough interno
+              (tarifa habitual €10 → €5) no se entendía — Clarity y
+              feedback de owner: "patient piensa de dónde sale el €10,
+              parece descuento falso". Reemplazado por anchor EXTERNO:
+              "Una consulta privada equivalente cuesta €60-120 sin
+              seguro" — credible (precio real de mercado privado), no
+              defensible necesita /tarifas. Mismo tamaño visual (mismo
+              p tag, sin alterar layout del hero). */}
           <p
             className="esp-hero__anchor"
             style={{
@@ -415,14 +432,10 @@ export default async function EspecialistasCiudadPage({ params }) {
               marginBottom: 'var(--space-2)',
             }}
           >
-            <span style={{ color: 'var(--brass-700, #a0824a)', fontWeight: 700, letterSpacing: '0.04em', textTransform: 'uppercase', fontSize: '0.7rem' }}>
-              Oferta de lanzamiento ·{' '}
-            </span>
-            Reserva{' '}
-            <s style={{ color: 'var(--fg-muted)', textDecorationThickness: '1px' }}>desde €10</s>{' '}
-            <strong style={{ color: 'var(--ink-1000)' }}>desde €5</strong>
-            {' '}·{' '}
-            <a href="/tarifas" style={{ color: 'inherit', textDecoration: 'underline' }}>ver tarifas</a>.
+            Reserva con tu seguro{' '}
+            <strong style={{ color: 'var(--ink-1000)' }}>desde €4</strong>.
+            {' '}Una consulta privada equivalente sin seguro cuesta entre{' '}
+            <strong style={{ color: 'var(--ink-1000)' }}>€60 y €120</strong>.
           </p>
 
           {/* Key stats — flat icon + label list. Earlier this was a
