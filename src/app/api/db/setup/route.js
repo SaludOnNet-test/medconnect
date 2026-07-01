@@ -926,6 +926,68 @@ export async function GET(request) {
       CREATE INDEX IX_email_sends_sent_at ON email_sends(sent_at DESC);
     `);
 
+    // ── WhatsApp AI automation tables ─────────────────────────────────
+    await pool.request().query(`
+      IF NOT EXISTS (SELECT * FROM sys.tables WHERE name = 'whatsapp_conversations')
+      CREATE TABLE whatsapp_conversations (
+        id           INT             IDENTITY PRIMARY KEY,
+        phone_number NVARCHAR(20)    NOT NULL,
+        session_date DATE            NOT NULL,
+        role         NVARCHAR(10)    NOT NULL,
+        content      NVARCHAR(MAX)   NOT NULL,
+        created_at   DATETIMEOFFSET  NOT NULL DEFAULT SYSDATETIMEOFFSET()
+      );
+    `);
+    await pool.request().query(`
+      IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE name = 'IX_whatsapp_conversations_phone_date'
+                     AND object_id = OBJECT_ID('whatsapp_conversations'))
+      CREATE INDEX IX_whatsapp_conversations_phone_date
+        ON whatsapp_conversations(phone_number, session_date, created_at ASC);
+    `);
+
+    await pool.request().query(`
+      IF NOT EXISTS (SELECT * FROM sys.tables WHERE name = 'whatsapp_leads')
+      CREATE TABLE whatsapp_leads (
+        id                   INT             IDENTITY PRIMARY KEY,
+        phone_number         NVARCHAR(20)    NOT NULL,
+        patient_name         NVARCHAR(100)   NULL,
+        insurance_company    NVARCHAR(100)   NULL,
+        specialty_requested  NVARCHAR(100)   NULL,
+        preferred_doctor     NVARCHAR(100)   NULL,
+        preferred_date       NVARCHAR(50)    NULL,
+        preferred_time_range NVARCHAR(50)    NULL,
+        visit_reason         NVARCHAR(500)   NULL,
+        checkout_link        NVARCHAR(1000)  NULL,
+        urgency_level        NVARCHAR(20)    NOT NULL DEFAULT 'normal',
+        status               NVARCHAR(30)    NOT NULL DEFAULT 'link_sent',
+        created_at           DATETIMEOFFSET  NOT NULL DEFAULT SYSDATETIMEOFFSET()
+      );
+    `);
+    await pool.request().query(`
+      IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE name = 'IX_whatsapp_leads_status_created'
+                     AND object_id = OBJECT_ID('whatsapp_leads'))
+      CREATE INDEX IX_whatsapp_leads_status_created ON whatsapp_leads(status, created_at DESC);
+    `);
+
+    await pool.request().query(`
+      IF NOT EXISTS (SELECT * FROM sys.tables WHERE name = 'human_escalations')
+      CREATE TABLE human_escalations (
+        id                     INT             IDENTITY PRIMARY KEY,
+        phone_number           NVARCHAR(20)    NOT NULL,
+        patient_name           NVARCHAR(100)   NULL,
+        preferred_contact_time NVARCHAR(100)   NULL,
+        contact_phone          NVARCHAR(20)    NULL,
+        conversation_summary   NVARCHAR(MAX)   NULL,
+        status                 NVARCHAR(20)    NOT NULL DEFAULT 'pending',
+        created_at             DATETIMEOFFSET  NOT NULL DEFAULT SYSDATETIMEOFFSET()
+      );
+    `);
+    await pool.request().query(`
+      IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE name = 'IX_human_escalations_status'
+                     AND object_id = OBJECT_ID('human_escalations'))
+      CREATE INDEX IX_human_escalations_status ON human_escalations(status, created_at DESC);
+    `);
+
     return NextResponse.json({ success: true, message: 'Schema ready (tables + migrations applied)' });
   } catch (err) {
     console.error('[db/setup]', err);
