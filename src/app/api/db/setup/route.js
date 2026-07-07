@@ -968,6 +968,15 @@ export async function GET(request) {
                      AND object_id = OBJECT_ID('whatsapp_leads'))
       CREATE INDEX IX_whatsapp_leads_status_created ON whatsapp_leads(status, created_at DESC);
     `);
+    // ── Migration: city + preferred_modality on whatsapp_leads ────────
+    await pool.request().query(`
+      IF NOT EXISTS (SELECT * FROM sys.columns WHERE Name = 'city' AND Object_ID = Object_ID('whatsapp_leads'))
+      ALTER TABLE whatsapp_leads ADD city NVARCHAR(100) NULL;
+    `);
+    await pool.request().query(`
+      IF NOT EXISTS (SELECT * FROM sys.columns WHERE Name = 'preferred_modality' AND Object_ID = Object_ID('whatsapp_leads'))
+      ALTER TABLE whatsapp_leads ADD preferred_modality NVARCHAR(20) NULL;
+    `);
 
     await pool.request().query(`
       IF NOT EXISTS (SELECT * FROM sys.tables WHERE name = 'human_escalations')

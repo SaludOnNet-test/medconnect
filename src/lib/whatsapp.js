@@ -7,6 +7,11 @@ const DIALOG360_URL = 'https://waba.360dialog.io/v1/messages';
 // Max conversation turns sent to Claude (older messages dropped to control cost)
 const MAX_HISTORY_TURNS = 10;
 
+// CEA Bermúdez is our partner clinic in Madrid — sorted to top in search results
+// and eligible for the direct-link path
+export const CEA_PROVIDER_ID = 1;
+export const CEA_PROVIDER_NAME = 'Centro Médico Cea Bermúdez';
+
 export async function sendWhatsAppMessage(to, text) {
   const res = await fetch(DIALOG360_URL, {
     method: 'POST',
@@ -82,6 +87,8 @@ export async function saveLead(data) {
     .input('insurance', sql.NVarChar(100), data.insurance_company || null)
     .input('specialty', sql.NVarChar(100), data.specialty_requested || null)
     .input('doctor', sql.NVarChar(100), data.preferred_doctor || null)
+    .input('city', sql.NVarChar(100), data.city || null)
+    .input('modality', sql.NVarChar(20), data.preferred_modality || null)
     .input('date', sql.NVarChar(50), data.preferred_date || null)
     .input('time_range', sql.NVarChar(50), data.preferred_time_range || null)
     .input('reason', sql.NVarChar(500), data.visit_reason || null)
@@ -90,12 +97,12 @@ export async function saveLead(data) {
     .query(`
       INSERT INTO whatsapp_leads
         (phone_number, patient_name, insurance_company, specialty_requested,
-         preferred_doctor, preferred_date, preferred_time_range, visit_reason,
-         checkout_link, urgency_level, status)
+         preferred_doctor, city, preferred_modality, preferred_date,
+         preferred_time_range, visit_reason, checkout_link, urgency_level, status)
       VALUES
         (@phone, @name, @insurance, @specialty,
-         @doctor, @date, @time_range, @reason,
-         @link, @urgency, 'link_sent');
+         @doctor, @city, @modality, @date,
+         @time_range, @reason, @link, @urgency, 'link_sent');
       SELECT SCOPE_IDENTITY() AS id;
     `);
   return result.recordset[0]?.id;
@@ -118,11 +125,80 @@ export async function saveEscalation(data) {
     `);
 }
 
-// Builds the pre-filled search link for MedConnect
-export function buildSearchLink(specialty, insurance) {
+// Normalise a Spanish specialty name to the URL slug used by search-v2.
+// Not exhaustive — unknown specialties pass through lowercased.
+const SPECIALTY_SLUGS = {
+  cardiología: 'cardiologia', cardiologia: 'cardiologia',
+  dermatología: 'dermatologia', dermatologia: 'dermatologia',
+  traumatología: 'traumatologia', traumatologia: 'traumatologia',
+  oftalmología: 'oftalmologia', oftalmologia: 'oftalmologia',
+  pediatría: 'pediatria', pediatria: 'pediatria',
+  ginecología: 'ginecologia', ginecologia: 'ginecologia',
+  urología: 'urologia', urologia: 'urologia',
+  neurología: 'neurologia', neurologia: 'neurologia',
+  psiquiatría: 'psiquiatria', psiquiatria: 'psiquiatria',
+  psicología: 'psicologia', psicologia: 'psicologia',
+  endocrinología: 'endocrinologia', endocrinologia: 'endocrinologia',
+  reumatología: 'reumatologia', reumatologia: 'reumatologia',
+  neumología: 'neumologia', neumologia: 'neumologia',
+  digestivo: 'digestivo', 'aparato digestivo': 'digestivo',
+  nutrición: 'nutricion', nutricion: 'nutricion',
+  'medicina interna': 'medicina-interna',
+  fisioterapia: 'fisioterapia',
+  'medicina estética': 'medicina-estetica',
+  andrología: 'andrologia', andrologia: 'andrologia',
+};
+
+function toSpecialtySlug(name) {
+  if (!name) return '';
+  const normalized = name.toLowerCase().trim();
+  return SPECIALTY_SLUGS[normalized] || normalized.replace(/\s+/g, '-').replace(/[áéíóú]/g, (c) =>
+    ({ á: 'a', é: 'e', í: 'i', ó: 'o', ú: 'u' }[c] || c)
+  );
+}
+
+/**
+ * Builds the set of booking links to include in the WhatsApp message.
+ *
+ * Returns { mainLink, videoLink, ceaLink } where:
+ * - mainLink   always present — search filtered by specialty + city
+ * - videoLink  present when modality is 'video' or user didn't specify
+ *              (we always offer video as an option)
+ * - ceaLink    present only for Madrid searches — direct link to CEA
+ */
+export function buildLinks({ specialty, insurance, city, modality }) {
   const base = process.env.NEXT_PUBLIC_SITE_URL || 'https://medconnect.es';
-  const params = new URLSearchParams({ source: 'whatsapp' });
-  if (specialty) params.set('q', specialty);
-  if (insurance && insurance !== 'particular') params.set('insurance', insurance);
-  return `${base}/search-v2?${params.toString()}`;
+  const slug = toSpecialtySlug(specialty);
+
+  // Main in-person search
+  const mainParams = new URLSearchParams({ source: 'whatsapp' });
+  if (slug) mainParams.set('specialtySlug', slug);
+  if (city) mainParams.set('city', city);
+  const mainLink = `${base}/search-v2?${mainParams.toString()}`;
+
+  // Video consultation search (same specialty, no city restriction)
+  const videoParams = new URLSearchParams({ source: 'whatsapp', modality: 'video' });
+  if (slug) videoParams.set('specialtySlug', slug);
+  const videoLink = `${base}/search-v2?${videoParams.toString()}`;
+
+  // CEA Bermúdez direct search (Madrid only — CEA appears at top of results)
+  let ceaLink = null;
+  const isMadrid = !city || city.toLowerCase().includes('madrid');
+  if (isMadrid && modality !== 'video') {
+    const ceaParams = new URLSearchParams({
+      source: 'whatsapp',
+      providerName: CEA_PROVIDER_NAME,
+    });
+    if (slug) ceaParams.set('specialtySlug', slug);
+    ceaParams.set('city', 'Madrid');
+    ceaLink = `${base}/search-v2?${ceaParams.toString()}`;
+  }
+
+  return { mainLink, videoLink, ceaLink };
+}
+
+// Keep backward-compatible export for any code still calling buildSearchLink
+export function buildSearchLink(specialty, insurance) {
+  const { mainLink } = buildLinks({ specialty, insurance });
+  return mainLink;
 }
