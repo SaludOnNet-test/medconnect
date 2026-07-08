@@ -128,8 +128,24 @@ export default function ClinicCardV2({
         title="Click para reservar"
       >
         <div className="cv2-avatar" style={provider.imageUrl ? {} : { background: avatarColor }}>
+          {/* Plain <img> kept on purpose: provider.imageUrl comes from the
+              DB and can point at arbitrary hosts, while next.config.mjs
+              `images.remotePatterns` only allows images.unsplash.com —
+              next/image would 400 on any other domain. Explicit
+              width/height (56px, matches .cv2-avatar CSS) reserves the box
+              (no CLS) and loading="lazy" defers offscreen avatars. */}
           {provider.imageUrl
-            ? <img src={provider.imageUrl} alt={provider.name} className="cv2-avatar-img" />
+            ? (
+              <img
+                src={provider.imageUrl}
+                alt={provider.name}
+                className="cv2-avatar-img"
+                width={56}
+                height={56}
+                loading="lazy"
+                decoding="async"
+              />
+            )
             : getInitials(provider.name)}
         </div>
 

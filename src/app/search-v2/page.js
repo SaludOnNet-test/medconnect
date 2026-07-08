@@ -122,6 +122,11 @@ function SearchV2Content() {
   const [loadedCount, setLoadedCount] = useState(0);
   const [isLoading, setIsLoading]     = useState(false);
   const [hasMore, setHasMore]         = useState(false);
+  // 2026-07 — network failure is NOT "no clinics". `fetchError` renders a
+  // retry UI instead of the empty-filters state; `retryToken` re-arms the
+  // initial-load effect when the user hits "Reintentar".
+  const [fetchError, setFetchError]   = useState(false);
+  const [retryToken, setRetryToken]   = useState(0);
 
   // Highlight & modal
   const [highlightedId, setHighlightedId]     = useState(null);
@@ -134,6 +139,18 @@ function SearchV2Content() {
   // list and the bubbles re-snap to what's visible. null = no bbox active
   // (initial load or filter reset).
   const [mapBounds, setMapBounds] = useState(null);
+  // 2026-07 — debounce map pans. Leaflet fires onBoundsChange on every
+  // frame of a drag; feeding that straight into mapBounds re-armed the
+  // fetch effect (buildUrl dep) on each pan step → refetch storm + list
+  // wipe. 400 ms of quiet before committing the new bbox.
+  const boundsDebounceRef = useRef(null);
+  const handleBoundsChange = useCallback((bounds) => {
+    if (boundsDebounceRef.current) clearTimeout(boundsDebounceRef.current);
+    boundsDebounceRef.current = setTimeout(() => setMapBounds(bounds), 400);
+  }, []);
+  useEffect(() => () => {
+    if (boundsDebounceRef.current) clearTimeout(boundsDebounceRef.current);
+  }, []);
 
   // Slot batch-loading — one request per group of cards, fired from the page (not per-card)
   const [slotsMap, setSlotsMap] = useState({});
@@ -194,13 +211,23 @@ function SearchV2Content() {
   // Bumps page size to 50 when a bbox is active so the map can show every
   // clinic in the visible rectangle on the first paint without forcing the
   // user to scroll.
+  // Tracks the last non-spatial filter signature so a bounds-only refetch
+  // (map pan/zoom) keeps the already-loaded per-clinic slots — they stay
+  // valid regardless of the viewport. Only a real filter change wipes them.
+  const lastFilterSigRef = useRef(null);
+
   useEffect(() => {
     let cancelled = false;
     setIsLoading(true);
+    setFetchError(false);
     setDbClinics(null);
     setLoadedCount(0);
     setHasMore(false);
-    setSlotsMap({});
+    const filterSig = `${cityFilter}|${specialtySlug}|${specialtyIdParam}|${procedureSlug}|${providerNameParam}`;
+    if (lastFilterSigRef.current !== filterSig) {
+      lastFilterSigRef.current = filterSig;
+      setSlotsMap({});
+    }
 
     const initialSize = mapBounds ? 50 : PAGE_SIZE_INITIAL;
     fetch(buildUrl(0, initialSize))
@@ -214,15 +241,24 @@ function SearchV2Content() {
           setHasMore((data.total || 0) > data.clinics.length);
         }
       })
-      .catch(() => { if (!cancelled) setDbClinics([]); })
+      .catch(() => {
+        if (!cancelled) {
+          // Real fetch failure — show retry UI, don't disguise it as an
+          // empty result set.
+          setFetchError(true);
+          setDbClinics([]);
+        }
+      })
       .finally(() => { if (!cancelled) setIsLoading(false); });
 
     return () => { cancelled = true; };
-  }, [buildUrl]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [buildUrl, retryToken]);
 
   const loadMore = useCallback(() => {
     if (isLoading || !hasMore) return;
     setIsLoading(true);
+    setFetchError(false);
     fetch(buildUrl(loadedCount, PAGE_SIZE_MORE))
       .then((r) => r.json())
       .then((data) => {
@@ -240,7 +276,7 @@ function SearchV2Content() {
           });
         }
       })
-      .catch(() => {})
+      .catch(() => { setFetchError(true); })
       .finally(() => setIsLoading(false));
   }, [isLoading, hasMore, buildUrl, loadedCount]);
 
@@ -315,12 +351,13 @@ function SearchV2Content() {
     const result = [];
     for (const p of displayProviders) {
       const clinicSlots = slotsMap[p.id];
-      // Slots haven't loaded yet → assume the clinic has all 4 tiers so
-      // we don't accidentally hide it during the skeleton flash. Once
+      // Slots haven't loaded yet (undefined) or timed out and are being
+      // retried (null sentinel) → assume the clinic has all 4 tiers so we
+      // don't accidentally hide it during the skeleton flash. Once
       // batch-slots resolves the memo re-runs with the real tier bag.
-      const slotTiers = clinicSlots === undefined
+      const slotTiers = clinicSlots == null
         ? new Set([1, 2, 3, 4])
-        : new Set((clinicSlots || []).filter((s) => s.available).map((s) => s.tier));
+        : new Set(clinicSlots.filter((s) => s.available).map((s) => s.tier));
       // Intersect with user's chosen tiers if any are selected.
       const candidateTiers = userTiers
         ? new Set([...slotTiers].filter((t) => userTiers.has(t)))
@@ -390,9 +427,23 @@ function SearchV2Content() {
   // We no longer pre-fill with deterministic fakes — cards show the
   // shimmer skeleton (built into ClinicCardV2 when slots === undefined)
   // until the real /api/clinics/batch-slots response arrives.
+  // Per-clinic watchdog retry budget — prevents an infinite
+  // timeout → retry → timeout loop when batch-slots keeps failing.
+  const slotRetryCountsRef = useRef({});
+  // Ids with a batch-slots request currently on the wire. The effect now
+  // also re-runs on slotsMap updates (to retry `null` sentinels), so
+  // without this set every resolved batch would re-request the ids of
+  // batches still in flight.
+  const slotsInFlightRef = useRef(new Set());
+
   useEffect(() => {
     if (displayProviders.length === 0) return;
-    const unloaded = displayProviders.filter((p) => !(p.id in slotsMap));
+    // `null` is the watchdog's "timed out" sentinel (vs `[]` = the API
+    // really said no availability) — those ids get retried here.
+    const unloaded = displayProviders.filter(
+      (p) => (!(p.id in slotsMap) || slotsMap[p.id] === null)
+        && !slotsInFlightRef.current.has(p.id),
+    );
     if (unloaded.length === 0) return;
 
     const BATCH = 10;
@@ -414,12 +465,15 @@ function SearchV2Content() {
       ? `&topRankedIds=${topRankedIds.join(',')}`
       : '';
 
-    const fetchBatch = (batchIds, delayMs) =>
-      new Promise((resolve) => setTimeout(resolve, delayMs))
+    const fetchBatch = (batchIds, delayMs) => {
+      batchIds.forEach((id) => slotsInFlightRef.current.add(id));
+      return new Promise((resolve) => setTimeout(resolve, delayMs))
         .then(() => { if (cancelled) return null; return fetch(`/api/clinics/batch-slots?ids=${batchIds.join(',')}&preview=true&days=7${topRankedQs}`); })
         .then((r) => (r ? r.json() : null))
         .then((data) => { if (cancelled || !data?.slots) return; setSlotsMap((prev) => ({ ...prev, ...data.slots })); })
-        .catch(() => {});
+        .catch(() => {})
+        .finally(() => { batchIds.forEach((id) => slotsInFlightRef.current.delete(id)); });
+    };
 
     for (let i = 0; i < ids.length; i += BATCH) {
       fetchBatch(ids.slice(i, i + BATCH), i === 0 ? 0 : 300);
@@ -435,14 +489,21 @@ function SearchV2Content() {
     // shimmering and renders "Sin disponibilidad próxima · Ver opciones"
     // — better than a hanging spinner. The follow-up effect tick will
     // re-request real slots if the clinic remains visible.
+    // 2026-07 — the watchdog now writes the `null` sentinel ("timed out,
+    // retry me") instead of `[]` ("no availability"), so slow/failed
+    // clinics get re-requested by the effect above instead of being
+    // permanently rendered as "Sin disponibilidad próxima". After 2
+    // failed rounds per clinic we give up and write `[]` for real.
     const watchdog = setTimeout(() => {
       if (cancelled) return;
       setSlotsMap((prev) => {
         const next = { ...prev };
         let touched = false;
         for (const id of ids) {
-          if (!(id in next)) {
-            next[id] = [];
+          if (!(id in next) || next[id] === null) {
+            const tries = (slotRetryCountsRef.current[id] || 0) + 1;
+            slotRetryCountsRef.current[id] = tries;
+            next[id] = tries > 2 ? [] : null;
             touched = true;
           }
         }
@@ -455,7 +516,7 @@ function SearchV2Content() {
       clearTimeout(watchdog);
     };
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [displayProviders]);
+  }, [displayProviders, slotsMap]);
 
   const filteredProcedures = useMemo(() => {
     if (!specialtySlug) return dbProcedures;
@@ -688,13 +749,31 @@ function SearchV2Content() {
                     isSinSeguro={isSinSeguro}
                     highlighted={highlightedId === provider.id}
                     onOpenModal={(p, slot) => { setModalProvider(p); setModalInitialSlot(slot ?? null); }}
-                    slots={slotsMap[provider.id]}
+                    // `null` = watchdog timeout being retried → keep the
+                    // loading skeleton (ClinicCardV2 treats undefined as
+                    // loading; [] means confirmed no availability).
+                    slots={slotsMap[provider.id] ?? undefined}
                     visibleTiers={visibleTiersByClinic.get(provider.id) || null}
                   />
                 ))
               ) : isLoading ? (
                 <div className="sv2-empty">
                   <p style={{ color: '#9ca3af' }}>Cargando centros...</p>
+                </div>
+              ) : fetchError ? (
+                <div className="sv2-empty" role="alert">
+                  <p>No pudimos cargar los resultados.</p>
+                  <p style={{ fontSize: '0.85rem', color: '#9ca3af' }}>
+                    Comprueba tu conexión e inténtalo de nuevo.
+                  </p>
+                  <button
+                    type="button"
+                    className="sv2-actions-btn"
+                    style={{ marginTop: '0.75rem' }}
+                    onClick={() => { setFetchError(false); setRetryToken((t) => t + 1); }}
+                  >
+                    Reintentar
+                  </button>
                 </div>
               ) : (
                 <div className="sv2-empty">
@@ -703,6 +782,22 @@ function SearchV2Content() {
                 </div>
               )}
 
+              {/* loadMore failure with results already on screen — inline
+                  retry instead of silently stalling the infinite scroll. */}
+              {fetchError && cappedProviders.length > 0 && !isLoading && (
+                <div style={{ textAlign: 'center', padding: '0.75rem 0' }} role="alert">
+                  <p style={{ fontSize: '0.85rem', color: '#9ca3af', marginBottom: '0.5rem' }}>
+                    No pudimos cargar más resultados.
+                  </p>
+                  <button
+                    type="button"
+                    className="sv2-actions-btn"
+                    onClick={() => { setFetchError(false); loadMore(); }}
+                  >
+                    Reintentar
+                  </button>
+                </div>
+              )}
               {hasMore && <div ref={sentinelRef} style={{ height: 1 }} />}
               {/* 2026-06-10 — CLS fix. Reserve fixed height so the
                   loader appearing during pagination doesn't push the
@@ -746,7 +841,7 @@ function SearchV2Content() {
                       }
                     }
                   }}
-                  onBoundsChange={setMapBounds}
+                  onBoundsChange={handleBoundsChange}
                 />
               </div>
             </div>

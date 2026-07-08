@@ -165,6 +165,11 @@ function BookContent() {
 
   const lockInId = searchParams.get('lockInId') || '';
   const stepParam = searchParams.get('step') || '';
+  // 2026-07 — post-payment persistence. After a successful charge we
+  // router.replace() the current URL adding `step=success&ref=<bookingRef>`
+  // so a reload NEVER lands the patient back on the payment form (double
+  // charge risk). On mount with those params we restore the success view.
+  const successRefParam = searchParams.get('ref') || '';
 
   // 2026-06 — 15-minute slot hold context forwarded from the modal.
   // Empty when the hold layer is offline or the URL is legacy / lock-in.
@@ -204,9 +209,13 @@ function BookContent() {
   // briefly rendered the empty patient inputs while we fetched the
   // referral, which the audit caught as a "double entry" UX bug.
   const [step, setStep] = useState(
-    stepParam === 'payment' && lockInId ? 'payment' : 'form',
+    stepParam === 'success' && successRefParam
+      ? 'success'
+      : stepParam === 'payment' && lockInId ? 'payment' : 'form',
   );
-  const [paymentRef, setPaymentRef] = useState('');
+  const [paymentRef, setPaymentRef] = useState(
+    stepParam === 'success' && successRefParam ? successRefParam : '',
+  );
   const [lockInData, setLockInData] = useState(null);
 
   // F15 — booking pre-creation. We reserve a `pending_payment` booking row
@@ -248,6 +257,9 @@ function BookContent() {
   // Without it, the same booking session could inflate book_started counts.
   const bookStartedFired = useRef(false);
   useEffect(() => {
+    // Empty /book (no provider/lock-in/restored hold) redirects away —
+    // don't pollute the funnel with a book_started for those sessions.
+    if (isEmptyBookPage) return;
     if (bookStartedFired.current) return;
     bookStartedFired.current = true;
     const source = searchParams.get('lockInId') ? 'lock-in' : 'direct';
@@ -356,6 +368,15 @@ function BookContent() {
   // invalid fields red post-attempt without nagging the user before they try.
   const [formErrorHint, setFormErrorHint] = useState('');
   const [submitAttempted, setSubmitAttempted] = useState(false);
+  // 2026-07 — double-submit guard on the step-1 form. `submitting` is true
+  // while handlePay runs (the referral branch awaits a POST + emails, long
+  // enough for an impatient double-click to create two referrals).
+  const [submitting, setSubmitting] = useState(false);
+  // 2026-07 — set when the post-charge /api/bookings POST failed AND no
+  // pre-reserved booking row exists (payment charged, booking not
+  // persisted). The success screen surfaces a warning banner instead of
+  // faking a clean confirmation.
+  const [bookingPersistFailed, setBookingPersistFailed] = useState(false);
 
   // 15-minute slot hold — countdown + auto-extend + pre-flight + release.
   // `holdExpiresAt` starts from the URL param the modal forwarded and is
@@ -479,14 +500,20 @@ function BookContent() {
   // Best-effort: if the patient closes the tab on /book, free the slot
   // for the next visitor instead of waiting 15 minutes. `sendBeacon`
   // because async fetch isn't allowed during unload.
+  // `stepRef` mirrors `step` so the unload handler below always reads the
+  // CURRENT step — the old closure captured the mount-time value, so a
+  // patient who reached 'success' still released the hold on tab close.
+  const stepRef = useRef(step);
+  useEffect(() => { stepRef.current = step; }, [step]);
+
   useEffect(() => {
     if (lockInId) return; // lock-in flow uses its own state machine
-    const onBeforeUnload = () => {
+    const onPageHide = () => {
       const { clinicId, date: d, time: t } = holdSlotRef.current;
       if (!clinicId || !d || !t) return;
       // Skip release once we've reached the success step — the booking
       // server already cleared the Redis key.
-      if (step === 'success') return;
+      if (stepRef.current === 'success') return;
       try {
         const sid = (typeof window !== 'undefined' && window.localStorage)
           ? window.localStorage.getItem('mc_sid') : null;
@@ -501,8 +528,15 @@ function BookContent() {
         navigator.sendBeacon?.(`${url}&_method=DELETE`, blob);
       } catch {}
     };
-    window.addEventListener('beforeunload', onBeforeUnload);
-    return () => window.removeEventListener('beforeunload', onBeforeUnload);
+    // `pagehide` is the reliable signal on mobile Safari / bfcache
+    // navigations where `beforeunload` never fires; we keep both and the
+    // beacon endpoint is idempotent so a double-fire is harmless.
+    window.addEventListener('pagehide', onPageHide);
+    window.addEventListener('beforeunload', onPageHide);
+    return () => {
+      window.removeEventListener('pagehide', onPageHide);
+      window.removeEventListener('beforeunload', onPageHide);
+    };
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [lockInId]);
 
@@ -744,6 +778,7 @@ function BookContent() {
 
   const handlePay = async (e) => {
     e.preventDefault();
+    if (submitting) return; // double-submit guard
 
     // Bug 1.2 fix — validate before submitting. HTML5 `required` still fires
     // first because <input required> is on each field, but on mobile the
@@ -779,6 +814,8 @@ function BookContent() {
       return;
     }
     setFormErrorHint('');
+    setSubmitting(true);
+    try {
 
     // If it's a professional referral, create referral and redirect to lock-in page
     if (isReferral) {
@@ -873,6 +910,11 @@ function BookContent() {
 
     // Normal booking flow → go to payment step
     setStep('payment');
+    } finally {
+      // Release the guard on failure AND after navigation kicks off —
+      // if the user comes back to the form (onBack), the button must work.
+      setSubmitting(false);
+    }
   };
 
   // F15 — reserve booking row before the patient hits the Stripe form so
@@ -1015,6 +1057,14 @@ function BookContent() {
         }),
       });
       const j = await r.json().catch(() => ({}));
+      if (!r.ok) {
+        console.error('[/book bookings POST] non-OK response', r.status, j?.error || '');
+        // Payment already charged. If there's no pre-reserved booking row
+        // (F15 reserve failed/skipped), the charge has NO backing booking —
+        // the webhook has nothing to finalize. Surface it to the patient
+        // instead of faking a clean confirmation.
+        if (!reservedBookingId) setBookingPersistFailed(true);
+      }
       if (j._case) {
         opsCaseId = j._case.id ?? null;
         paymentToClinic = j._case.paymentToClinic ?? null;
@@ -1023,7 +1073,13 @@ function BookContent() {
       // F2 — capture the self-service token returned by the booking API so
       // we can build the cancel/reschedule link for the confirmation email.
       if (j.selfServiceToken) selfServiceToken = j.selfServiceToken;
-    } catch (e) { /* keep going */ }
+    } catch (e) {
+      // Network-level failure AFTER the charge. Same logic as the !r.ok
+      // branch above — keep the flow going (emails, tracking, success
+      // screen) but flag the missing booking when nothing was pre-reserved.
+      console.error('[/book bookings POST] failed after charge', e?.message);
+      if (!reservedBookingId) setBookingPersistFailed(true);
+    }
 
     // If this was a lock-in referral, mark it CONFIRMED in DB + localStorage
     if (lockInData) {
@@ -1219,8 +1275,21 @@ function BookContent() {
     }
 
     setStep('success');
-    // Store calendarUrl for the success screen
+    // Store calendarUrl for the success screen (same-session fast path;
+    // the success render recomputes it from URL params after a reload).
     window._mcCalendarUrl = calendarUrl;
+
+    // 2026-07 — persist the success state in the URL. A reload used to
+    // re-mount at the payment step (step lived only in React state) →
+    // double-charge risk. `router.replace` keeps history clean (Back
+    // doesn't return to the payment form) and the mount-time useState
+    // above restores 'success' + paymentRef from `step`/`ref`.
+    try {
+      const url = new URL(window.location.href);
+      url.searchParams.set('step', 'success');
+      url.searchParams.set('ref', bookingRef);
+      router.replace(`${url.pathname}${url.search}`, { scroll: false });
+    } catch {}
   };
 
   const formattedDate = date
@@ -1231,6 +1300,39 @@ function BookContent() {
         year: 'numeric',
       })
     : '';
+
+  // 2026-06-22 — Empty state (moved above the payment/success steps
+  // 2026-07 so it renders FIRST, all hooks having already run — no
+  // rules-of-hooks issue since this is plain JSX ordering).
+  // El useEffect arriba dispara router.replace, pero React puede renderizar
+  // un frame antes de que la nav termine. Mostramos un mini-render de
+  // "redirigiendo..." en lugar del form vacío para que ningún user vea
+  // el formulario sin contexto. Si el redirect falla (ej. router no
+  // disponible en SSR), igual hay un link manual a /search-v2.
+  if (isEmptyBookPage) {
+    return (
+      <>
+        <Header />
+        <main className="book-page">
+          <div className="book-container" style={{ textAlign: 'center', padding: '4rem 1rem' }}>
+            <h1 style={{ fontSize: '1.5rem', marginBottom: '0.75rem' }}>
+              Te llevamos a la búsqueda…
+            </h1>
+            <p style={{ color: 'var(--fg-muted)', marginBottom: '1.5rem' }}>
+              Para reservar primero hay que elegir clínica + horario.
+            </p>
+            <Link
+              href="/search-v2"
+              className="btn btn-gold"
+              style={{ display: 'inline-block' }}
+            >
+              Ir a la búsqueda →
+            </Link>
+          </div>
+        </main>
+      </>
+    );
+  }
 
   // ── Payment step ──
   if (step === 'payment') {
@@ -1391,8 +1493,11 @@ function BookContent() {
                   )}
                 </label>
                 <div className="book-insurance-toggle">
-                  <div
+                  <button
+                    type="button"
+                    aria-pressed={hasInsurance === true}
                     className={`book-insurance-option ${hasInsurance === true ? 'active' : ''}`}
+                    style={{ background: hasInsurance === true ? undefined : 'transparent', font: 'inherit', color: 'inherit' }}
                     onClick={() => handleHasInsuranceClick(true)}
                   >
                     <strong>Sí, tengo seguro</strong>
@@ -1414,9 +1519,12 @@ function BookContent() {
                         ? 'Pagas ahora y solicitas el reembolso a tu seguro después de la videoconsulta.'
                         : 'Solo la tarifa de prioridad. La consulta va por tu póliza.'}
                     </span>
-                  </div>
-                  <div
+                  </button>
+                  <button
+                    type="button"
+                    aria-pressed={hasInsurance === false}
                     className={`book-insurance-option ${hasInsurance === false ? 'active' : ''}`}
+                    style={{ background: hasInsurance === false ? undefined : 'transparent', font: 'inherit', color: 'inherit' }}
                     onClick={() => handleHasInsuranceClick(false)}
                   >
                     <strong>No tengo seguro</strong>
@@ -1438,7 +1546,7 @@ function BookContent() {
                         ? 'Precio publicado en SaludOnNet, todo incluido. Total final, sin sorpresas.'
                         : `Consulta (${formatEUR(servicePrice)}) + prioridad (${formatEUR(activeFee)}). Total final, sin sorpresas.`}
                     </span>
-                  </div>
+                  </button>
                 </div>
               </div>
             )}
@@ -1613,10 +1721,20 @@ function BookContent() {
 
   // ── Success step ──
   if (step === 'success') {
-    const calendarUrl = typeof window !== 'undefined' ? window._mcCalendarUrl : null;
     const slotDateToUse = lockInData?.slotDate || date;
     const slotTimeToUse = lockInData?.slotTime || time;
     const clinicName = lockInData?.providerName || providerName;
+    // Prefer the calendarUrl computed at payment time; after a reload
+    // (URL-restored success) recompute it from the URL params instead.
+    let calendarUrl = typeof window !== 'undefined' ? window._mcCalendarUrl : null;
+    if (!calendarUrl && slotDateToUse && slotTimeToUse) {
+      try {
+        const start = new Date(`${slotDateToUse}T${slotTimeToUse}:00`);
+        const end = new Date(start.getTime() + 60 * 60 * 1000);
+        const fmt = (d) => d.toISOString().replace(/[-:]/g, '').split('.')[0] + 'Z';
+        calendarUrl = `https://calendar.google.com/calendar/render?action=TEMPLATE&text=Cita+en+${encodeURIComponent(clinicName)}&dates=${fmt(start)}/${fmt(end)}&details=Referencia+${paymentRef}`;
+      } catch {}
+    }
     const formattedSuccessDate = slotDateToUse
       ? new Date(slotDateToUse + 'T00:00:00').toLocaleDateString('es-ES', { weekday: 'long', day: 'numeric', month: 'long' })
       : '';
@@ -1638,6 +1756,31 @@ function BookContent() {
                     ? 'Hemos confirmado tu reserva prioritaria. Acude con tu tarjeta de asegurado — la consulta corre por tu póliza.'
                     : 'Hemos confirmado tu cita y la consulta privada. Llega 10 minutos antes; en recepción ya saben quién eres.'}
               </p>
+
+              {bookingPersistFailed && (
+                <div
+                  role="alert"
+                  style={{
+                    marginTop: '1.25rem',
+                    textAlign: 'left',
+                    background: '#fffbeb',
+                    border: '1px solid #fcd34d',
+                    borderRadius: '10px',
+                    padding: '0.9rem 1.1rem',
+                    color: '#78350f',
+                    fontSize: '0.9rem',
+                    lineHeight: 1.6,
+                  }}
+                >
+                  ✅ <strong>Pago recibido</strong> (ref {paymentRef}). Estamos terminando de
+                  confirmar tu cita — recibirás el email de confirmación en unos minutos.
+                  Si no llega en 15 min, escríbenos a{' '}
+                  <a href="mailto:info@medconnect.es" style={{ color: '#92400e', textDecoration: 'underline' }}>
+                    info@medconnect.es
+                  </a>{' '}
+                  indicando la referencia.
+                </div>
+              )}
 
               <div className="book-summary-card" style={{ textAlign: 'left', marginTop: '1.5rem' }}>
                 <div className="book-summary-provider">{clinicName}</div>
@@ -1820,37 +1963,6 @@ function BookContent() {
     );
   }
 
-  // 2026-06-22 — Empty state.
-  // El useEffect arriba dispara router.replace, pero React puede renderizar
-  // un frame antes de que la nav termine. Mostramos un message de
-  // "redirigiendo..." en lugar del form vacío para que ningún user vea
-  // el formulario sin contexto. Si el redirect falla (ej. router no
-  // disponible en SSR), igual hay un link manual a /search-v2.
-  if (isEmptyBookPage) {
-    return (
-      <>
-        <Header />
-        <main className="book-page">
-          <div className="book-container" style={{ textAlign: 'center', padding: '4rem 1rem' }}>
-            <h1 style={{ fontSize: '1.5rem', marginBottom: '0.75rem' }}>
-              Te llevamos a la búsqueda…
-            </h1>
-            <p style={{ color: 'var(--fg-muted)', marginBottom: '1.5rem' }}>
-              Para reservar primero hay que elegir clínica + horario.
-            </p>
-            <Link
-              href="/search-v2"
-              className="btn btn-gold"
-              style={{ display: 'inline-block' }}
-            >
-              Ir a la búsqueda →
-            </Link>
-          </div>
-        </main>
-      </>
-    );
-  }
-
   return (
     <>
       <Header />
@@ -1970,8 +2082,11 @@ function BookContent() {
                   )}
                 </label>
                 <div className="book-insurance-toggle">
-                  <div
+                  <button
+                    type="button"
+                    aria-pressed={hasInsurance === true}
                     className={`book-insurance-option ${hasInsurance === true ? 'active' : ''}`}
+                    style={{ background: hasInsurance === true ? undefined : 'transparent', font: 'inherit', color: 'inherit' }}
                     onClick={() => handleHasInsuranceClick(true)}
                   >
                     <strong>Sí, {isReferral ? 'tiene' : 'tengo'} seguro</strong>
@@ -1993,9 +2108,12 @@ function BookContent() {
                         ? 'Pagas ahora y solicitas el reembolso a tu seguro después de la videoconsulta.'
                         : 'Solo la tarifa de prioridad. La consulta va por tu póliza.'}
                     </span>
-                  </div>
-                  <div
+                  </button>
+                  <button
+                    type="button"
+                    aria-pressed={hasInsurance === false}
                     className={`book-insurance-option ${hasInsurance === false ? 'active' : ''}`}
+                    style={{ background: hasInsurance === false ? undefined : 'transparent', font: 'inherit', color: 'inherit' }}
                     onClick={() => handleHasInsuranceClick(false)}
                   >
                     <strong>No {isReferral ? 'tiene' : 'tengo'} seguro</strong>
@@ -2017,7 +2135,7 @@ function BookContent() {
                         ? 'Precio publicado en SaludOnNet, todo incluido. Total final, sin sorpresas.'
                         : `Consulta (${formatEUR(servicePrice)}) + prioridad (${formatEUR(activeFee)}). Total final, sin sorpresas.`}
                     </span>
-                  </div>
+                  </button>
                 </div>
               </div>
 
@@ -2292,10 +2410,12 @@ function BookContent() {
                 type="submit"
                 className="btn btn-gold btn-lg"
                 id="pay-btn"
-                disabled={hasInsurance === null}
-                style={hasInsurance === null ? { opacity: 0.55, cursor: 'not-allowed' } : undefined}
+                disabled={submitting || hasInsurance === null}
+                style={(submitting || hasInsurance === null) ? { opacity: 0.55, cursor: submitting ? 'wait' : 'not-allowed' } : undefined}
               >
-                {totalPrice > 0 ? `Continuar al pago (${formatEUR(totalPrice)})` : 'Continuar'}
+                {submitting
+                  ? 'Procesando…'
+                  : totalPrice > 0 ? `Continuar al pago (${formatEUR(totalPrice)})` : 'Continuar'}
               </button>
             </div>
           </form>
