@@ -52,7 +52,7 @@ export const BLOG_POSTS = [
 <p>Tienes tres opciones reales:</p>
 <ol>
   <li><strong>Pago directo (self-pay):</strong> Pagas la consulta completa en una clínica privada fuera de tu seguro. Precio típico: 60-120€ por consulta según especialidad y centro.</li>
-  <li><strong>Usar tu seguro con reserva prioritaria:</strong> Clínicas concertadas con tu aseguradora que tienen huecos específicamente reservados para urgencias. Esto es lo que hace Med Connect: acceso a esos huecos con una tarifa de prioridad de 5-29€ según la urgencia, sin pagar la consulta.</li>
+  <li><strong>Usar tu seguro con reserva prioritaria:</strong> Clínicas concertadas con tu aseguradora que tienen huecos específicamente reservados para urgencias. Esto es lo que hace Med Connect: acceso a esos huecos con una tarifa de prioridad de 4-19€ según la urgencia, sin pagar la consulta.</li>
   <li><strong>Urgencias hospitalarias:</strong> Válido para emergencias reales, no para consultas planificadas. El tiempo de espera en urgencias por un motivo no urgente puede superar las 6-8 horas.</li>
 </ol>
 
@@ -128,7 +128,7 @@ export const BLOG_POSTS = [
 <p><strong>Cuándo es la mejor opción:</strong> Segunda opinión puntual, especialidades no cubiertas por tu seguro, cuando necesitas cita inmediata y el coste es asumible.</p>
 
 <h2>La cuarta vía: tu seguro + acceso prioritario</h2>
-<p>Para el escenario más común — tienes seguro privado pero no puedes esperar 4 semanas para el especialista que necesitas — existe una alternativa que combina lo mejor de los dos mundos privados: usar tu póliza para pagar la consulta (sin coste adicional de la consulta) y pagar una pequeña tarifa de prioridad (5-29€) para conseguir la cita esta semana en lugar de dentro de un mes.</p>
+<p>Para el escenario más común — tienes seguro privado pero no puedes esperar 4 semanas para el especialista que necesitas — existe una alternativa que combina lo mejor de los dos mundos privados: usar tu póliza para pagar la consulta (sin coste adicional de la consulta) y pagar una pequeña tarifa de prioridad (4-19€) para conseguir la cita esta semana en lugar de dentro de un mes.</p>
 <p>Es lo que hacemos en Med Connect: accedemos a huecos prioritarios en clínicas de tu cuadro asegurador que de otra manera no verías disponibles en el buscador de tu aseguradora.</p>
 
 <h2>Regla práctica para decidir</h2>

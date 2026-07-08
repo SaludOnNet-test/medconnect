@@ -29,8 +29,9 @@ const WA_NUMBER = '34677348588';
 const DEFAULT_TEXT = 'Hola, necesito ayuda para reservar una cita en Med Connect.';
 
 // Ops attention hours — surfaced to the patient in the greeting modal.
-// Edit here if hours change.
-const HOURS_LABEL = 'Lunes a viernes de 10:00 a 18:00';
+// Edit here if hours change. 2026-07 — the AI assistant answers 24/7;
+// these hours now refer only to the human team.
+const HOURS_LABEL = 'Nuestro equipo humano atiende de lunes a viernes de 10:00 a 18:00';
 
 export default function WhatsAppFAB() {
   const pathname = usePathname() || '/';
@@ -158,12 +159,12 @@ export default function WhatsAppFAB() {
             </p>
 
             <div className="wa-modal-hours">
-              <strong>Horario de atención</strong>
+              <strong>Respuesta inmediata 24/7</strong>
               <br />
-              {HOURS_LABEL}
+              Nuestro asistente te responde al momento, a cualquier hora.
               <br />
               <span className="wa-modal-hours-fineprint">
-                Te respondemos lo antes posible dentro de nuestro horario.
+                {HOURS_LABEL}.
               </span>
             </div>
 

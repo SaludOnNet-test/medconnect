@@ -58,7 +58,7 @@ export async function generateMetadata({ params }) {
   const countCopy = clinicCount && clinicCount >= 3
     ? `${clinicCount} clínicas concertadas con ${insurer.name}. `
     : '';
-  const title       = `${specialty.plural} con ${insurer.name} desde €4 — Cita en 24-72h | Med Connect`;
+  const title       = `${specialty.plural} con ${insurer.name} desde €4 — Cita en 24-72h | MedConnect`;
   const description = `Accede a cita prioritaria con ${specialty.name.toLowerCase()} en clínicas concertadas con ${insurer.name}. ${countCopy}Solo €4-€19 de tarifa de prioridad — la consulta la cubre tu seguro. Reembolso íntegro si no encontramos hueco.`;
   const canonical   = insurerSpecialtyPageUrl(aseguradora, especialidad);
 
@@ -67,7 +67,7 @@ export async function generateMetadata({ params }) {
     description,
     alternates: { canonical },
     ...(tooThin ? { robots: { index: false, follow: true } } : {}),
-    openGraph: { title, description, url: canonical, siteName: 'Med Connect', locale: 'es_ES', type: 'website' },
+    openGraph: { title, description, url: canonical, siteName: 'MedConnect', locale: 'es_ES', type: 'website' },
     twitter: { card: 'summary', title, description },
   };
 }
@@ -94,7 +94,7 @@ function buildSchema(insurer, specialty, aseguradora, especialidad) {
             name: `¿Puedo usar mi seguro ${insurer.name} para la consulta de ${specialty.name.toLowerCase()}?`,
             acceptedAnswer: {
               '@type': 'Answer',
-              text: `Sí. Med Connect te da acceso a clínicas concertadas con ${insurer.name} para ${specialty.name.toLowerCase()}. La consulta se factura a tu aseguradora como siempre; solo pagas la tarifa de acceso prioritario (5-29€ según urgencia).`,
+              text: `Sí. Med Connect te da acceso a clínicas concertadas con ${insurer.name} para ${specialty.name.toLowerCase()}. La consulta se factura a tu aseguradora como siempre; solo pagas la tarifa de acceso prioritario (4-19€ según urgencia).`,
             },
           },
           {
@@ -110,7 +110,7 @@ function buildSchema(insurer, specialty, aseguradora, especialidad) {
             name: '¿Cuánto cuesta el acceso prioritario?',
             acceptedAnswer: {
               '@type': 'Answer',
-              text: 'La tarifa de Med Connect es de 5€ si la cita es a más de 30 días, 10€ entre 15 y 30 días, 19€ entre 7 y 14 días, o 29€ si la necesitas en menos de 7 días. La consulta médica la paga tu aseguradora.',
+              text: 'La tarifa de Med Connect es de 4€ si la cita es a más de 30 días, 8€ entre 16 y 30 días, 15€ entre 8 y 15 días, o 19€ si la necesitas en menos de 7 días. La consulta médica la paga tu aseguradora.',
             },
           },
         ],
@@ -173,7 +173,7 @@ export default async function InsurerSpecialtyPage({ params }) {
             </h1>
             <p className="page-header-lede">
               {insurer.copyagLine} Med Connect accede a plazas prioritarias en clínicas concertadas con tu seguro.
-              Pagas 5–29€ de tarifa de acceso. La consulta la cubre {insurer.name}.
+              Pagas 4–19€ de tarifa de acceso. La consulta la cubre {insurer.name}.
             </p>
             <div className="page-header-actions">
               <Button href="/search-v2" variant="primary" size="lg">Buscar cita de {specialty.name}</Button>
@@ -219,14 +219,14 @@ export default async function InsurerSpecialtyPage({ params }) {
             <h3>¿Puedo usar mi {insurer.name} para la consulta de {specialty.name.toLowerCase()}?</h3>
             <p>
               Sí. Los centros de la lista están concertados con {insurer.name}. La consulta se factura a tu aseguradora
-              exactamente igual que siempre. Med Connect solo cobra la tarifa de acceso prioritario (5–29€ según urgencia).
+              exactamente igual que siempre. Med Connect solo cobra la tarifa de acceso prioritario (4–19€ según urgencia).
             </p>
 
             <h3>¿Cuánto cuesta el acceso prioritario?</h3>
             <p>
-              La tarifa de Med Connect escalonada por urgencia: <strong>5€</strong> si la cita es a más de 30 días,
-              <strong> 10€</strong> entre 15 y 30 días, <strong>19€</strong> entre 7 y 14 días, y
-              <strong> 29€</strong> si la necesitas en menos de 7 días. Sin costes adicionales.
+              La tarifa de Med Connect escalonada por urgencia: <strong>4€</strong> si la cita es a más de 30 días,
+              <strong> 8€</strong> entre 16 y 30 días, <strong>15€</strong> entre 8 y 15 días, y
+              <strong> 19€</strong> si la necesitas en menos de 7 días. Sin costes adicionales.
             </p>
 
             <h3>¿Puedo cancelar si cambio de opinión?</h3>

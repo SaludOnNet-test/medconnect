@@ -50,20 +50,20 @@ const fontClassNames = `${fraunces.variable} ${interTight.variable} ${jetbrainsM
 
 export const metadata = {
   metadataBase: new URL('https://www.medconnect.es'),
-  title: 'Med Connect — Tu cita médica privada, sin esperas',
+  title: 'MedConnect — Tu cita médica privada, sin esperas',
   description: 'Reserva citas médicas privadas y diagnósticos con acceso prioritario. Tu salud no puede esperar.',
   openGraph: {
     type: 'website',
     locale: 'es_ES',
     url: 'https://www.medconnect.es',
-    siteName: 'Med Connect',
-    title: 'Med Connect — Tu cita médica privada, sin esperas',
+    siteName: 'MedConnect',
+    title: 'MedConnect — Tu cita médica privada, sin esperas',
     description: 'Reserva citas médicas privadas y diagnósticos con acceso prioritario. Tu salud no puede esperar.',
     // og:image is injected automatically by src/app/opengraph-image.js
   },
   twitter: {
     card: 'summary_large_image',
-    title: 'Med Connect — Tu cita médica privada, sin esperas',
+    title: 'MedConnect — Tu cita médica privada, sin esperas',
     description: 'Reserva citas médicas privadas y diagnósticos con acceso prioritario. Tu salud no puede esperar.',
     // twitter:image is injected automatically by src/app/twitter-image.js
   },
@@ -72,7 +72,7 @@ export const metadata = {
 const organizationSchema = {
   '@context': 'https://schema.org',
   '@type': 'Organization',
-  name: 'Med Connect',
+  name: 'MedConnect',
   url: 'https://www.medconnect.es',
   logo: 'https://www.medconnect.es/logo.png',
   description: 'Plataforma de reserva de citas médicas privadas con acceso prioritario. Especialistas de todas las especialidades en las principales ciudades de España.',

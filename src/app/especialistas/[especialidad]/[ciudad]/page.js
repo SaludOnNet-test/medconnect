@@ -231,7 +231,7 @@ export default async function EspecialistasCiudadPage({ params }) {
   // Para que el modelo entienda QUÉ ofrecemos y a QUÉ PRECIO sin tener
   // que parsear el DOM, expandimos la MedicalBusiness con:
   //   - availableService: el servicio principal (cita prioritaria con
-  //     priceSpecification 5–29 €). Permite que LLMs respondan
+  //     priceSpecification 4–19 €). Permite que LLMs respondan
   //     "MedConnect cobra X € por gestionar la cita en Y".
   //   - paymentAccepted + currenciesAccepted: explícito.
   //   - hasOfferCatalog: catálogo enumerable con los 4 tiers.
@@ -270,7 +270,7 @@ export default async function EspecialistasCiudadPage({ params }) {
         availableService: {
           '@type': 'MedicalProcedure',
           name: `Reserva prioritaria de ${specialty.name.toLowerCase()} en ${city}`,
-          description: `Med Connect gestiona la reserva con clínicas concertadas en ${city}. El paciente paga una tarifa de prioridad (€5 a €29 según la urgencia) y la consulta queda cubierta por su aseguradora privada.`,
+          description: `Med Connect gestiona la reserva con clínicas concertadas en ${city}. El paciente paga una tarifa de prioridad (€4 a €19 según la urgencia) y la consulta queda cubierta por su aseguradora privada.`,
           offers: {
             '@type': 'AggregateOffer',
             priceCurrency: 'EUR',

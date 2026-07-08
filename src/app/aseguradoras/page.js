@@ -8,7 +8,7 @@ import StatBlock from '@/components/brand/StatBlock';
 import Button from '@/components/brand/Button';
 
 export const metadata = {
-  title: 'Aseguradoras compatibles — Med Connect',
+  title: 'Aseguradoras compatibles — MedConnect',
   description: 'Trabajamos con clínicas concertadas con Sanitas, Adeslas, DKV, AXA, Mapfre, Asisa, Cigna y Caser.',
   alternates: { canonical: '/aseguradoras' },
 };

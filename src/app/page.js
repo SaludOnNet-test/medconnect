@@ -14,6 +14,28 @@ import { PriceLadder } from '@/components/brand/PriceTier';
 import Icon from '@/components/icons/Icon';
 import './home.css';
 
+// Home-specific SEO metadata. The layout only provides the generic
+// fallback title — the home needs its own price-anchored snippet.
+export const metadata = {
+  title: 'Cita médica privada en 24-72h — con o sin seguro | MedConnect',
+  description:
+    'Reserva prioritaria en clínicas concertadas con Sanitas, Adeslas, DKV, AXA y más. Tarifa de prioridad desde €4 — la consulta la cubre tu seguro. Reembolso íntegro si no hay hueco.',
+  alternates: { canonical: '/' },
+};
+
+// WebSite JSON-LD. The layout already emits Organization; WebSite is added
+// here because Google reads WebSite.name (not Organization.name) for the
+// site name shown in SERPs. NO SearchAction: /search-v2 has no free-text
+// `?q=` param (it takes specialty/city/service params), so a sitelinks
+// searchbox would point at a non-functional endpoint.
+const websiteSchema = {
+  '@context': 'https://schema.org',
+  '@type': 'WebSite',
+  name: 'MedConnect',
+  alternateName: 'Med Connect',
+  url: 'https://www.medconnect.es',
+};
+
 // Insurer placeholder lockups. SVGs ship as part of the brand kit; before
 // public launch they must be replaced with officially-licensed logos.
 const INSURERS = [
@@ -40,13 +62,17 @@ const PILLARS = [
   {
     icon: 'euro',
     title: 'Pagas la prioridad, no la consulta',
-    body: 'Tu seguro cubre la consulta como siempre. A nosotros nos pagas una tarifa de prioridad desde 5 €. Sin seguro, también: te decimos el total antes de pagar.',
+    body: 'Tu seguro cubre la consulta como siempre. A nosotros nos pagas una tarifa de prioridad desde 4 €. Sin seguro, también: te decimos el total antes de pagar.',
   },
 ];
 
 export default function HomePage() {
   return (
     <>
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(websiteSchema) }}
+      />
       <AnnouncementBar />
       <Header />
       <main>

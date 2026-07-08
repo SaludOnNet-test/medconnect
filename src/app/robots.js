@@ -21,7 +21,6 @@ export default function robots() {
         allow: [
           '/',
           '/search-v2',
-          '/book',
           '/suscripcion',
           '/como-funciona',
           '/aseguradoras',
@@ -42,6 +41,9 @@ export default function robots() {
           '/lock-in/',
           '/sign-in',
           '/sign-up',
+          // /book is noindex — keep crawlers out entirely (covers
+          // /book, /book/confirmed and /book/refund).
+          '/book',
           '/book/confirmed',
           '/book/refund',
           '/_next/',
