@@ -28,10 +28,51 @@ const TWENTY_FOUR_HOURS_MS = 24 * 60 * 60 * 1000;
 export function parseSlotDateTime(slotDate, slotTime) {
   if (!slotDate) return null;
   const time = slotTime && /^\d{2}:\d{2}$/.test(slotTime) ? slotTime : '00:00';
-  const iso = `${slotDate}T${time}:00`;
-  const d = new Date(iso);
+
+  // Appointments happen in Spain — interpret the wall-clock date/time as
+  // Europe/Madrid regardless of the runtime timezone (Vercel = UTC,
+  // local dev = Europe/Madrid). `new Date('YYYY-MM-DDTHH:MM:00')` without
+  // an offset parses in the RUNTIME timezone, which made the 24 h cutoff
+  // drift by 1-2 h between environments.
+  const dateMatch = /^(\d{4})-(\d{2})-(\d{2})$/.exec(String(slotDate).trim());
+  if (dateMatch) {
+    const [, y, mo, day] = dateMatch.map(Number);
+    const [h, mi] = time.split(':').map(Number);
+    // Start from the wall-clock time as if it were UTC, then subtract the
+    // Madrid offset for that instant. Recompute once in case the first
+    // guess lands on the other side of a DST transition.
+    const wallAsUtc = Date.UTC(y, mo - 1, day, h, mi, 0);
+    if (Number.isNaN(wallAsUtc)) return null;
+    let offsetMin = madridOffsetMinutes(new Date(wallAsUtc));
+    let candidate = wallAsUtc - offsetMin * 60_000;
+    const offsetAtCandidate = madridOffsetMinutes(new Date(candidate));
+    if (offsetAtCandidate !== offsetMin) {
+      candidate = wallAsUtc - offsetAtCandidate * 60_000;
+    }
+    const d = new Date(candidate);
+    return Number.isNaN(d.getTime()) ? null : d;
+  }
+
+  // Permissive fallback for non-canonical inputs (legacy data).
+  const d = new Date(`${slotDate}T${time}:00`);
   if (Number.isNaN(d.getTime())) return null;
   return d;
+}
+
+/**
+ * UTC offset (in minutes) of Europe/Madrid at the given instant.
+ * Uses Intl so DST transitions are handled by the platform TZ database.
+ */
+function madridOffsetMinutes(instant) {
+  const parts = new Intl.DateTimeFormat('en-US', {
+    timeZone: 'Europe/Madrid',
+    timeZoneName: 'longOffset',
+  }).formatToParts(instant);
+  const tz = parts.find((p) => p.type === 'timeZoneName')?.value || 'GMT';
+  const m = /GMT([+-])(\d{2}):(\d{2})/.exec(tz);
+  if (!m) return 0; // plain "GMT" → offset 0
+  const sign = m[1] === '-' ? -1 : 1;
+  return sign * (Number(m[2]) * 60 + Number(m[3]));
 }
 
 /**

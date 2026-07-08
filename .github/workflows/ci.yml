@@ -1,0 +1,41 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  ci:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      # Non-blocking: there are ~38 pre-existing lint errors in files not
+      # touched by test/CI work. Keep visibility without gating merges on
+      # them; flip to blocking once the backlog is cleaned up.
+      - name: Lint (errors only, non-blocking)
+        run: npx eslint src --quiet
+        continue-on-error: true
+
+      - name: Unit tests
+        run: npm test
+
+      - name: Build
+        run: npm run build
+        env:
+          # CI has no .env.local. All server secrets are read lazily at
+          # request time, but Clerk needs a syntactically valid publishable
+          # key during prerender — provide dummies (never real secrets).
+          NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY: pk_test_Y2xlcmsuZXhhbXBsZS5jb20k
+          CLERK_SECRET_KEY: sk_test_ci_dummy_not_a_real_key
+          SESSION_SECRET: ci-dummy-session-secret-0123456789abcdef0123456789abcdef
+          NEXT_PUBLIC_SITE_URL: https://medconnect.es
