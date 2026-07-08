@@ -33,6 +33,7 @@ import { limits } from '@/lib/rateLimit';
 import { internalError, clientError } from '@/lib/errors';
 import { paymentsBodySchema, formatZodError } from '@/lib/schemas';
 import { getPool, sql, DB_AVAILABLE } from '@/lib/db';
+import { captureException } from '@/lib/sentry';
 
 const MAX_AMOUNT_EUR = 1000;
 
@@ -97,8 +98,15 @@ export async function POST(request) {
         }
       } catch (e) {
         // DB lookup failed — proceed with submitted amount; the hard
-        // MAX_AMOUNT_EUR cap is still the last line of defence.
+        // MAX_AMOUNT_EUR cap is still the last line of defence. Ship to
+        // Sentry: a silent failure here means the partner discount floor
+        // isn't being enforced and patients may be overcharged.
         console.error('[payments] booking lookup failed (continuing)', e?.message);
+        captureException(e instanceof Error ? e : new Error(String(e)), {
+          scope: '[POST /api/payments] discount floor lookup',
+          bookingId: String(bookingId),
+          submittedAmount: amount,
+        }).catch(() => {});
       }
     }
 

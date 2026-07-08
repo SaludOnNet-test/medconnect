@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { getPool, DB_AVAILABLE } from '@/lib/db';
+import { timingSafeEqualStr } from '@/lib/exec/auth';
 
 // GET /api/db/setup
 // Creates tables if they don't exist. Safe to call multiple times (idempotent).
@@ -9,9 +10,13 @@ export async function GET(request) {
     return NextResponse.json({ error: 'Azure SQL env vars not configured' }, { status: 503 });
   }
 
-  const secret = request.headers.get('x-setup-secret');
-  const expected = process.env.DB_SETUP_SECRET || 'dev';
-  if (secret !== expected) {
+  const expected = process.env.DB_SETUP_SECRET;
+  if (!expected) {
+    // No fallback secret — refuse to run rather than accepting 'dev'.
+    return NextResponse.json({ error: 'DB_SETUP_SECRET not configured' }, { status: 503 });
+  }
+  const secret = request.headers.get('x-setup-secret') || '';
+  if (!timingSafeEqualStr(expected, secret)) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
 
@@ -296,186 +301,6 @@ export async function GET(request) {
     // from `src/lib/adminAuth.js` directly via a one-off Node script with
     // a strong password. Subsequent admins are added through the dashboard
     // by an existing admin.
-
-    // ── Migration: clinic onboarding (clinic_id + alta_request_id + clinic_alta_requests) ──
-    // Mirrors scripts/migration_add_clinic_alta_requests.py. Pro picks an
-    // existing clinic in onboarding -> admin_users.clinic_id is set. If their
-    // clinic isn't in the DB they fill clinic_alta_requests and ops review it.
-    await pool.request().query(`
-      IF NOT EXISTS (SELECT * FROM sys.columns WHERE Name = 'clinic_id' AND Object_ID = Object_ID('admin_users'))
-      ALTER TABLE admin_users ADD clinic_id INT NULL;
-    `);
-    await pool.request().query(`
-      IF NOT EXISTS (SELECT * FROM sys.columns WHERE Name = 'alta_request_id' AND Object_ID = Object_ID('admin_users'))
-      ALTER TABLE admin_users ADD alta_request_id INT NULL;
-    `);
-    await pool.request().query(`
-      IF NOT EXISTS (SELECT * FROM sys.tables WHERE name = 'clinic_alta_requests')
-      CREATE TABLE clinic_alta_requests (
-        id                  INT IDENTITY PRIMARY KEY,
-        requested_by_email  NVARCHAR(255) NOT NULL,
-        requested_by_name   NVARCHAR(255) NULL,
-        clinic_name         NVARCHAR(255) NOT NULL,
-        city                NVARCHAR(120) NULL,
-        province            NVARCHAR(120) NULL,
-        address             NVARCHAR(500) NULL,
-        telephone           NVARCHAR(40)  NULL,
-        contact_email       NVARCHAR(255) NULL,
-        specialties         NVARCHAR(MAX) NULL,
-        aseguradoras        NVARCHAR(MAX) NULL,
-        notes               NVARCHAR(MAX) NULL,
-        status              NVARCHAR(20)  NOT NULL DEFAULT 'pending',
-        linked_clinic_id    INT           NULL,
-        ops_notes           NVARCHAR(MAX) NULL,
-        resolved_by         NVARCHAR(80)  NULL,
-        resolved_at         DATETIMEOFFSET NULL,
-        created_at          DATETIMEOFFSET NOT NULL DEFAULT SYSDATETIMEOFFSET()
-      );
-    `);
-    await pool.request().query(`
-      IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE name = 'IX_clinic_alta_requests_status_created_at' AND object_id = OBJECT_ID('clinic_alta_requests'))
-      CREATE INDEX IX_clinic_alta_requests_status_created_at ON clinic_alta_requests(status, created_at DESC);
-    `);
-    await pool.request().query(`
-      IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE name = 'IX_admin_users_clinic_id' AND object_id = OBJECT_ID('admin_users'))
-      CREATE INDEX IX_admin_users_clinic_id ON admin_users(clinic_id) WHERE clinic_id IS NOT NULL;
-    `);
-
-    // IBAN capture on clinic_alta_requests so clinics can register their
-    // payout account during onboarding. Optional, additive — existing rows
-    // stay NULL. SEPA IBANs cap at 34 chars (Spain is 24).
-    await pool.request().query(`
-      IF NOT EXISTS (SELECT * FROM sys.columns WHERE Name = 'iban' AND Object_ID = Object_ID('clinic_alta_requests'))
-      ALTER TABLE clinic_alta_requests ADD iban NVARCHAR(34) NULL;
-    `);
-
-    // is_internal flag on referrals: 1 when the derivador's clinic equals
-    // the destination clinic (derivación interna), 0 when it's a different
-    // clinic (derivación externa), NULL when we couldn't classify because
-    // the derivador isn't mapped to a clinic_id. The commissions API treats
-    // NULL as external (safer default — yields the smaller commission).
-    await pool.request().query(`
-      IF NOT EXISTS (SELECT * FROM sys.columns WHERE Name = 'is_internal' AND Object_ID = Object_ID('referrals'))
-      ALTER TABLE referrals ADD is_internal BIT NULL;
-    `);
-    // slot_source on referrals: 'list' when the pro picked from the
-    // generated available-slots grid, 'manual' when they used the
-    // internal-derivation escape hatch in ReferralModal (typed a date+time
-    // directly). Persisted for audit so we can later ask "¿cuántas
-    // derivaciones internas usaron slot manual y luego no convirtieron?".
-    await pool.request().query(`
-      IF NOT EXISTS (SELECT * FROM sys.columns WHERE Name = 'slot_source' AND Object_ID = Object_ID('referrals'))
-      ALTER TABLE referrals ADD slot_source NVARCHAR(20) NULL;
-    `);
-    // verified_derivador on referrals:
-    //   NULL  → legacy / no professionalEmail provided at create
-    //   1     → Clerk session matched the professionalEmail in the body
-    //           (canonical /pro/dashboard ReferralModal path)
-    //   0     → anon POST (legitimate /book external derivar OR patient
-    //           recovery upsert from /lock-in/[id]).
-    // Ops uses this to triage referrals when a complaint of fraud comes in.
-    await pool.request().query(`
-      IF NOT EXISTS (SELECT * FROM sys.columns WHERE Name = 'verified_derivador' AND Object_ID = Object_ID('referrals'))
-      ALTER TABLE referrals ADD verified_derivador BIT NULL;
-    `);
-    // alternative_proposed_at on operations_cases: timestamp set when Ops
-    // proposes an alternative slot/clinic. Drives the 24h response window
-    // shown in the Ops dashboard (Aceptada / Rechazada / Sin respuesta /
-    // Expirada). Lazy expiration — the UI computes "expired" from this
-    // timestamp + 24h, no background cron needed.
-    await pool.request().query(`
-      IF NOT EXISTS (SELECT * FROM sys.columns WHERE Name = 'alternative_proposed_at' AND Object_ID = Object_ID('operations_cases'))
-      ALTER TABLE operations_cases ADD alternative_proposed_at DATETIMEOFFSET NULL;
-    `);
-    // referral_id on operations_cases: NULL for direct bookings, set to the
-    // originating referral id when the case was created from an external
-    // lock-in payment. Lets /admin/ops show a "derivación externa" chip and
-    // surface the derivador context (clinic + email) on the case detail.
-    // Internal lock-ins don't create cases at all (the deriving clinic is
-    // the receiving clinic — self-managed).
-    await pool.request().query(`
-      IF NOT EXISTS (SELECT * FROM sys.columns WHERE Name = 'referral_id' AND Object_ID = Object_ID('operations_cases'))
-      ALTER TABLE operations_cases ADD referral_id NVARCHAR(50) NULL;
-    `);
-    await pool.request().query(`
-      IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE name = 'IX_operations_cases_referral_id' AND object_id = OBJECT_ID('operations_cases'))
-      CREATE INDEX IX_operations_cases_referral_id ON operations_cases(referral_id) WHERE referral_id IS NOT NULL;
-    `);
-    // Backfill is_internal for existing referrals — idempotent because the
-    // WHERE clause limits to rows that are still NULL. Mirrors the logic
-    // in scripts/migrate_referrals_is_internal.js so calling /api/db/setup
-    // is enough to fully migrate the column. Rows where the derivador's
-    // admin_users row has no clinic_id stay NULL and are treated as
-    // external by the commissions API.
-    await pool.request().query(`
-      UPDATE r
-      SET is_internal = CASE WHEN a.clinic_id = r.provider_id THEN 1 ELSE 0 END
-      FROM referrals r
-      JOIN admin_users a ON LOWER(a.username) = LOWER(r.professional_email)
-      WHERE r.is_internal IS NULL
-        AND a.clinic_id IS NOT NULL
-        AND r.provider_id IS NOT NULL;
-    `);
-
-    // ── Migration: pro verification (is_verified + verification_request_id + pro_verification_requests) ──
-    // Mirrors scripts/migration_add_pro_verification.py. Pro submits the
-    // verification modal -> pro_verification_requests row + ops review flips
-    // admin_users.is_verified.
-    await pool.request().query(`
-      IF NOT EXISTS (SELECT * FROM sys.columns WHERE Name = 'is_verified' AND Object_ID = Object_ID('admin_users'))
-      ALTER TABLE admin_users ADD is_verified BIT NOT NULL DEFAULT 0;
-    `);
-    await pool.request().query(`
-      IF NOT EXISTS (SELECT * FROM sys.columns WHERE Name = 'verification_request_id' AND Object_ID = Object_ID('admin_users'))
-      ALTER TABLE admin_users ADD verification_request_id INT NULL;
-    `);
-    await pool.request().query(`
-      IF NOT EXISTS (SELECT * FROM sys.tables WHERE name = 'pro_verification_requests')
-      CREATE TABLE pro_verification_requests (
-        id                  INT IDENTITY PRIMARY KEY,
-        requested_by_email  NVARCHAR(255) NOT NULL,
-        profile_type        NVARCHAR(20)  NOT NULL,
-        full_name           NVARCHAR(255) NULL,
-        license_number      NVARCHAR(100) NULL,
-        clinic_name         NVARCHAR(255) NULL,
-        tax_id              NVARCHAR(40)  NULL,
-        document_urls       NVARCHAR(MAX) NULL,
-        notes               NVARCHAR(MAX) NULL,
-        status              NVARCHAR(20)  NOT NULL DEFAULT 'pending',
-        ops_notes           NVARCHAR(MAX) NULL,
-        resolved_by         NVARCHAR(80)  NULL,
-        resolved_at         DATETIMEOFFSET NULL,
-        created_at          DATETIMEOFFSET NOT NULL DEFAULT SYSDATETIMEOFFSET()
-      );
-    `);
-    await pool.request().query(`
-      IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE name = 'IX_pro_verification_requests_status' AND object_id = OBJECT_ID('pro_verification_requests'))
-      CREATE INDEX IX_pro_verification_requests_status ON pro_verification_requests(status, created_at DESC);
-    `);
-    await pool.request().query(`
-      IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE name = 'IX_pro_verification_requests_email' AND object_id = OBJECT_ID('pro_verification_requests'))
-      CREATE INDEX IX_pro_verification_requests_email ON pro_verification_requests(requested_by_email);
-    `);
-
-    // ── Migration: "request more info" flow ────────────────────────────
-    // Adds the columns both ops review tables need to capture an ops
-    // message asking the pro for clarification, and to track when the pro
-    // responded. Status uses the new value 'more_info_requested' (existing
-    // NVARCHAR(20) column fits; no enum to extend).
-    for (const tbl of ['clinic_alta_requests', 'pro_verification_requests']) {
-      await pool.request().query(`
-        IF NOT EXISTS (SELECT * FROM sys.columns WHERE Name = 'info_request_message' AND Object_ID = Object_ID('${tbl}'))
-        ALTER TABLE ${tbl} ADD info_request_message NVARCHAR(MAX) NULL;
-      `);
-      await pool.request().query(`
-        IF NOT EXISTS (SELECT * FROM sys.columns WHERE Name = 'info_request_at' AND Object_ID = Object_ID('${tbl}'))
-        ALTER TABLE ${tbl} ADD info_request_at DATETIMEOFFSET NULL;
-      `);
-      await pool.request().query(`
-        IF NOT EXISTS (SELECT * FROM sys.columns WHERE Name = 'info_response_at' AND Object_ID = Object_ID('${tbl}'))
-        ALTER TABLE ${tbl} ADD info_response_at DATETIMEOFFSET NULL;
-      `);
-    }
 
     // ── Migration: clinic onboarding (clinic_id + alta_request_id + clinic_alta_requests) ──
     // Mirrors scripts/migration_add_clinic_alta_requests.py. Pro picks an

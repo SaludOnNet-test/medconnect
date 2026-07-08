@@ -158,10 +158,12 @@ export default function AdminDashboard() {
     setShowEditModal(true);
   };
 
+  // adminFetch attaches the admin session token — required by
+  // /api/email/send for non-public templates (adminBookingEdit), whose
+  // confirm/propose/refund action tokens are now signed server-side.
   const sendEmail = (templateName, data) =>
-    fetch('/api/email/send', {
+    adminFetch('/api/email/send', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ templateName, data }),
     }).catch(() => {});
 
@@ -179,10 +181,9 @@ export default function AdminDashboard() {
       newDate: editForm.date || editingBooking.date,
       newTime: editForm.time || editingBooking.time,
       newClinic: editForm.clinic || editingBooking.clinic,
-      bookingId: `MC-${editingBooking.id}`,
-      confirmToken: `confirm-${editingBooking.id}-${Date.now()}`,
-      proposeToken: `propose-${editingBooking.id}-${Date.now()}`,
-      refundToken: `refund-${editingBooking.id}-${Date.now()}`,
+      bookingId: editingBooking.id,
+      // confirm/propose/refund tokens are generated server-side
+      // (signed HMAC, 7-day expiry) in /api/email/send.
     });
 
     setShowEditModal(false);

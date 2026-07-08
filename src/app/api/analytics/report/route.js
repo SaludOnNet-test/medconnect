@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { getPool, DB_AVAILABLE } from '@/lib/db';
 import Anthropic from '@anthropic-ai/sdk';
 import { internalError } from '@/lib/errors';
+import { timingSafeEqualStr } from '@/lib/exec/auth';
 
 export const dynamic = 'force-dynamic';
 
@@ -14,7 +15,8 @@ export const dynamic = 'force-dynamic';
  */
 export async function GET(request) {
   const secret = request.nextUrl.searchParams.get('secret');
-  if (secret !== process.env.ANALYTICS_SECRET) {
+  const expectedSecret = process.env.ANALYTICS_SECRET;
+  if (!expectedSecret || !timingSafeEqualStr(secret || '', expectedSecret)) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
 

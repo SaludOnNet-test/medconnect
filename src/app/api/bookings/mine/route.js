@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { getPool, sql, DB_AVAILABLE } from '@/lib/db';
+import { internalError } from '@/lib/errors';
 
 // Reads Clerk session cookies — cannot be statically rendered.
 export const dynamic = 'force-dynamic';
@@ -146,11 +147,9 @@ export async function GET(request) {
           _fallback: 'pre-migration',
         });
       } catch (err2) {
-        console.error('[GET /api/bookings/mine] fallback also failed', err2);
-        return NextResponse.json({ error: err2.message }, { status: 500 });
+        return internalError(err2, '[GET /api/bookings/mine] fallback');
       }
     }
-    console.error('[GET /api/bookings/mine]', err);
-    return NextResponse.json({ error: err.message }, { status: 500 });
+    return internalError(err, '[GET /api/bookings/mine]');
   }
 }

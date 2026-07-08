@@ -24,8 +24,10 @@ const config = {
   pool: {
     // Each Lambda instance keeps its own pool. Azure SQL's per-database
     // connection cap depends on the tier — verify before raising further.
-    // 25 × N concurrent Lambdas should comfortably fit S2/S3.
-    max: Number(process.env.MSSQL_POOL_MAX) || 25,
+    // 8 × N concurrent Lambdas keeps headroom on the lower tiers (the
+    // previous 25 exhausted the cap under load spikes). Override with
+    // MSSQL_POOL_MAX if the DB tier is bumped.
+    max: Number(process.env.MSSQL_POOL_MAX) || 8,
     min: 0,
     idleTimeoutMillis: 30000,
     // Aligned with connectionTimeout — when the DB is waking up, the
@@ -100,17 +102,31 @@ function isRetryableConnectionError(err) {
  * params format:
  *   { name: { type: sql.NVarChar(255), value: 'hello' } }
  *
- * Cold-start retries are handled inside `getPool()` (`connectWithRetry`),
- * so by the time we reach `request.query` here the connection is either
- * healthy or has already failed twice — no further retry needed.
+ * Cold-start retries are handled inside `getPool()` (`connectWithRetry`).
+ * Additionally, a pooled connection can die BETWEEN requests (Azure SQL
+ * idle kills, Lambda freeze/thaw) and surface as ECONNCLOSED / ESOCKET on
+ * the query itself. For those we invalidate the cached pool and retry the
+ * query exactly once against a fresh connection.
  */
 export async function query(queryString, params = {}) {
-  const pool = await getPool();
-  const request = pool.request();
-  for (const [name, { type, value }] of Object.entries(params)) {
-    request.input(name, type, value);
+  const run = async () => {
+    const pool = await getPool();
+    const request = pool.request();
+    for (const [name, { type, value }] of Object.entries(params)) {
+      request.input(name, type, value);
+    }
+    return request.query(queryString);
+  };
+
+  try {
+    return await run();
+  } catch (err) {
+    const code = err?.code || err?.originalError?.code;
+    if (code !== 'ECONNCLOSED' && code !== 'ESOCKET') throw err;
+    // Stale pooled connection — drop the cached pool and retry once.
+    poolPromise = null;
+    return run();
   }
-  return request.query(queryString);
 }
 
 export { sql };

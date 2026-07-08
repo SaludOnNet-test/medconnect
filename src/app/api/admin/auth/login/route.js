@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { authenticate, makeToken } from '@/lib/adminAuth';
 import { limits } from '@/lib/rateLimit';
+import { internalError } from '@/lib/errors';
 
 export async function POST(request) {
   try {
@@ -28,7 +29,6 @@ export async function POST(request) {
       user: { username: user.username, displayName: user.display_name, role: user.role },
     });
   } catch (err) {
-    console.error('[admin/auth/login]', err);
-    return NextResponse.json({ error: err.message }, { status: 500 });
+    return internalError(err, '[POST /api/admin/auth/login]');
   }
 }

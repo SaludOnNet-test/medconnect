@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { getPool, sql, DB_AVAILABLE } from '@/lib/db';
 import { limits } from '@/lib/rateLimit';
 import { requireProEmail } from '@/lib/proAuth';
+import { internalError } from '@/lib/errors';
 
 // Reads Clerk session cookies, so it can't be statically rendered.
 export const dynamic = 'force-dynamic';
@@ -67,8 +68,7 @@ export async function GET(request) {
     const result = await req.query(queryStr);
     return NextResponse.json(result.recordset.map(toReferral));
   } catch (err) {
-    console.error('[GET /api/referrals]', err);
-    return NextResponse.json({ error: err.message }, { status: 500 });
+    return internalError(err, '[GET /api/referrals]');
   }
 }
 
@@ -82,7 +82,7 @@ export async function POST(request) {
 
   // 10 referrals/hour/IP. Stops accidental form-loop spam without throttling
   // legitimate professional flow (a real pro creates ≤ a handful per hour).
-  const r = limits.referralsPost.check(request);
+  const r = await limits.referralsPost.check(request);
   if (!r.ok) {
     return NextResponse.json(
       { error: 'rate_limited', retryAfterSec: r.retryAfterSec },
@@ -290,7 +290,6 @@ export async function POST(request) {
 
     return NextResponse.json(toReferral(result.recordset[0]), { status: 201 });
   } catch (err) {
-    console.error('[POST /api/referrals]', err);
-    return NextResponse.json({ error: err.message }, { status: 500 });
+    return internalError(err, '[POST /api/referrals]');
   }
 }

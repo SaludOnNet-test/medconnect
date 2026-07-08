@@ -10,6 +10,7 @@
 import { NextResponse } from 'next/server';
 import { internalError, clientError } from '@/lib/errors';
 import { runMarketingAgent } from '@/lib/agents/marketing/run';
+import { timingSafeEqualStr } from '@/lib/exec/auth';
 
 export const dynamic = 'force-dynamic';
 // Bumping max duration so the multi-tool loop has room. Vercel Pro cap is 60s
@@ -22,9 +23,9 @@ function authorised(request) {
   if (!secret) return false;
   const url = new URL(request.url);
   const fromQuery = url.searchParams.get('secret');
-  if (fromQuery && fromQuery === secret) return true;
+  if (fromQuery && timingSafeEqualStr(fromQuery, secret)) return true;
   const auth = request.headers.get('authorization') || '';
-  if (auth === `Bearer ${secret}`) return true;
+  if (auth.startsWith('Bearer ') && timingSafeEqualStr(auth.slice(7), secret)) return true;
   return false;
 }
 

@@ -31,6 +31,7 @@ import {
   MANIFEST_BLOB_KEY,
 } from '@/lib/videoPilot';
 import { captureException } from '@/lib/sentry';
+import { timingSafeEqualStr } from '@/lib/exec/auth';
 import exampleManifest from '@/data/videoProviders.example.json';
 
 export const dynamic = 'force-dynamic';
@@ -44,7 +45,7 @@ function authorize(request) {
   const expected = process.env.CRON_SECRET;
   if (process.env.NODE_ENV === 'development') return { ok: true };
   if (!expected) return { ok: false, status: 503, error: 'cron_not_configured' };
-  if (secret !== expected) return { ok: false, status: 401, error: 'Unauthorized' };
+  if (!timingSafeEqualStr(secret, expected)) return { ok: false, status: 401, error: 'Unauthorized' };
   return { ok: true };
 }
 

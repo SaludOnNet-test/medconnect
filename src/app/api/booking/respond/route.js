@@ -1,12 +1,18 @@
 import { NextResponse } from 'next/server';
 import { getPool, sql, DB_AVAILABLE } from '@/lib/db';
+import { verifyActionToken } from '@/lib/actionTokens';
 
-// GET /api/booking/respond?action=confirm|propose|refund&token=<bookingId>-<timestamp>
-// Links in the adminBookingEdit email land here.
+// GET /api/booking/respond?action=confirm|propose|refund&token=<signed>
+//
+// Links in the adminBookingEdit email land here. The token is an HMAC-signed
+// action token (see src/lib/actionTokens.js): `<payloadB64url>.<sigB64url>`
+// over `action:bookingId:expiresAt`, signed with SESSION_SECRET, 7-day
+// expiry. Unsigned/legacy tokens (`confirm-<id>-<ts>`) are rejected — they
+// were forgeable by anyone who knew a booking id.
 export async function GET(request) {
   const { searchParams } = new URL(request.url);
   const action = searchParams.get('action');
-  const token = searchParams.get('token'); // format: "confirm-{id}-{timestamp}" or just the booking id
+  const token = searchParams.get('token');
 
   const BASE_URL = process.env.NEXT_PUBLIC_BASE_URL || 'https://www.medconnect.es';
 
@@ -14,15 +20,12 @@ export async function GET(request) {
     return NextResponse.redirect(`${BASE_URL}/?error=invalid_link`);
   }
 
-  // Parse booking ID from token (format: action-{bookingId}-{timestamp} → extract middle part)
-  // Token was generated as `confirm-${bookingId}-${Date.now()}`
-  const parts = token.split('-');
-  // bookingId could contain '-' too (e.g. MC-12345), so we take everything except first and last segment
-  const bookingId = parts.slice(1, -1).join('-');
-
-  if (!bookingId) {
-    return NextResponse.redirect(`${BASE_URL}/?error=invalid_token`);
+  const verified = verifyActionToken(token, action);
+  if (!verified.ok) {
+    const reason = verified.reason === 'expired' ? 'link_expired' : 'invalid_token';
+    return NextResponse.redirect(`${BASE_URL}/?error=${reason}`);
   }
+  const bookingId = verified.bookingId;
 
   if (!DB_AVAILABLE) {
     // If DB is down, still redirect to a meaningful page
@@ -52,11 +55,15 @@ export async function GET(request) {
         .input('id', sql.NVarChar(50), bookingId)
         .query(`UPDATE bookings SET status = 'refund_requested', updated_at = SYSDATETIMEOFFSET() WHERE id = @id`);
 
-      // Notify operations team
-      const opsEmail = process.env.OPERATIONS_EMAIL || 'operaciones@medconnect.es';
+      // Notify operations team (server-to-server — carries the internal secret)
       fetch(`${BASE_URL}/api/email/send`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          ...(process.env.INTERNAL_API_SECRET
+            ? { 'x-internal-secret': process.env.INTERNAL_API_SECRET }
+            : {}),
+        },
         body: JSON.stringify({
           templateName: 'operationsBookingAlert',
           data: {

@@ -13,6 +13,7 @@ import { NextResponse } from 'next/server';
 import { internalError, clientError } from '@/lib/errors';
 import { getPool, sql, DB_AVAILABLE } from '@/lib/db';
 import { STATEMENTS, DEFAULT_CONFIG } from '@/lib/agents/migrationSchema';
+import { timingSafeEqualStr } from '@/lib/exec/auth';
 
 export const dynamic = 'force-dynamic';
 export const maxDuration = 60;
@@ -21,9 +22,9 @@ function authorised(request) {
   const expected = process.env.DB_SETUP_SECRET;
   if (!expected) return false;
   const headerSecret = request.headers.get('x-setup-secret') || '';
-  if (headerSecret === expected) return true;
+  if (timingSafeEqualStr(headerSecret, expected)) return true;
   const url = new URL(request.url);
-  return url.searchParams.get('secret') === expected;
+  return timingSafeEqualStr(url.searchParams.get('secret') || '', expected);
 }
 
 async function handle(request) {

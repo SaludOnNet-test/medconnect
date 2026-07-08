@@ -39,7 +39,6 @@ export function requireExecAuth(request) {
   // función para evitar ciclos de import en módulos que reutilicen este
   // helper.
   try {
-    // eslint-disable-next-line @typescript-eslint/no-require-imports
     const { requireRole } = require('@/lib/adminAuth');
     const rr = requireRole(request, ['admin', 'ops']);
     if (!(rr instanceof Response)) return null;
@@ -54,7 +53,7 @@ export function requireExecAuth(request) {
 // secrets — the typical `===` check leaks length via timing. Pure JS, no
 // dependency on `crypto.timingSafeEqual` (which requires buffers of equal
 // length and would itself leak length).
-function timingSafeEqualStr(a, b) {
+export function timingSafeEqualStr(a, b) {
   if (typeof a !== 'string' || typeof b !== 'string') return false;
   const len = Math.max(a.length, b.length);
   let diff = a.length ^ b.length;

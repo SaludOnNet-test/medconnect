@@ -1,5 +1,9 @@
 import { sendEmail } from '@/lib/email';
 import { limits } from '@/lib/rateLimit';
+import { internalError } from '@/lib/errors';
+import { timingSafeEqualStr } from '@/lib/exec/auth';
+import { requireRole } from '@/lib/adminAuth';
+import { signActionToken } from '@/lib/actionTokens';
 import {
   lockInInvitation,
   lockInReminder,
@@ -38,6 +42,51 @@ const TEMPLATES = {
   videoBookingOpsAlert,
 };
 
+// Templates the browser may trigger WITHOUT the internal secret. These are
+// the ones the public patient/pro flows (/book, /lock-in, /pro/dashboard,
+// LockInTimer) fire client-side. For these, the recipient is derived from
+// the booking payload (patientEmail / professionalEmail / fixed ops inbox)
+// — never a free-form `data.to` — and the strict per-IP rate limit applies.
+// Everything else (adminBookingEdit, refunds, vouchers, alternative slots)
+// requires either the internal secret or an admin/ops session token.
+const PUBLIC_TEMPLATES = new Set([
+  'lockInInvitation',
+  'lockInReminder',
+  'bookingConfirmation',
+  'paymentReceipt',
+  'clinicPatientCompleted',
+  'derivadorReferralCreated',
+  'derivadorPatientPaid',
+  'operationsBookingAlert',
+  'videoBookingPending',
+  'videoBookingOpsAlert',
+]);
+
+// Templates whose recipient is the derivador, not the patient.
+const DERIVADOR_TEMPLATES = new Set(['derivadorReferralCreated', 'derivadorPatientPaid']);
+
+// Returns 'internal' | 'admin' | 'public', or a Response to short-circuit.
+function classifyCaller(request) {
+  const provided = request.headers.get('x-internal-secret');
+  if (provided != null) {
+    const expected = process.env.INTERNAL_API_SECRET;
+    if (!expected) {
+      return Response.json(
+        { success: false, error: 'internal_api_secret_not_configured' },
+        { status: 503 },
+      );
+    }
+    if (!timingSafeEqualStr(expected, provided)) {
+      return Response.json({ success: false, error: 'Unauthorized' }, { status: 401 });
+    }
+    return 'internal';
+  }
+  // Admin panel calls carry the admin session token (Bearer).
+  const rr = requireRole(request, ['admin', 'ops']);
+  if (!(rr instanceof Response)) return 'admin';
+  return 'public';
+}
+
 export async function POST(request) {
   try {
     // 5 sends/min/IP. Stops accidental loops + abuse without blocking legit
@@ -50,6 +99,10 @@ export async function POST(request) {
       );
     }
 
+    const caller = classifyCaller(request);
+    if (caller instanceof Response) return caller;
+    const trusted = caller === 'internal' || caller === 'admin';
+
     const { templateName, data } = await request.json();
 
     if (!templateName || !TEMPLATES[templateName]) {
@@ -59,16 +112,44 @@ export async function POST(request) {
       );
     }
 
-    const templateFn = TEMPLATES[templateName];
-    const { subject, html } = templateFn(data || {});
+    if (!trusted && !PUBLIC_TEMPLATES.has(templateName)) {
+      return Response.json(
+        { success: false, error: 'template_requires_auth' },
+        { status: 401 },
+      );
+    }
 
-    // Determine recipient
-    let to = data.to || data.patientEmail;
+    const templateData = { ...(data || {}) };
+
+    // adminBookingEdit CTA links: the confirm/propose/refund tokens are
+    // signed SERVER-SIDE here (HMAC + 7-day expiry, see lib/actionTokens).
+    // Whatever the client sent in confirmToken/proposeToken/refundToken is
+    // ignored — the browser cannot hold SESSION_SECRET.
+    if (templateName === 'adminBookingEdit' && templateData.bookingId) {
+      templateData.confirmToken = signActionToken('confirm', String(templateData.bookingId));
+      templateData.proposeToken = signActionToken('propose', String(templateData.bookingId));
+      templateData.refundToken = signActionToken('refund', String(templateData.bookingId));
+    }
+
+    const templateFn = TEMPLATES[templateName];
+    const { subject, html } = templateFn(templateData);
+
+    // Determine recipient. Untrusted (browser) callers can NOT pick a
+    // free-form `data.to` — the recipient is derived from the booking
+    // payload instead, which kills the open-relay primitive.
+    let to;
+    if (trusted) {
+      to = templateData.to || templateData.patientEmail;
+    } else if (DERIVADOR_TEMPLATES.has(templateName)) {
+      to = templateData.professionalEmail;
+    } else {
+      to = templateData.patientEmail;
+    }
     if (templateName === 'operationsBookingAlert') {
       to = process.env.OPERATIONS_EMAIL || 'operaciones@medconnect.es';
     }
     if (templateName === 'clinicPatientCompleted') {
-      to = data.clinicEmail || process.env.OPERATIONS_EMAIL || 'operaciones@medconnect.es';
+      to = templateData.clinicEmail || process.env.OPERATIONS_EMAIL || 'operaciones@medconnect.es';
     }
     // SaludOnNet video pilot — alert goes to the shared ops inbox
     // with Francisco in cc. Hardcoded recipient list because the
@@ -100,7 +181,6 @@ export async function POST(request) {
       error: okCount === 0 ? results[0]?.error : undefined,
     });
   } catch (err) {
-    console.error('[/api/email/send Error]', err);
-    return Response.json({ success: false, error: err.message }, { status: 500 });
+    return internalError(err, '[POST /api/email/send]');
   }
 }

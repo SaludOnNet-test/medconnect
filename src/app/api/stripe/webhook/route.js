@@ -29,6 +29,7 @@ import { getPool, sql, DB_AVAILABLE } from '@/lib/db';
 import { internalError } from '@/lib/errors';
 import { createCaseForBooking } from '@/lib/opsCases';
 import { notifyInternalWatcher } from '@/lib/internalWatcher';
+import { captureException } from '@/lib/sentry';
 
 // Stripe requires the raw body byte-for-byte to verify the signature, so we
 // must NOT call request.json() before constructEvent(). Forcing dynamic
@@ -127,7 +128,31 @@ async function markBookingPaid(paymentIntent) {
     `);
 
   const booking = updateResult.recordset[0];
-  if (!booking) return; // already processed or no matching row
+  if (!booking) {
+    // Either the event is a duplicate (row already in a final status) or —
+    // much worse — the patient was charged and NO booking row exists at
+    // all. Distinguish the two and ship the second to Sentry: that's real
+    // money with no appointment behind it and needs manual reconciliation.
+    const existing = await pool.request()
+      .input('pi', sql.NVarChar(80), paymentIntent.id)
+      .input('booking_id', sql.NVarChar(50), metadataBookingId)
+      .query(`
+        SELECT TOP 1 id FROM bookings
+        WHERE (@booking_id IS NOT NULL AND id = @booking_id)
+           OR payment_intent_id = @pi
+           OR id = @pi
+      `);
+    if (!existing.recordset.length) {
+      console.error('[stripe webhook] paid PaymentIntent with no matching booking', paymentIntent.id);
+      captureException(new Error('stripe webhook: payment succeeded but no matching booking row'), {
+        scope: '[stripe webhook payment_intent.succeeded]',
+        paymentIntentId: paymentIntent.id,
+        metadataBookingId,
+        amount: paymentIntent.amount,
+      }).catch(() => {});
+    }
+    return; // already processed or no matching row
+  }
 
   // Ensure an ops case exists for this booking. The normal path creates it
   // inside /api/bookings POST, but if the client tab closed before that
