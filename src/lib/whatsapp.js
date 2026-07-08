@@ -1,9 +1,7 @@
 import { getPool, DB_AVAILABLE } from '@/lib/db';
 import sql from 'mssql';
 import { captureException } from '@/lib/sentry';
-
-const DIALOG360_API_KEY = process.env.WHATSAPP_360DIALOG_API_KEY || '';
-const DIALOG360_URL = 'https://waba.360dialog.io/v1/messages';
+import { sendTextMessage } from '@/lib/whatsappProvider';
 
 // Max conversation turns sent to Claude (older messages dropped to control cost)
 const MAX_HISTORY_TURNS = 20;
@@ -13,26 +11,10 @@ const MAX_HISTORY_TURNS = 20;
 export const CEA_PROVIDER_ID = 1;
 export const CEA_PROVIDER_NAME = 'Centro Médico Cea Bermúdez';
 
+// Delegates to the provider adapter (src/lib/whatsappProvider.js).
+// Kept as the public API so existing imports don't break.
 export async function sendWhatsAppMessage(to, text) {
-  const res = await fetch(DIALOG360_URL, {
-    method: 'POST',
-    headers: {
-      'D360-API-KEY': DIALOG360_API_KEY,
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({
-      messaging_product: 'whatsapp',
-      recipient_type: 'individual',
-      to,
-      type: 'text',
-      text: { body: text, preview_url: false },
-    }),
-  });
-  if (!res.ok) {
-    const body = await res.text();
-    throw new Error(`360dialog send failed ${res.status}: ${body}`);
-  }
-  return res.json();
+  return sendTextMessage(to, text);
 }
 
 // Returns the last MAX_HISTORY_TURNS messages for a phone number within a

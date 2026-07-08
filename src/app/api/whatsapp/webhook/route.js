@@ -14,6 +14,7 @@ import { rateLimit } from '@/lib/rateLimit';
 import { captureException } from '@/lib/sentry';
 import { parseSignals } from '@/lib/whatsappSignals';
 import { fetchWithTimeout } from '@/lib/http';
+import { parseInboundPayload } from '@/lib/whatsappProvider';
 
 export const dynamic = 'force-dynamic';
 
@@ -107,8 +108,8 @@ export async function POST(request) {
     return NextResponse.json({ error: 'Invalid JSON' }, { status: 400 });
   }
 
-  // 360dialog payload: { messages: [...], contacts: [...] }
-  const messages = body?.messages;
+  // Provider-agnostic inbound parsing (360dialog today — see whatsappProvider.js)
+  const { messages } = parseInboundPayload(body);
   if (!messages?.length) return NextResponse.json({ ok: true });
 
   // Only process text messages — respond to media/image senders with a helper message
@@ -136,7 +137,7 @@ export async function POST(request) {
     return NextResponse.json({ ok: true });
   }
 
-  const userText = msg.text?.body?.trim();
+  const userText = msg.text?.trim();
   if (!userText) return NextResponse.json({ ok: true });
 
   try {
