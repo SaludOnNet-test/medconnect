@@ -1,11 +1,12 @@
 import { getPool, DB_AVAILABLE } from '@/lib/db';
 import sql from 'mssql';
+import { captureException } from '@/lib/sentry';
 
 const DIALOG360_API_KEY = process.env.WHATSAPP_360DIALOG_API_KEY || '';
 const DIALOG360_URL = 'https://waba.360dialog.io/v1/messages';
 
 // Max conversation turns sent to Claude (older messages dropped to control cost)
-const MAX_HISTORY_TURNS = 10;
+const MAX_HISTORY_TURNS = 20;
 
 // CEA Bermúdez is our partner clinic in Madrid — sorted to top in search results
 // and eligible for the direct-link path
@@ -34,12 +35,16 @@ export async function sendWhatsAppMessage(to, text) {
   return res.json();
 }
 
-// Returns the last MAX_HISTORY_TURNS messages for a phone number today,
-// in Claude messages array format: [{role, content}]
+// Returns the last MAX_HISTORY_TURNS messages for a phone number within a
+// 12-hour sliding session window, in Claude messages array format:
+// [{role, content}], normalised for the Anthropic API (starts with 'user',
+// no consecutive same-role messages).
 export async function getConversationHistory(phoneNumber) {
   if (!DB_AVAILABLE) return [];
   try {
     const pool = await getPool();
+    // TOP + DESC picks the MOST RECENT N rows; reverse() restores
+    // chronological order for the Claude messages array.
     const result = await pool.request()
       .input('phone', sql.NVarChar(20), phoneNumber)
       .input('limit', sql.Int, MAX_HISTORY_TURNS)
@@ -47,10 +52,27 @@ export async function getConversationHistory(phoneNumber) {
         SELECT TOP (@limit) role, content
         FROM whatsapp_conversations
         WHERE phone_number = @phone
-          AND session_date = CAST(SYSDATETIMEOFFSET() AT TIME ZONE 'Romance Standard Time' AS DATE)
-        ORDER BY created_at ASC
+          AND created_at > DATEADD(hour, -12, SYSDATETIMEOFFSET())
+        ORDER BY created_at DESC
       `);
-    return result.recordset.map((r) => ({ role: r.role, content: r.content }));
+    const rows = result.recordset
+      .map((r) => ({ role: r.role, content: r.content }))
+      .reverse();
+
+    // Normalise for the Anthropic API:
+    //   1. Must start with a 'user' message — drop leading assistant turns.
+    //   2. No two consecutive messages with the same role — merge with '\n'.
+    const normalized = [];
+    for (const m of rows) {
+      if (!normalized.length && m.role !== 'user') continue;
+      const last = normalized[normalized.length - 1];
+      if (last && last.role === m.role) {
+        last.content = `${last.content}\n${m.content}`;
+      } else {
+        normalized.push({ ...m });
+      }
+    }
+    return normalized;
   } catch {
     return [];
   }
@@ -80,8 +102,9 @@ export async function saveMessage(phoneNumber, role, content) {
 
 export async function saveLead(data) {
   if (!DB_AVAILABLE) return null;
-  const pool = await getPool();
-  const result = await pool.request()
+  try {
+    const pool = await getPool();
+    const result = await pool.request()
     .input('phone', sql.NVarChar(20), data.phone_number)
     .input('name', sql.NVarChar(100), data.patient_name || null)
     .input('insurance', sql.NVarChar(100), data.insurance_company || null)
@@ -105,13 +128,23 @@ export async function saveLead(data) {
          @time_range, @reason, @link, @urgency, 'link_sent');
       SELECT SCOPE_IDENTITY() AS id;
     `);
-  return result.recordset[0]?.id;
+    return result.recordset[0]?.id;
+  } catch (err) {
+    // A failed lead insert must not block sending the booking link to the
+    // patient — log + Sentry and let the caller continue.
+    console.error('[whatsapp] saveLead error:', err.message);
+    captureException(err instanceof Error ? err : new Error(String(err)), {
+      scope: '[whatsapp.saveLead]',
+    }).catch(() => {});
+    return null;
+  }
 }
 
 export async function saveEscalation(data) {
-  if (!DB_AVAILABLE) return;
-  const pool = await getPool();
-  await pool.request()
+  if (!DB_AVAILABLE) return null;
+  try {
+    const pool = await getPool();
+    await pool.request()
     .input('phone', sql.NVarChar(20), data.phone_number)
     .input('name', sql.NVarChar(100), data.patient_name || null)
     .input('time', sql.NVarChar(100), data.preferred_contact_time || null)
@@ -123,6 +156,13 @@ export async function saveEscalation(data) {
       VALUES
         (@phone, @name, @time, @contact_phone, @summary, 'pending')
     `);
+  } catch (err) {
+    console.error('[whatsapp] saveEscalation error:', err.message);
+    captureException(err instanceof Error ? err : new Error(String(err)), {
+      scope: '[whatsapp.saveEscalation]',
+    }).catch(() => {});
+    return null;
+  }
 }
 
 // Normalise a Spanish specialty name to the URL slug used by search-v2.

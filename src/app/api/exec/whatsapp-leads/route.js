@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { getPool, DB_AVAILABLE } from '@/lib/db';
 import sql from 'mssql';
 import { requireExecAuth } from '@/lib/exec/auth';
+import { internalError } from '@/lib/errors';
 
 export const dynamic = 'force-dynamic';
 
@@ -82,8 +83,7 @@ export async function GET(request) {
       pendingEscalations: escalations.recordset,
     });
   } catch (err) {
-    console.error('[whatsapp-leads]', err);
-    return NextResponse.json({ error: err.message }, { status: 500 });
+    return internalError(err, '[GET /api/exec/whatsapp-leads]');
   }
 }
 
@@ -122,7 +122,6 @@ export async function PATCH(request) {
 
     return NextResponse.json({ ok: true });
   } catch (err) {
-    console.error('[whatsapp-leads PATCH]', err);
-    return NextResponse.json({ error: err.message }, { status: 500 });
+    return internalError(err, '[PATCH /api/exec/whatsapp-leads]');
   }
 }

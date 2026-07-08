@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import crypto from 'crypto';
 import Anthropic from '@anthropic-ai/sdk';
 import {
   sendWhatsAppMessage,
@@ -9,20 +10,96 @@ import {
   buildLinks,
 } from '@/lib/whatsapp';
 import { sendEmail } from '@/lib/email';
+import { rateLimit } from '@/lib/rateLimit';
+import { captureException } from '@/lib/sentry';
+import { parseSignals } from '@/lib/whatsappSignals';
+import { fetchWithTimeout } from '@/lib/http';
 
 export const dynamic = 'force-dynamic';
 
 const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
 
+// Rate limit inbound messages per phone number (not per IP — 360dialog is the
+// only caller, so IP-based limiting would throttle everyone together).
+const whatsappMessageLimiter = rateLimit({
+  key: 'whatsapp:msg',
+  windowMs: 60 * 60_000,
+  max: 20,
+  identify: (req) => req.phoneNumber,
+});
+
+// Timing-safe comparison of two secrets. Returns false on length mismatch
+// instead of throwing (timingSafeEqual requires equal-length buffers).
+function safeCompare(a, b) {
+  const bufA = Buffer.from(String(a));
+  const bufB = Buffer.from(String(b));
+  if (bufA.length !== bufB.length) return false;
+  return crypto.timingSafeEqual(bufA, bufB);
+}
+
+// ---------------------------------------------------------------------------
+// Idempotency — dedupe by 360dialog message id via Upstash Redis (SET NX + TTL).
+// Same REST pattern as src/lib/rateLimit.js. Returns true when the message was
+// already processed. If Redis isn't configured/reachable, we proceed without
+// dedupe (log warning) rather than dropping messages.
+// ---------------------------------------------------------------------------
+const UPSTASH_URL = process.env.UPSTASH_REDIS_REST_URL || '';
+const UPSTASH_TOKEN = process.env.UPSTASH_REDIS_REST_TOKEN || '';
+
+async function isDuplicateMessage(messageId) {
+  if (!messageId) return false;
+  if (!UPSTASH_URL || !UPSTASH_TOKEN) {
+    console.warn('[whatsapp/webhook] Upstash not configured — skipping message dedupe');
+    return false;
+  }
+  try {
+    const res = await fetchWithTimeout(`${UPSTASH_URL}/pipeline`, {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${UPSTASH_TOKEN}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify([
+        ['SET', `wa:msg:${messageId}`, '1', 'NX', 'EX', String(24 * 60 * 60)],
+      ]),
+      timeoutMs: 1500,
+    });
+    if (!res.ok) {
+      console.warn('[whatsapp/webhook] dedupe check failed — proceeding without dedupe');
+      return false;
+    }
+    const data = await res.json();
+    // SET ... NX returns "OK" when the key was created, null when it existed.
+    return data?.[0]?.result !== 'OK';
+  } catch {
+    console.warn('[whatsapp/webhook] dedupe check errored — proceeding without dedupe');
+    return false;
+  }
+}
+
 // 360dialog sends a verification GET on webhook registration
 export async function GET(request) {
   const { searchParams } = new URL(request.url);
+  const verifyToken = process.env.WHATSAPP_VERIFY_TOKEN;
+  if (!verifyToken || !safeCompare(searchParams.get('hub.verify_token') || '', verifyToken)) {
+    return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+  }
   const challenge = searchParams.get('hub.challenge');
   if (challenge) return new Response(challenge, { status: 200 });
   return NextResponse.json({ ok: true });
 }
 
 export async function POST(request) {
+  // Auth FIRST — before any DB/Claude work. Never open by default.
+  const webhookSecret = process.env.WHATSAPP_WEBHOOK_SECRET;
+  if (!webhookSecret) {
+    return NextResponse.json({ error: 'Webhook not configured' }, { status: 503 });
+  }
+  const providedSecret = request.headers.get('x-webhook-secret') || '';
+  if (!safeCompare(providedSecret, webhookSecret)) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  }
+
   let body;
   try {
     body = await request.json();
@@ -39,6 +116,17 @@ export async function POST(request) {
   if (!msg?.from) return NextResponse.json({ ok: true });
 
   const phoneNumber = msg.from;
+
+  // Idempotency: skip already-processed message ids (360dialog retries).
+  if (await isDuplicateMessage(msg.id)) {
+    return NextResponse.json({ ok: true, deduped: true });
+  }
+
+  // Rate limit per phone number
+  const rl = await whatsappMessageLimiter.check({ headers: request.headers, phoneNumber });
+  if (!rl.ok) {
+    return NextResponse.json({ ok: true, rate_limited: true }, { status: 200, headers: rl.headers });
+  }
 
   if (msg.type !== 'text') {
     await sendWhatsAppMessage(
@@ -91,61 +179,38 @@ export async function POST(request) {
     return NextResponse.json({ ok: true });
   } catch (err) {
     console.error('[whatsapp/webhook]', err);
-    return NextResponse.json({ error: 'Internal error' }, { status: 500 });
+    captureException(err instanceof Error ? err : new Error(String(err)), {
+      scope: '[POST /api/whatsapp/webhook]',
+      phoneNumber,
+    }).catch(() => {});
+
+    // Best-effort apology to the user — its own try/catch so a send failure
+    // never masks the original error handling.
+    try {
+      await sendWhatsAppMessage(
+        phoneNumber,
+        'Estamos teniendo un problema técnico. Inténtalo de nuevo en unos minutos o escríbenos a través de medconnect.es 🙏'
+      );
+    } catch (sendErr) {
+      console.error('[whatsapp/webhook] apology send failed:', sendErr.message);
+    }
+
+    // Return 200 (not 500) to stop 360dialog retry storms.
+    return NextResponse.json({ ok: true, handled_error: true });
   }
 }
 
 // ---------------------------------------------------------------------------
-// Signal parsing
-// Claude appends machine-readable markers at the end of its messages:
-//   <!--LEAD:{...}-->
-//   <!--ESCALATION:{...}-->
-// We strip them before sending to the user.
+// HTML escaping for team notification emails — lead fields come from
+// user-derived text and must never be interpolated raw into HTML.
 // ---------------------------------------------------------------------------
-function parseSignals(text, _phoneNumber) {
-  let cleanText = text;
-  let leadData = null;
-  let escalationData = null;
-
-  const leadMatch = text.match(/<!--LEAD:(.*?)-->/s);
-  if (leadMatch) {
-    try {
-      const raw = JSON.parse(leadMatch[1]);
-      leadData = {
-        patient_name: raw.name || null,
-        insurance_company: raw.insurance || null,
-        specialty_requested: raw.specialty || null,
-        preferred_doctor: raw.doctor || null,
-        city: raw.city || null,
-        preferred_modality: raw.modality || null,
-        preferred_date: raw.date || null,
-        preferred_time_range: raw.time || null,
-        visit_reason: raw.reason || null,
-        urgency_level: raw.urgency || 'normal',
-      };
-    } catch {
-      // malformed JSON — ignore
-    }
-    cleanText = cleanText.replace(/<!--LEAD:.*?-->/s, '').trim();
-  }
-
-  const escalationMatch = text.match(/<!--ESCALATION:(.*?)-->/s);
-  if (escalationMatch) {
-    try {
-      const raw = JSON.parse(escalationMatch[1]);
-      escalationData = {
-        patient_name: raw.name || null,
-        preferred_contact_time: raw.time || null,
-        contact_phone: raw.phone || null,
-        conversation_summary: raw.summary || null,
-      };
-    } catch {
-      // ignore
-    }
-    cleanText = cleanText.replace(/<!--ESCALATION:.*?-->/s, '').trim();
-  }
-
-  return { cleanText, leadData, escalationData };
+function escapeHtml(value) {
+  return String(value)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
 }
 
 // ---------------------------------------------------------------------------
@@ -155,9 +220,9 @@ async function notifyTeamLead(data) {
   const to = process.env.EXEC_REPORT_TO_EMAIL;
   if (!to) return;
   const linksHtml = [
-    data.mainLink && `<a href="${data.mainLink}" style="margin-right:8px">🔍 Búsqueda general</a>`,
-    data.videoLink && `<a href="${data.videoLink}" style="margin-right:8px">📹 Videoconsulta</a>`,
-    data.ceaLink && `<a href="${data.ceaLink}">🏥 Cea Bermúdez</a>`,
+    data.mainLink && `<a href="${escapeHtml(data.mainLink)}" style="margin-right:8px">🔍 Búsqueda general</a>`,
+    data.videoLink && `<a href="${escapeHtml(data.videoLink)}" style="margin-right:8px">📹 Videoconsulta</a>`,
+    data.ceaLink && `<a href="${escapeHtml(data.ceaLink)}">🏥 Cea Bermúdez</a>`,
   ].filter(Boolean).join(' · ');
 
   try {
@@ -167,15 +232,15 @@ async function notifyTeamLead(data) {
       html: `
         <h2>Nuevo lead por WhatsApp</h2>
         <table style="font-family:sans-serif;font-size:14px;border-collapse:collapse">
-          <tr><td style="padding:4px 12px 4px 0;color:#6b7280">Teléfono</td><td><b>${data.phone_number}</b></td></tr>
-          <tr><td style="padding:4px 12px 4px 0;color:#6b7280">Nombre</td><td>${data.patient_name || '—'}</td></tr>
-          <tr><td style="padding:4px 12px 4px 0;color:#6b7280">Especialidad</td><td>${data.specialty_requested || '—'}</td></tr>
-          <tr><td style="padding:4px 12px 4px 0;color:#6b7280">Seguro</td><td>${data.insurance_company || '—'}</td></tr>
-          <tr><td style="padding:4px 12px 4px 0;color:#6b7280">Ciudad</td><td>${data.city || '—'}</td></tr>
-          <tr><td style="padding:4px 12px 4px 0;color:#6b7280">Modalidad</td><td>${data.preferred_modality || 'presencial'}</td></tr>
-          <tr><td style="padding:4px 12px 4px 0;color:#6b7280">Fecha preferida</td><td>${data.preferred_date || '—'}</td></tr>
-          <tr><td style="padding:4px 12px 4px 0;color:#6b7280">Franja horaria</td><td>${data.preferred_time_range || '—'}</td></tr>
-          <tr><td style="padding:4px 12px 4px 0;color:#6b7280">Motivo</td><td>${data.visit_reason || '—'}</td></tr>
+          <tr><td style="padding:4px 12px 4px 0;color:#6b7280">Teléfono</td><td><b>${escapeHtml(data.phone_number)}</b></td></tr>
+          <tr><td style="padding:4px 12px 4px 0;color:#6b7280">Nombre</td><td>${escapeHtml(data.patient_name || '—')}</td></tr>
+          <tr><td style="padding:4px 12px 4px 0;color:#6b7280">Especialidad</td><td>${escapeHtml(data.specialty_requested || '—')}</td></tr>
+          <tr><td style="padding:4px 12px 4px 0;color:#6b7280">Seguro</td><td>${escapeHtml(data.insurance_company || '—')}</td></tr>
+          <tr><td style="padding:4px 12px 4px 0;color:#6b7280">Ciudad</td><td>${escapeHtml(data.city || '—')}</td></tr>
+          <tr><td style="padding:4px 12px 4px 0;color:#6b7280">Modalidad</td><td>${escapeHtml(data.preferred_modality || 'presencial')}</td></tr>
+          <tr><td style="padding:4px 12px 4px 0;color:#6b7280">Fecha preferida</td><td>${escapeHtml(data.preferred_date || '—')}</td></tr>
+          <tr><td style="padding:4px 12px 4px 0;color:#6b7280">Franja horaria</td><td>${escapeHtml(data.preferred_time_range || '—')}</td></tr>
+          <tr><td style="padding:4px 12px 4px 0;color:#6b7280">Motivo</td><td>${escapeHtml(data.visit_reason || '—')}</td></tr>
         </table>
         <p style="margin-top:16px">${linksHtml}</p>
         <p style="color:#9ca3af;font-size:12px;margin-top:24px">
@@ -198,12 +263,12 @@ async function notifyTeamEscalation(data) {
       html: `
         <h2>Solicitud de atención humana por WhatsApp</h2>
         <table style="font-family:sans-serif;font-size:14px;border-collapse:collapse">
-          <tr><td style="padding:4px 12px 4px 0;color:#6b7280">Teléfono</td><td><b>${data.phone_number}</b></td></tr>
-          <tr><td style="padding:4px 12px 4px 0;color:#6b7280">Nombre</td><td>${data.patient_name || '—'}</td></tr>
-          <tr><td style="padding:4px 12px 4px 0;color:#6b7280">Horario preferido</td><td><b>${data.preferred_contact_time || '—'}</b></td></tr>
-          <tr><td style="padding:4px 12px 4px 0;color:#6b7280">Teléfono de contacto</td><td>${data.contact_phone || data.phone_number}</td></tr>
+          <tr><td style="padding:4px 12px 4px 0;color:#6b7280">Teléfono</td><td><b>${escapeHtml(data.phone_number)}</b></td></tr>
+          <tr><td style="padding:4px 12px 4px 0;color:#6b7280">Nombre</td><td>${escapeHtml(data.patient_name || '—')}</td></tr>
+          <tr><td style="padding:4px 12px 4px 0;color:#6b7280">Horario preferido</td><td><b>${escapeHtml(data.preferred_contact_time || '—')}</b></td></tr>
+          <tr><td style="padding:4px 12px 4px 0;color:#6b7280">Teléfono de contacto</td><td>${escapeHtml(data.contact_phone || data.phone_number)}</td></tr>
         </table>
-        ${data.conversation_summary ? `<p style="font-size:13px;color:#374151"><b>Resumen:</b> ${data.conversation_summary}</p>` : ''}
+        ${data.conversation_summary ? `<p style="font-size:13px;color:#374151"><b>Resumen:</b> ${escapeHtml(data.conversation_summary)}</p>` : ''}
       `,
     });
   } catch (err) {
@@ -291,18 +356,16 @@ https://medconnect.es/search-v2?specialtySlug=SLUG&city=Madrid&providerName=Cent
 Sustituye SLUG por el slug correcto de la especialidad (ejemplos: cardiologia, dermatologia, traumatologia, urologia, neurologia, psicologia, ginecologia, pediatria, oftalmologia).
 Sustituye CIUDAD por la ciudad mencionada (o "Madrid" si no se especifica y el usuario parece ser de Madrid).
 
-Cuando el usuario recibe el link, guíale: "Elige el centro y el horario que prefieras, introduce tus datos y paga la tarifa de prioridad (entre 19€ y 60€ según especialidad). La consulta médica la cubre tu seguro."
+Cuando el usuario recibe el link, guíale: "Elige el centro y el horario que prefieras, introduce tus datos y paga la tarifa de prioridad (desde 4€ hasta 19€ según antelación). La consulta médica la cubre tu seguro."
 
 === INFORMACIÓN SOBRE EL SERVICIO ===
-Tarifa de prioridad: entre 19€ y 60€ según especialidad. Se paga online con tarjeta al reservar. La consulta médica la cubre tu seguro normalmente (verifica tu cobertura en la app de tu aseguradora, ya que depende de tu plan concreto).
+Tarifa de prioridad: desde 4€ hasta 19€ según antelación. Se paga online con tarjeta al reservar. La consulta médica la cubre tu seguro normalmente (verifica tu cobertura en la app de tu aseguradora, ya que depende de tu plan concreto).
 
 Sin seguro: puedes reservar como paciente privado. Pagas la tarifa de prioridad + el precio de la consulta en clínica.
 
-Cancelaciones: con más de 48h de antelación, reembolso completo. Con menos de 48h, sin reembolso. Para casos especiales, escríbenos a través de medconnect.es.
+Cancelaciones: con más de 24h de antelación, reembolso completo. Con menos de 24h, sin reembolso. Para casos especiales, escríbenos a través de medconnect.es.
 
 Confirmación: recibirás un email con todos los detalles de la cita, dirección del centro y comprobante de pago.
-
-Recordatorio: si quieres que te recordemos la cita el día anterior por WhatsApp, dímelo y lo apunto.
 
 Aseguradoras con las que trabajamos: Axa, Mapfre, Sanitas, Asisa, Cigna, SegurCaixa Adeslas, Allianz, DKV, Mutua Madrileña, MGC.
 Si la tuya no está en esta lista, el equipo confirmará cobertura.
