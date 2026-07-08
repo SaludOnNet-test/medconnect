@@ -479,6 +479,11 @@ export default function AdminDashboard() {
         {activeTab === 'finance' && (
           <div className="admin-tab-content">
             <h2>Panel Financiero</h2>
+            {/* Hardcoded demo figures — flagged in the 2026-07 audit. Do not
+                use for real decisions until wired to actual booking data. */}
+            <div style={{ background: '#fef3c7', border: '1px solid #f59e0b', borderRadius: 8, padding: '10px 14px', marginBottom: 16, fontSize: 14 }}>
+              ⚠️ <strong>Datos de demostración.</strong> Las cifras de esta pestaña son ficticias y no reflejan ingresos reales. Para datos reales, usa el panel <a href="/admin/exec">/admin/exec</a>.
+            </div>
             <FilterBar type="finance" />
             <div className="admin-metrics-grid">
               <div className="admin-metric-card">

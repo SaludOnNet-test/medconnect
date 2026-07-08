@@ -226,16 +226,17 @@ export function getConvenienceFee(slotDate) {
   // stay aligned with PRICING_TIERS in src/lib/slot-validation.js — the
   // DB-driven slot generator is the source of truth for live pricing,
   // this helper is just the mock fallback when the live data isn't loaded.
-  //   0 – 7 días            → 29 € (tier 1 — esta semana)
-  //   8 – 14 días           → 19 € (tier 2 — próxima semana)
-  //   15 – 30 días          → 10 € (tier 3 — este mes)
-  //   > 30 días             →  5 € (tier 4 — más adelante)
-  // Rounded to integers in 2026-05 after Jesús's review — 9,99 / 4,99 felt
-  // "muy calculados" when summed with the catalogue act price.
-  if (diffDays <= 7)  return { amount: 29, tier: 1, label: 'Cita esta semana' };
-  if (diffDays <= 14) return { amount: 19, tier: 2, label: 'Cita la próxima semana' };
-  if (diffDays <= 30) return { amount: 10, tier: 3, label: 'Cita este mes' };
-  return                      { amount: 5,  tier: 4, label: 'Cita más adelante' };
+  //   0 – 7 días            → 19 € (tier 1 — esta semana)
+  //   8 – 14 días           → 15 € (tier 2 — próxima semana)
+  //   15 – 30 días          →  8 € (tier 3 — este mes)
+  //   > 30 días             →  4 € (tier 4 — más adelante)
+  // 2026-07-08: amounts realigned with ACTIVE_PRICE_BY_TIER after the
+  // 2026-06-24 price drop — this helper feeds the server-side price clamp
+  // in api/bookings, so stale amounts here weaken the anti-overcharge cap.
+  if (diffDays <= 7)  return { amount: 19, tier: 1, label: 'Cita esta semana' };
+  if (diffDays <= 14) return { amount: 15, tier: 2, label: 'Cita la próxima semana' };
+  if (diffDays <= 30) return { amount: 8,  tier: 3, label: 'Cita este mes' };
+  return                      { amount: 4,  tier: 4, label: 'Cita más adelante' };
 }
 
 export function getServicesForSpecialty(specialtyId) {

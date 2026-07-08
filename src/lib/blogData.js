@@ -95,7 +95,7 @@ export const BLOG_POSTS = [
 
 <h2>La solución real: acceso prioritario dentro de tu seguro</h2>
 <p>Existe una tercera vía entre "esperar lo que toque" y "pagar la consulta completa de tu bolsillo": las <strong>plazas prioritarias en centros concertados</strong>. Muchas clínicas privadas del cuadro de tu aseguradora reservan un porcentaje de su agenda para citas de acceso preferente. No son huecos de urgencias hospitalarias, sino consultas ordinarias que se liberan con antelación para quienes las necesitan antes.</p>
-<p>Med Connect gestiona el acceso a esas plazas con una tarifa de prioridad de 5 a 29€ según la urgencia. Tu consulta sigue facturándose a tu aseguradora exactamente igual — solo que la fecha es esta semana, no dentro de un mes y medio.</p>
+<p>Med Connect gestiona el acceso a esas plazas con una tarifa de prioridad de 4 a 19€ según la urgencia. Tu consulta sigue facturándose a tu aseguradora exactamente igual — solo que la fecha es esta semana, no dentro de un mes y medio.</p>
     `,
   },
   {

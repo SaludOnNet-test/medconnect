@@ -110,7 +110,7 @@ function buildSchema(insurer, specialty, aseguradora, especialidad) {
             name: '¿Cuánto cuesta el acceso prioritario?',
             acceptedAnswer: {
               '@type': 'Answer',
-              text: 'La tarifa de Med Connect es de 4€ si la cita es a más de 30 días, 8€ entre 16 y 30 días, 15€ entre 8 y 15 días, o 19€ si la necesitas en menos de 7 días. La consulta médica la paga tu aseguradora.',
+              text: 'La tarifa de Med Connect es de 4€ si la cita es a más de 30 días, 8€ entre 15 y 30 días, 15€ entre 7 y 14 días, o 19€ si la necesitas en menos de 7 días. La consulta médica la paga tu aseguradora.',
             },
           },
         ],
@@ -225,7 +225,7 @@ export default async function InsurerSpecialtyPage({ params }) {
             <h3>¿Cuánto cuesta el acceso prioritario?</h3>
             <p>
               La tarifa de Med Connect escalonada por urgencia: <strong>4€</strong> si la cita es a más de 30 días,
-              <strong> 8€</strong> entre 16 y 30 días, <strong>15€</strong> entre 8 y 15 días, y
+              <strong> 8€</strong> entre 15 y 30 días, <strong>15€</strong> entre 7 y 14 días, y
               <strong> 19€</strong> si la necesitas en menos de 7 días. Sin costes adicionales.
             </p>
 

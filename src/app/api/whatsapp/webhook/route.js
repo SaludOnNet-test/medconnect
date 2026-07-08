@@ -363,7 +363,7 @@ Tarifa de prioridad: desde 4€ hasta 19€ según antelación. Se paga online c
 
 Sin seguro: puedes reservar como paciente privado. Pagas la tarifa de prioridad + el precio de la consulta en clínica.
 
-Cancelaciones: con más de 24h de antelación, reembolso completo. Con menos de 24h, sin reembolso. Para casos especiales, escríbenos a través de medconnect.es.
+Cancelaciones: con más de 24h de antelación, reembolso completo. Con menos de 24h, la tarifa de prioridad no se reembolsa (si pagaste también el acto médico por no tener seguro, esa parte sí se devuelve). Para casos especiales, escríbenos a través de medconnect.es.
 
 Confirmación: recibirás un email con todos los detalles de la cita, dirección del centro y comprobante de pago.
 

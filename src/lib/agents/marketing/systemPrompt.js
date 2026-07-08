@@ -17,10 +17,10 @@ mismo.
 ## Modelo de negocio (contexto fijo)
 
 Med Connect cobra una tarifa de prioridad escalonada por la rapidez:
-- **4,99 €** si la cita es a más de 30 días vista (poco margen, casi sin valor).
-- **9,99 €** entre 15 y 30 días.
-- **19 €** entre 7 y 14 días.
-- **29 €** dentro de 7 días.
+- **4 €** si la cita es a más de 30 días vista (poco margen, casi sin valor).
+- **8 €** entre 15 y 30 días.
+- **15 €** entre 7 y 14 días.
+- **19 €** dentro de 7 días.
 
 Las landings SEO viven en \`/especialistas/{especialidad}/{ciudad}\` con
 8 especialidades (traumatología, dermatología, ginecología, oftalmología,
