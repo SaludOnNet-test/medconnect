@@ -14,42 +14,11 @@ import { trackEvent, trackConversion } from '@/lib/analytics';
 import { formatEUR } from '@/lib/format';
 import Icon from '@/components/icons/Icon';
 import { fetchWithSession } from '@/lib/sessionId';
-import { calculateExpirationTime } from '@/data/mock';
 import './book.css';
-
-// 2026-05-29 — PaymentForm is lazy-loaded so Stripe.js (~200 KB) doesn't
-// download during the initial /book paint. PaymentForm.js does
-// `loadStripe(...)` at module level, so importing it statically meant
-// every SEM visitor paid the Stripe.js cost on first paint even when
-// they were still on step 1 (the patient form). After this change,
-// Stripe.js only hits the wire once the dynamic chunk is requested —
-// which the parent gates on `hasInsurance !== null`, i.e. after the
-// user has answered the insurance toggle.
-//
-// `loading` returns the same min-height as the rendered form
-// (`min-height: 580px` matches book.css `.book-summary-card[data-loading]`)
-// so CLS stays at 0 — the swap is in-place.
-//
-// `ssr: false` is required because Stripe Elements touches `window`
-// and would crash during SSR.
-const PaymentForm = dynamic(() => import('@/components/PaymentForm'), {
-  ssr: false,
-  loading: () => (
-    <div
-      className="book-summary-card"
-      data-loading="lock-in"
-      style={{
-        textAlign: 'center',
-        color: 'var(--fg-muted)',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-      }}
-    >
-      Cargando formulario de pago seguro…
-    </div>
-  ),
-});
+import { sendEmail, buildCalendarUrl } from './bookingHelpers';
+import useSlotHold from './useSlotHold';
+import PaymentStep from './PaymentStep';
+import SuccessStep from './SuccessStep';
 
 // 2026-04-29 — Clerk auto-detection restored via `ClerkProBridge`.
 // The earlier inline `require('@clerk/nextjs')` bridge broke production
@@ -62,61 +31,6 @@ const HAS_CLERK_KEYS = !!process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY;
 const ClerkProBridge = HAS_CLERK_KEYS
   ? dynamic(() => import('@/components/ClerkProBridge'), { ssr: false })
   : null;
-
-// Slim sticky countdown for the /book hold. Reuses `calculateExpirationTime`
-// from data/mock so the lock-in flow and this share the same math. Renders
-// in-line inside the header so we don't get the full LockInTimer card.
-function BookHoldBanner({ expiresAt, isLastSlot, onExpire }) {
-  const [remaining, setRemaining] = useState(() => calculateExpirationTime(expiresAt));
-  useEffect(() => {
-    const tick = () => setRemaining(calculateExpirationTime(expiresAt));
-    tick();
-    const id = setInterval(tick, 1000);
-    return () => clearInterval(id);
-  }, [expiresAt]);
-  useEffect(() => {
-    if (remaining?.isExpired && typeof onExpire === 'function') onExpire();
-  }, [remaining?.isExpired, onExpire]);
-  if (!remaining) return null;
-  const mm = String(remaining.displayMinutes ?? 0).padStart(2, '0');
-  const ss = String(remaining.displaySeconds ?? 0).padStart(2, '0');
-  const critical = !remaining.isExpired && remaining.remainingSeconds <= 60;
-  return (
-    <div
-      className="book-hold-header"
-      role="status"
-      aria-live="polite"
-      style={{
-        position: 'sticky',
-        top: 0,
-        zIndex: 50,
-        background: critical ? '#fef2f2' : '#fff7ed',
-        borderBottom: `1px solid ${critical ? '#fecaca' : '#fed7aa'}`,
-        color: critical ? '#991b1b' : '#7c2d12',
-        padding: '10px 16px',
-        fontSize: '0.9rem',
-        lineHeight: 1.45,
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        gap: '14px',
-        flexWrap: 'wrap',
-        fontFamily: 'var(--font-body)',
-        textAlign: 'center',
-      }}
-    >
-      {isLastSlot && (
-        <span>⏱ <strong>Última cita en este centro en menos de una semana</strong></span>
-      )}
-      <span>
-        Tu hueco está reservado:&nbsp;
-        <strong style={{ fontVariantNumeric: 'tabular-nums', fontSize: '1rem' }}>
-          {remaining.isExpired ? '00:00' : `${mm}:${ss}`}
-        </strong>
-      </span>
-    </div>
-  );
-}
 
 function BookContent() {
   const searchParams = useSearchParams();
@@ -379,23 +293,26 @@ function BookContent() {
   const [bookingPersistFailed, setBookingPersistFailed] = useState(false);
 
   // 15-minute slot hold — countdown + auto-extend + pre-flight + release.
-  // `holdExpiresAt` starts from the URL param the modal forwarded and is
-  // updated to a fresh ISO when the payment step auto-extends. `null`
-  // means we're in fallback mode (legacy URL, lock-in flow, or Redis
-  // offline) and no header banner is rendered.
-  const [holdExpiresAt, setHoldExpiresAt] = useState(holdExpiresAtParam || null);
-  const [isLastSlot, setIsLastSlot] = useState(isLastSlotParam);
-  const [holdExpired, setHoldExpired] = useState(false);
-  // Capture the (clinicId, date, time) we acquired the hold for. We
-  // need this verbatim for PATCH (extend) and DELETE (release), and to
-  // build the redirect target when the timer hits zero. For
-  // video-pilot providers the id is a string ("video-derma-001") —
-  // pass it through unchanged so the slot-holds endpoint (which now
-  // accepts both shapes) can address Redis.
-  const holdSlotRef = useRef({
-    clinicId: isVideoBooking ? providerId : (Number(providerId) || null),
+  // 2026-07 structural refactor: the whole lifecycle moved verbatim to
+  // useSlotHold.js (historical comments live there with their code).
+  const {
+    holdExpiresAt,
+    setHoldExpiresAt,
+    setIsLastSlot,
+    holdSlotRef,
+    renderHoldHeader,
+    renderExpiredToast,
+  } = useSlotHold({
+    holdExpiresAtParam,
+    isLastSlotParam,
+    lockInId,
+    providerId,
+    isVideoBooking,
     date,
     time,
+    step,
+    searchParams,
+    router,
   });
 
   // ── Recovery-email restoration ───────────────────────────────────
@@ -467,177 +384,6 @@ function BookContent() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [restoredHoldIdParam, lockInId]);
 
-  // ── Pre-flight hold check ────────────────────────────────────────
-  // Runs once on mount when the URL has `holdExpiresAt`. Confirms the
-  // session still owns the slot in Redis (or that Redis is offline, in
-  // which case we trust the URL). If ownership is gone, expire the
-  // banner so the LockInTimer fires `onExpire` and we redirect.
-  useEffect(() => {
-    if (!holdExpiresAtParam || lockInId) return; // lock-in flow has its own timer
-    const { clinicId, date: d, time: t } = holdSlotRef.current;
-    if (!clinicId || !d || !t) return;
-    let cancelled = false;
-    (async () => {
-      try {
-        const res = await fetchWithSession(
-          `/api/slot-holds?clinicId=${encodeURIComponent(clinicId)}&date=${encodeURIComponent(d)}&time=${encodeURIComponent(t)}`,
-        );
-        if (cancelled || !res.ok) return;
-        const j = await res.json();
-        if (j?.ok && j?.ownedByThisSession === false) {
-          setHoldExpiresAt(null);
-          setHoldExpired(true);
-        } else if (j?.ok && j?.expiresAt) {
-          // Server-derived expiry is more authoritative than the URL.
-          setHoldExpiresAt(j.expiresAt);
-        }
-      } catch {}
-    })();
-    return () => { cancelled = true; };
-  }, [holdExpiresAtParam, lockInId]);
-
-  // ── beforeunload release ─────────────────────────────────────────
-  // Best-effort: if the patient closes the tab on /book, free the slot
-  // for the next visitor instead of waiting 15 minutes. `sendBeacon`
-  // because async fetch isn't allowed during unload.
-  // `stepRef` mirrors `step` so the unload handler below always reads the
-  // CURRENT step — the old closure captured the mount-time value, so a
-  // patient who reached 'success' still released the hold on tab close.
-  const stepRef = useRef(step);
-  useEffect(() => { stepRef.current = step; }, [step]);
-
-  useEffect(() => {
-    if (lockInId) return; // lock-in flow uses its own state machine
-    const onPageHide = () => {
-      const { clinicId, date: d, time: t } = holdSlotRef.current;
-      if (!clinicId || !d || !t) return;
-      // Skip release once we've reached the success step — the booking
-      // server already cleared the Redis key.
-      if (stepRef.current === 'success') return;
-      try {
-        const sid = (typeof window !== 'undefined' && window.localStorage)
-          ? window.localStorage.getItem('mc_sid') : null;
-        const url = `/api/slot-holds?clinicId=${encodeURIComponent(clinicId)}&date=${encodeURIComponent(d)}&time=${encodeURIComponent(t)}`;
-        const blob = new Blob(
-          [JSON.stringify({ clinicId, date: d, time: t, sessionId: sid })],
-          { type: 'application/json' },
-        );
-        // Most browsers don't expose method override on sendBeacon, so
-        // we POST a tiny payload to the DELETE endpoint via a custom
-        // URL param. The route accepts both methods.
-        navigator.sendBeacon?.(`${url}&_method=DELETE`, blob);
-      } catch {}
-    };
-    // `pagehide` is the reliable signal on mobile Safari / bfcache
-    // navigations where `beforeunload` never fires; we keep both and the
-    // beacon endpoint is idempotent so a double-fire is harmless.
-    window.addEventListener('pagehide', onPageHide);
-    window.addEventListener('beforeunload', onPageHide);
-    return () => {
-      window.removeEventListener('pagehide', onPageHide);
-      window.removeEventListener('beforeunload', onPageHide);
-    };
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [lockInId]);
-
-  // ── Auto-extend on payment step ──────────────────────────────────
-  // Stripe round-trips can take 10-30 s. We extend the hold to a fresh
-  // 15-min window the moment the user enters the payment step.
-  const [didExtendForPayment, setDidExtendForPayment] = useState(false);
-  // Toast surfaced when the hold expires — drives the auto-redirect.
-  const [expiredToast, setExpiredToast] = useState('');
-
-  const handleHoldExpire = useCallback(() => {
-    setHoldExpired(true);
-    setExpiredToast('Tu reserva expiró. Te llevamos de vuelta a la búsqueda.');
-    // Small grace period so the toast is visible.
-    setTimeout(() => {
-      const params = new URLSearchParams();
-      if (searchParams.get('city'))         params.set('city', searchParams.get('city'));
-      if (searchParams.get('specialtySlug')) params.set('specialtySlug', searchParams.get('specialtySlug'));
-      router.push(`/search-v2${params.toString() ? `?${params.toString()}` : ''}`);
-    }, 1800);
-  }, [router, searchParams]);
-
-  // ── Sticky header banner — countdown + "última cita" ──────────────
-  // Rendered above every /book step (form + payment) when the patient
-  // arrived from the modal with a Redis-backed hold. Skips render in
-  // the lock-in flow (that has its own 60-min timer) and in the
-  // legacy-URL fallback (no holdExpiresAt → nothing to count down).
-  const renderHoldHeader = () => {
-    if (!holdExpiresAt || holdExpired || lockInId) return null;
-    return <BookHoldBanner expiresAt={holdExpiresAt} isLastSlot={isLastSlot} onExpire={handleHoldExpire} />;
-  };
-
-  // Toast for the post-expiration redirect grace window.
-  const renderExpiredToast = () => {
-    if (!expiredToast) return null;
-    return (
-      <div
-        role="alert"
-        style={{
-          position: 'fixed',
-          top: 16,
-          left: '50%',
-          transform: 'translateX(-50%)',
-          zIndex: 200,
-          background: '#fef2f2',
-          border: '1px solid #fecaca',
-          color: '#991b1b',
-          padding: '10px 16px',
-          borderRadius: 8,
-          fontSize: '0.9rem',
-          maxWidth: 360,
-          boxShadow: '0 8px 24px rgba(0,0,0,0.12)',
-        }}
-      >
-        {expiredToast}
-      </div>
-    );
-  };
-
-  // 2026-06-01 — patient identity data collected AFTER payment.
-  // The pre-payment form was reduced to 4 fields to cut abandonment; DOB
-  // and DNI are now collected on the success page. `identityForm` holds
-  // the post-payment data, `identityStatus` tracks the submit lifecycle.
-  const [identityForm, setIdentityForm] = useState({ dateOfBirth: '', nationalId: '' });
-  const [identityStatus, setIdentityStatus] = useState('idle'); // idle | submitting | saved | error
-  const [identityError, setIdentityError] = useState('');
-
-  const submitIdentityData = async () => {
-    if (!paymentRef) return; // safety: we need a booking id
-    // Require at least one of the two — endpoint enforces this too, but
-    // we surface the message faster client-side.
-    if (!identityForm.dateOfBirth && !identityForm.nationalId.trim()) {
-      setIdentityError('Rellena al menos la fecha de nacimiento o el DNI.');
-      return;
-    }
-    setIdentityStatus('submitting');
-    setIdentityError('');
-    try {
-      const patientEmail = lockInData?.patientEmail || form.email;
-      const r = await fetch(`/api/bookings/${encodeURIComponent(paymentRef)}/patient-data`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          patientEmail,
-          dateOfBirth: identityForm.dateOfBirth || undefined,
-          nationalId: identityForm.nationalId?.trim() || undefined,
-        }),
-      });
-      if (!r.ok) {
-        const data = await r.json().catch(() => ({}));
-        setIdentityError(data.error || 'No pudimos guardar los datos. Inténtalo de nuevo.');
-        setIdentityStatus('error');
-        return;
-      }
-      setIdentityStatus('saved');
-    } catch {
-      setIdentityError('Error de red. Inténtalo de nuevo.');
-      setIdentityStatus('error');
-    }
-  };
-
   // Bug 1.1 fix — when the user toggles "Sí, tengo seguro" but didn't arrive
   // with an `?insurance=` URL param, the dropdown was empty and the form
   // silently failed at submit. Pre-select the first available insurer if
@@ -697,26 +443,6 @@ function BookContent() {
     setProData((prev) => ({ ...prev, [field]: value }));
   };
 
-  // ── Payment-step auto-extend ──────────────────────────────────────
-  // The first time the patient reaches the payment step we PATCH the
-  // hold with extendMinutes=15 so a slow Stripe round-trip doesn't kill
-  // it mid-card. Idempotent at the route level — repeat calls just
-  // refresh the TTL, capped at 30 min total by the server.
-  useEffect(() => {
-    if (step !== 'payment' || didExtendForPayment || !holdExpiresAt || lockInId) return;
-    const { clinicId, date: d, time: t } = holdSlotRef.current;
-    if (!clinicId || !d || !t) return;
-    setDidExtendForPayment(true);
-    fetchWithSession('/api/slot-holds', {
-      method: 'PATCH',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ clinicId, date: d, time: t, extendMinutes: 15 }),
-    })
-      .then((res) => res.ok ? res.json() : null)
-      .then((j) => { if (j?.expiresAt) setHoldExpiresAt(j.expiresAt); })
-      .catch(() => {});
-  }, [step, didExtendForPayment, holdExpiresAt, lockInId]);
-
   // ── Form snapshot patcher ─────────────────────────────────────────
   // Every time the patient changes a field we debounce-PATCH the slot
   // hold row with the latest snapshot. The abandoned-cart cron reads
@@ -767,14 +493,6 @@ function BookContent() {
       : hasInsurance === false
         ? servicePrice + activeFee
         : 0;
-
-  const sendEmail = (templateName, data) => {
-    fetch('/api/email/send', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ templateName, data }),
-    }).catch(() => {});
-  };
 
   const handlePay = async (e) => {
     e.preventDefault();
@@ -1101,10 +819,7 @@ function BookContent() {
     }
 
     // Build Google Calendar URL
-    const start = new Date(`${slotDateToUse}T${slotTimeToUse}:00`);
-    const end = new Date(start.getTime() + 60 * 60 * 1000);
-    const fmt = (d) => d.toISOString().replace(/[-:]/g, '').split('.')[0] + 'Z';
-    const calendarUrl = `https://calendar.google.com/calendar/render?action=TEMPLATE&text=Cita+en+${encodeURIComponent(clinicName)}&dates=${fmt(start)}/${fmt(end)}&details=Referencia+${reference}`;
+    const calendarUrl = buildCalendarUrl(clinicName, slotDateToUse, slotTimeToUse, reference);
 
     // F2 — build the patient self-service URL (cancel / reschedule). Falls back
     // to the production domain when NEXT_PUBLIC_BASE_URL isn't set.
@@ -1334,632 +1049,53 @@ function BookContent() {
     );
   }
 
-  // ── Payment step ──
+  // ── Payment step ── (JSX moved verbatim to PaymentStep.js, 2026-07)
   if (step === 'payment') {
-    const slotDateToUse = lockInData?.slotDate || date;
-    const slotTimeToUse = lockInData?.slotTime || time;
-    const clinicName = lockInData?.providerName || providerName;
-    const patientName = lockInData?.patientName || `${form.name} ${form.surname}`.trim();
-    const patientEmailForPayment = lockInData?.patientEmail || form.email;
-
-    // Loading skeleton while we fetch the referral row from the lock-in
-    // redirect. We avoid rendering PaymentForm until lockInData lands so
-    // the patient never sees a half-populated payment form (and never
-    // sees the empty patient input form briefly flash).
-    if (lockInLoading) {
-      return (
-        <>
-          <Header />
-          <main className="book-page">
-            <div className="book-container">
-              <div className="book-header">
-                <p className="book-step-label">Paso 2 de 2</p>
-                <h1 className="book-title">Pago seguro</h1>
-              </div>
-              {/* data-loading="lock-in" gives this card the 600 px min-height
-                  used by the final PaymentForm so the swap doesn't reflow
-                  the page — see book.css `.book-summary-card[data-loading]`. */}
-              <div
-                className="book-summary-card"
-                data-loading="lock-in"
-                style={{
-                  textAlign: 'center',
-                  padding: 'var(--space-7)',
-                  color: 'var(--fg-muted)',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                }}
-              >
-                Cargando los datos de tu reserva…
-              </div>
-            </div>
-          </main>
-          <Footer />
-        </>
-      );
-    }
-
-    // Load failed: the API 404'd, localStorage was empty, AND the URL
-    // didn't carry the slot data (legacy email links from before the
-    // hotfix that added forward-carry). Show an actionable error instead
-    // of leaving the skeleton up — the previous behaviour was the page
-    // hanging on "Cargando…" forever and the patient assuming the site
-    // was broken (REF-VRHK7OOD6 incident, 2026-05-18).
-    if (lockInData?._loadFailed) {
-      return (
-        <>
-          <Header />
-          <main className="book-page">
-            <div className="book-container">
-              <div className="book-header">
-                <p className="book-step-label">Paso 2 de 2</p>
-                <h1 className="book-title">No pudimos cargar tu reserva</h1>
-              </div>
-              <div
-                className="book-summary-card"
-                style={{ padding: 'var(--space-7)', color: 'var(--fg-muted)', lineHeight: 1.6 }}
-              >
-                <p style={{ marginBottom: '1rem' }}>
-                  Hemos tenido un problema recuperando los datos de tu reserva. Tu hueco
-                  sigue reservado — no te hemos cobrado nada todavía.
-                </p>
-                <p style={{ marginBottom: '1rem' }}>
-                  Por favor escríbenos a{' '}
-                  <a href="mailto:info@medconnect.es" style={{ color: 'var(--gold)', textDecoration: 'underline' }}>
-                    info@medconnect.es
-                  </a>{' '}
-                  o llámanos al <strong>91 197 70 52</strong> y te ayudamos a completar
-                  el pago en menos de un minuto. Indícales el código:
-                </p>
-                <p style={{ fontFamily: 'monospace', fontSize: '0.95rem', background: '#f3f4f6', padding: '0.6rem 0.9rem', borderRadius: '6px', display: 'inline-block' }}>
-                  {lockInId}
-                </p>
-              </div>
-            </div>
-          </main>
-          <Footer />
-        </>
-      );
-    }
-
     return (
-      <>
-        <Header />
-        {renderHoldHeader()}
-        {renderExpiredToast()}
-        <main className="book-page">
-          <div className="book-container">
-            <div className="book-header">
-              <p className="book-step-label">Paso 2 de 2</p>
-              <h1 className="book-title">Pago seguro</h1>
-            </div>
-            {/* Recap card — when the patient came from /lock-in, surface
-                the data they already entered there so they don't wonder
-                if they need to type it again. */}
-            {lockInData && (
-              <div className="book-summary-card book-summary-card--lockin" style={{ marginBottom: 'var(--space-md)' }}>
-                <div style={{ fontFamily: 'var(--font-body)', fontSize: 'var(--text-2xs)', textTransform: 'uppercase', letterSpacing: 'var(--tracking-eyebrow)', color: 'var(--fg-muted)', marginBottom: 4 }}>
-                  Reserva a nombre de
-                </div>
-                <div style={{ fontFamily: 'var(--font-display)', fontSize: 'var(--text-xl)', color: 'var(--fg)', marginBottom: 4 }}>
-                  {patientName || lockInData.patientEmail}
-                </div>
-                <div style={{ fontFamily: 'var(--font-body)', fontSize: 'var(--text-sm)', color: 'var(--fg-muted)' }}>
-                  {lockInData.patientEmail}
-                  {lockInData.patientPhone ? ` · ${lockInData.patientPhone}` : ''}
-                </div>
-                <div style={{ marginTop: 8, fontFamily: 'var(--font-body)', fontSize: 'var(--text-xs)', color: 'var(--fg-subtle)' }}>
-                  Datos confirmados desde tu enlace de reserva — solo te queda confirmar el seguro y pagar.
-                </div>
-              </div>
-            )}
-
-            {/*
-              Lock-in flow: the patient arrives at step=payment without ever
-              having chosen insurance type (the lock-in URL doesn't carry
-              `insurance` or `isSinSeguro`). Without this block, `hasInsurance`
-              stayed null, `totalPrice` resolved to 0, and the Stripe form
-              looked broken (showed "Confirmar reserva gratuita" with no card
-              inputs of real value). Render the toggle here and gate the
-              PaymentForm until the patient picks. The direct flow is
-              untouched — there `hasInsurance` is already set from the URL
-              params when /book mounts, so this block is bypassed.
-            */}
-            {hasInsurance === null && (
-              <div className="book-form" style={{ marginBottom: 'var(--space-md)' }}>
-                <div style={{
-                  background: isVideoBooking ? '#ede9fe' : '#f0f9ff',
-                  border: `1px solid ${isVideoBooking ? '#c4b5fd' : '#bae6fd'}`,
-                  borderRadius: '10px',
-                  padding: '0.75rem 1rem',
-                  marginBottom: 'var(--space-md)',
-                  fontSize: '0.85rem',
-                  color: isVideoBooking ? '#4c1d95' : '#0c4a6e',
-                  lineHeight: 1.6,
-                }}>
-                  {isVideoBooking ? (
-                    <><strong>Un último paso antes del pago:</strong> en videoconsultas pagas el precio publicado en SaludOnNet (consulta + prioridad, todo incluido). Si tienes seguro, por ahora <strong>solo tramitamos por reembolso</strong> — pagas ahora y solicitas el reembolso a tu seguro adjuntando el voucher que te enviaremos.</>
-                  ) : (
-                    <><strong>Un último paso antes del pago:</strong> el acto médico lo paga tu seguro a la clínica. A nosotros solo nos pagas la <strong>tarifa de prioridad</strong> por gestionarte la reserva prioritaria.</>
-                  )}
-                </div>
-                <label className="form-label">
-                  ¿Tienes seguro médico privado para esta consulta?
-                  {isVideoBooking && (
-                    <span style={{ display: 'block', fontWeight: 400, fontSize: '0.78rem', color: 'var(--muted)', marginTop: 2 }}>
-                      El precio es el mismo en ambos casos — la respuesta nos ayuda a darte la info correcta para el reembolso.
-                    </span>
-                  )}
-                </label>
-                <div className="book-insurance-toggle">
-                  <button
-                    type="button"
-                    aria-pressed={hasInsurance === true}
-                    className={`book-insurance-option ${hasInsurance === true ? 'active' : ''}`}
-                    style={{ background: hasInsurance === true ? undefined : 'transparent', font: 'inherit', color: 'inherit' }}
-                    onClick={() => handleHasInsuranceClick(true)}
-                  >
-                    <strong>Sí, tengo seguro</strong>
-                    {isVideoBooking ? (
-                      servicePrice > 0 && (
-                        <span style={{ display: 'block', fontSize: '0.95rem', color: 'var(--ink-1000, #0e1a2b)', marginTop: '4px', fontWeight: 700 }}>
-                          Pagas {formatEUR(servicePrice)}
-                        </span>
-                      )
-                    ) : (
-                      activeFee > 0 && (
-                        <span style={{ display: 'block', fontSize: '0.95rem', color: 'var(--ink-1000, #0e1a2b)', marginTop: '4px', fontWeight: 700 }}>
-                          Pagas {formatEUR(activeFee)}
-                        </span>
-                      )
-                    )}
-                    <span style={{ display: 'block', fontSize: '0.78rem', color: 'var(--muted)', marginTop: '2px', fontWeight: 400 }}>
-                      {isVideoBooking
-                        ? 'Pagas ahora y solicitas el reembolso a tu seguro después de la videoconsulta.'
-                        : 'Solo la tarifa de prioridad. La consulta va por tu póliza.'}
-                    </span>
-                  </button>
-                  <button
-                    type="button"
-                    aria-pressed={hasInsurance === false}
-                    className={`book-insurance-option ${hasInsurance === false ? 'active' : ''}`}
-                    style={{ background: hasInsurance === false ? undefined : 'transparent', font: 'inherit', color: 'inherit' }}
-                    onClick={() => handleHasInsuranceClick(false)}
-                  >
-                    <strong>No tengo seguro</strong>
-                    {isVideoBooking ? (
-                      servicePrice > 0 && (
-                        <span style={{ display: 'block', fontSize: '0.95rem', color: 'var(--ink-1000, #0e1a2b)', marginTop: '4px', fontWeight: 700 }}>
-                          Pagas {formatEUR(servicePrice)}
-                        </span>
-                      )
-                    ) : (
-                      (activeFee + servicePrice) > 0 && (
-                        <span style={{ display: 'block', fontSize: '0.95rem', color: 'var(--ink-1000, #0e1a2b)', marginTop: '4px', fontWeight: 700 }}>
-                          Pagas {formatEUR(activeFee + servicePrice)}
-                        </span>
-                      )
-                    )}
-                    <span style={{ display: 'block', fontSize: '0.78rem', color: 'var(--muted)', marginTop: '2px', fontWeight: 400 }}>
-                      {isVideoBooking
-                        ? 'Precio publicado en SaludOnNet, todo incluido. Total final, sin sorpresas.'
-                        : `Consulta (${formatEUR(servicePrice)}) + prioridad (${formatEUR(activeFee)}). Total final, sin sorpresas.`}
-                    </span>
-                  </button>
-                </div>
-              </div>
-            )}
-
-            {/* Insurer dropdown — required when "Sí, tengo seguro" was just
-                picked here (the direct flow already filled this from the
-                URL param so the dropdown shows pre-selected). */}
-            {hasInsurance === true && (
-              <div className="book-form" style={{ marginBottom: 'var(--space-md)' }}>
-                <div className="form-group">
-                  <label className="form-label" htmlFor="insurance-company-payment">¿Cuál es la aseguradora?</label>
-                  <select
-                    id="insurance-company-payment"
-                    className="form-select"
-                    value={selectedInsurance}
-                    onChange={(e) => setSelectedInsurance(e.target.value)}
-                    required
-                  >
-                    <option value="">Seleccionar aseguradora</option>
-                    {insuranceCompanies.map((ins) => (
-                      <option key={ins} value={ins}>{ins}</option>
-                    ))}
-                  </select>
-                </div>
-              </div>
-            )}
-
-            {/* Price breakdown — only after the patient picks insurance.
-                Mirrors the breakdown in step=form so the patient sees the
-                same totals before Stripe loads. */}
-            {hasInsurance !== null && (
-              <div className="book-price-breakdown animate-fade-in" style={{ marginBottom: 'var(--space-md)' }}>
-                <p className="book-step-label" style={{ marginBottom: 'var(--space-md)' }}>Resumen del pago</p>
-
-                {/* Video pilot — single all-in-one line. Same rationale
-                    as the form-step breakdown above. */}
-                {isVideoBooking ? (
-                  <div className="book-price-row">
-                    <span className="book-price-label"><Icon name="video" size={14} /> {serviceLabel || 'Videoconsulta'} <span style={{ color: 'var(--muted)', fontWeight: 400 }}>· incluye prioridad</span></span>
-                    <span className="book-price-amount">{formatEUR(servicePrice)}</span>
-                  </div>
-                ) : (
-                  <>
-                    {serviceLabel && (
-                      <div className="book-price-row">
-                        <span className="book-price-label"><Icon name="stethoscope" size={14} /> {serviceLabel}</span>
-                        <span className="book-price-amount">
-                          {hasInsurance === true
-                            ? <span style={{ color: '#00805a', fontWeight: 600 }}>A cubrir por tu seguro</span>
-                            : formatEUR(servicePrice)}
-                        </span>
-                      </div>
-                    )}
-
-                    <div className="book-price-row">
-                      <span className="book-price-label">
-                        🎫 Tarifa de prioridad{feeLabel ? ` (${feeLabel.toLowerCase()})` : ''}
-                      </span>
-                      <span className="book-price-amount">
-                        {/* 2026-06-08 — Strikethrough on the "tarifa habitual"
-                            anchor alongside the active fee. The savings line
-                            renders below the breakdown. */}
-                        {feePricingDisplay.showStrikethrough && activeFee > 0 && (
-                          <span style={{ textDecoration: 'line-through', color: 'var(--muted)', fontWeight: 500, fontSize: '0.85em', marginRight: 6 }}>
-                            {feePricingDisplay.standardLabel}
-                          </span>
-                        )}
-                        {activeFee > 0 ? formatEUR(activeFee) : '0 €'}
-                      </span>
-                    </div>
-                  </>
-                )}
-
-                <div className="book-price-row total">
-                  <span>Total que pagas hoy</span>
-                  <span className="book-price-amount">
-                    {totalPrice > 0 ? formatEUR(totalPrice) : 'Gratis'}
-                  </span>
-                </div>
-
-                {/* 2026-06-24 — B1 del audit copy. Reemplaza el savings
-                    self-referencial ("Ahorras X sobre la tarifa habitual")
-                    por anchor EXTERNO: comparación con consulta privada
-                    sin seguro (€60-120). Más creíble que un "tarifa
-                    habitual" interno. Skipped para video bookings —
-                    no aplica la comparación con consulta privada
-                    presencial. Partner discount mention también se
-                    actualiza al nuevo % (16% en lugar de 30%). */}
-                {!isVideoBooking && activeFee > 0 && (
-                  <p style={{ marginTop: 'var(--space-sm)', fontSize: '0.78rem', color: '#1b4332', lineHeight: 1.4, fontWeight: 500 }}>
-                    💡 Una consulta privada equivalente sin seguro cuesta entre <strong>€60 y €120</strong>. Con tu seguro pagas solo <strong>{feePricingDisplay.activeLabel}</strong> de tarifa de prioridad.
-                    {feePricingDisplay.isPartner && (
-                      <> Incluye <strong>−{Math.round(feePricingDisplay.partnerDiscountPct * 100)}% de centro destacado</strong>.</>
-                    )}
-                  </p>
-                )}
-              </div>
-            )}
-
-            {/* 2026-06-04 — Restate the refund + insurance value-prop at the
-                moment of highest commitment friction. The same line lives in
-                the price-breakdown box on the form step, but by the time the
-                patient reaches the Stripe field they have forgotten it. We
-                show this above PaymentForm so the trust frame is fresh
-                when they reach for their card.
-                2026-06-12 — Reworded to (a) break down what the patient is
-                paying (tarifa de prioridad alone for insured, consulta +
-                prioridad for sin-seguro) and (b) state the real cancellation
-                policy: refund íntegro within 72 h for any cancellation up
-                to 24 h before the appointment, regardless of reason. */}
-            {hasInsurance !== null && (
-              <div
-                className="book-info-box book-info-box--green"
-                style={{ marginBottom: 'var(--space-md)' }}
-              >
-                Cargo único de <strong>{totalPrice > 0 ? formatEUR(totalPrice) : '0 €'}</strong>
-                {isVideoBooking ? (
-                  <> — precio publicado en SaludOnNet, incluye la consulta y la prioridad de la cita.</>
-                ) : hasInsurance === true ? (
-                  <> — nuestra tarifa de prioridad. La consulta la cubre tu póliza.</>
-                ) : (
-                  <> — consulta ({formatEUR(servicePrice)}) + tarifa de prioridad ({formatEUR(activeFee)}).</>
-                )}
-                {' '}Si cancelas hasta <strong>24&nbsp;h antes de la cita</strong> por cualquier motivo,
-                te devolvemos el importe íntegro en 72&nbsp;h.
-              </div>
-            )}
-
-            {/* PaymentForm — only mounts once hasInsurance is resolved.
-                Until then the patient sees the toggle above. Without this
-                gate the Stripe form would mount with totalPrice=0 and look
-                broken to the user. */}
-            {hasInsurance !== null && (
-              <PaymentForm
-                totalPrice={totalPrice}
-                standardTotalPrice={
-                  // 2026-06-08 — Strikethrough anchor in the Stripe bar.
-                  // For seguro: standard tier fee. For sin-seguro: standard
-                  // tier fee + service price (since servicePrice itself
-                  // isn't discounted).
-                  hasInsurance === true
-                    ? feePricingDisplay.standard
-                    : feePricingDisplay.standard + (Number(servicePrice) || 0)
-                }
-                providerName={clinicName}
-                slotDate={slotDateToUse}
-                slotTime={slotTimeToUse}
-                patientName={patientName}
-                patientEmail={patientEmailForPayment}
-                bookingId={reservedBookingId}
-                onPaymentSuccess={handlePaymentSuccess}
-                onBack={() => {
-                  // For lock-in patients there is no /form to go back to —
-                  // their data is locked in upstream. Reset to the insurance
-                  // picker instead. Direct-flow patients (no lockInData) keep
-                  // the original behavior of returning to the patient form.
-                  if (lockInData) {
-                    setHasInsurance(null);
-                    setSelectedInsurance('');
-                  } else {
-                    setStep('form');
-                  }
-                }}
-              />
-            )}
-          </div>
-        </main>
-        <Footer />
-      </>
+      <PaymentStep
+        lockInLoading={lockInLoading}
+        lockInData={lockInData}
+        lockInId={lockInId}
+        hasInsurance={hasInsurance}
+        setHasInsurance={setHasInsurance}
+        selectedInsurance={selectedInsurance}
+        setSelectedInsurance={setSelectedInsurance}
+        handleHasInsuranceClick={handleHasInsuranceClick}
+        isVideoBooking={isVideoBooking}
+        servicePrice={servicePrice}
+        activeFee={activeFee}
+        feeLabel={feeLabel}
+        feePricingDisplay={feePricingDisplay}
+        totalPrice={totalPrice}
+        serviceLabel={serviceLabel}
+        reservedBookingId={reservedBookingId}
+        handlePaymentSuccess={handlePaymentSuccess}
+        setStep={setStep}
+        form={form}
+        date={date}
+        time={time}
+        providerName={providerName}
+        renderHoldHeader={renderHoldHeader}
+        renderExpiredToast={renderExpiredToast}
+      />
     );
   }
 
-  // ── Success step ──
+  // ── Success step ── (JSX + identity capture moved verbatim to SuccessStep.js, 2026-07)
   if (step === 'success') {
-    const slotDateToUse = lockInData?.slotDate || date;
-    const slotTimeToUse = lockInData?.slotTime || time;
-    const clinicName = lockInData?.providerName || providerName;
-    // Prefer the calendarUrl computed at payment time; after a reload
-    // (URL-restored success) recompute it from the URL params instead.
-    let calendarUrl = typeof window !== 'undefined' ? window._mcCalendarUrl : null;
-    if (!calendarUrl && slotDateToUse && slotTimeToUse) {
-      try {
-        const start = new Date(`${slotDateToUse}T${slotTimeToUse}:00`);
-        const end = new Date(start.getTime() + 60 * 60 * 1000);
-        const fmt = (d) => d.toISOString().replace(/[-:]/g, '').split('.')[0] + 'Z';
-        calendarUrl = `https://calendar.google.com/calendar/render?action=TEMPLATE&text=Cita+en+${encodeURIComponent(clinicName)}&dates=${fmt(start)}/${fmt(end)}&details=Referencia+${paymentRef}`;
-      } catch {}
-    }
-    const formattedSuccessDate = slotDateToUse
-      ? new Date(slotDateToUse + 'T00:00:00').toLocaleDateString('es-ES', { weekday: 'long', day: 'numeric', month: 'long' })
-      : '';
-
     return (
-      <>
-        <Header />
-        <main className="book-page">
-          <div className="book-container">
-            <div className="book-success">
-              <div className="book-success-icon">✓</div>
-              <h2 className="book-success-title">
-                {isVideoBooking ? '¡Reserva de videoconsulta confirmada!' : '¡Reserva prioritaria confirmada!'}
-              </h2>
-              <p className="book-success-subtitle">
-                {isVideoBooking
-                  ? 'Hemos recibido tu pago. Nuestro equipo está confirmando la cita con SaludOnNet y te enviaremos por email el enlace de la videollamada + el voucher antes de la fecha.'
-                  : hasInsurance === true
-                    ? 'Hemos confirmado tu reserva prioritaria. Acude con tu tarjeta de asegurado — la consulta corre por tu póliza.'
-                    : 'Hemos confirmado tu cita y la consulta privada. Llega 10 minutos antes; en recepción ya saben quién eres.'}
-              </p>
-
-              {bookingPersistFailed && (
-                <div
-                  role="alert"
-                  style={{
-                    marginTop: '1.25rem',
-                    textAlign: 'left',
-                    background: '#fffbeb',
-                    border: '1px solid #fcd34d',
-                    borderRadius: '10px',
-                    padding: '0.9rem 1.1rem',
-                    color: '#78350f',
-                    fontSize: '0.9rem',
-                    lineHeight: 1.6,
-                  }}
-                >
-                  ✅ <strong>Pago recibido</strong> (ref {paymentRef}). Estamos terminando de
-                  confirmar tu cita — recibirás el email de confirmación en unos minutos.
-                  Si no llega en 15 min, escríbenos a{' '}
-                  <a href="mailto:info@medconnect.es" style={{ color: '#92400e', textDecoration: 'underline' }}>
-                    info@medconnect.es
-                  </a>{' '}
-                  indicando la referencia.
-                </div>
-              )}
-
-              <div className="book-summary-card" style={{ textAlign: 'left', marginTop: '1.5rem' }}>
-                <div className="book-summary-provider">{clinicName}</div>
-                <div className="book-summary-details">
-                  <span><Icon name="calendar" size={14} /> <strong>{formattedSuccessDate}</strong></span>
-                  <span><Icon name="clock" size={14} /> <strong>{slotTimeToUse}</strong></span>
-                </div>
-              </div>
-
-              {/* 2026-06-01 — Post-payment identity capture.
-                  These fields used to be in the pre-payment form; we moved
-                  them here to reduce form-step abandonment. The user has
-                  already paid, so they have zero incentive to drop off at
-                  this point. Both fields are individually optional (the
-                  endpoint accepts either one) but at least one is required
-                  for the clinic to identify the patient on arrival. */}
-              {identityStatus !== 'saved' ? (
-                <div className="book-info-box" style={{ marginTop: '1.5rem', textAlign: 'left', background: '#fffbeb', border: '1px solid #fde68a' }}>
-                  <strong><Icon name="user" size={16} /> Datos para identificarte en tu cita</strong>
-                  <p style={{ marginTop: '0.4rem', fontSize: '0.88rem', lineHeight: 1.55, color: '#78350f' }}>
-                    Danos estos datos para que la clínica te identifique al llegar. Si los rellenas ahora ahorras tiempo el día de la cita.
-                  </p>
-                  <div style={{
-                    display: 'grid',
-                    gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))',
-                    gap: '0.75rem',
-                    marginTop: '0.75rem',
-                  }}>
-                    <div className="form-group" style={{ margin: 0 }}>
-                      <label className="form-label" htmlFor="identity-dob" style={{ fontSize: '0.8rem' }}>Fecha de nacimiento</label>
-                      <input
-                        id="identity-dob"
-                        className="form-input"
-                        type="date"
-                        max={new Date().toISOString().slice(0, 10)}
-                        value={identityForm.dateOfBirth}
-                        onChange={(e) => setIdentityForm((f) => ({ ...f, dateOfBirth: e.target.value }))}
-                        disabled={identityStatus === 'submitting'}
-                      />
-                    </div>
-                    <div className="form-group" style={{ margin: 0 }}>
-                      <label className="form-label" htmlFor="identity-nid" style={{ fontSize: '0.8rem' }}>DNI / NIE / Pasaporte</label>
-                      <input
-                        id="identity-nid"
-                        className="form-input"
-                        type="text"
-                        placeholder="Ej. 12345678A"
-                        pattern="[A-Za-z0-9 \-\.]{5,20}"
-                        autoComplete="off"
-                        value={identityForm.nationalId}
-                        onChange={(e) => setIdentityForm((f) => ({ ...f, nationalId: e.target.value }))}
-                        disabled={identityStatus === 'submitting'}
-                      />
-                    </div>
-                  </div>
-                  {identityError && (
-                    <p role="alert" style={{ marginTop: '0.6rem', color: '#dc2626', fontSize: '0.85rem' }}>
-                      {identityError}
-                    </p>
-                  )}
-                  <div style={{ marginTop: '0.85rem', display: 'flex', gap: '0.75rem', flexWrap: 'wrap' }}>
-                    <button
-                      type="button"
-                      className="btn btn-navy"
-                      onClick={submitIdentityData}
-                      disabled={identityStatus === 'submitting'}
-                      style={identityStatus === 'submitting' ? { opacity: 0.6, cursor: 'wait' } : undefined}
-                    >
-                      {identityStatus === 'submitting' ? 'Guardando…' : 'Guardar para mi cita'}
-                    </button>
-                    <button
-                      type="button"
-                      className="btn btn-link"
-                      style={{ background: 'transparent', border: 'none', color: 'var(--muted)', textDecoration: 'underline', fontSize: '0.85rem', cursor: 'pointer' }}
-                      onClick={() => setIdentityStatus('saved')}
-                    >
-                      Lo haré en la clínica
-                    </button>
-                  </div>
-                </div>
-              ) : (
-                <div className="book-info-box book-info-box--green" style={{ marginTop: '1.5rem', textAlign: 'left' }}>
-                  <strong>✓ Datos guardados</strong>
-                  <p style={{ marginTop: '0.3rem', fontSize: '0.88rem', lineHeight: 1.55 }}>
-                    La clínica ya tiene tu identificación. Solo trae tu DNI físico el día de la cita.
-                  </p>
-                </div>
-              )}
-
-              {isVideoBooking ? (
-                <>
-                  <div className="book-info-box book-info-box--green" style={{ marginTop: '1rem', textAlign: 'left' }}>
-                    <strong><Icon name="mail" size={16} /> Enlace + voucher en camino</strong>
-                    <p style={{ marginTop: '0.5rem', marginBottom: 0, fontSize: '0.9rem', lineHeight: 1.6 }}>
-                      Nuestro equipo está reservando la cita en <strong>SaludOnNet</strong>. Te
-                      enviaremos por email el enlace de la videollamada y el voucher de SaludOnNet antes
-                      de la fecha — atento a tu bandeja de entrada (y a la carpeta de spam).
-                    </p>
-                  </div>
-                  <div className="book-info-box" style={{ marginTop: '1rem', textAlign: 'left' }}>
-                    <strong>Antes de la videoconsulta</strong>
-                    <p style={{ marginTop: '0.5rem', marginBottom: 0, fontSize: '0.9rem', lineHeight: 1.6 }}>
-                      Conéctate al enlace unos minutos antes de la hora, con DNI a mano. La consulta
-                      ya está pagada — no se vuelve a cobrar nada al iniciar la videollamada.
-                    </p>
-                  </div>
-                  {hasInsurance === true && (
-                    <div className="book-info-box" style={{ marginTop: '1rem', textAlign: 'left', background: '#f5f3ff', border: '1px solid #ddd6fe' }}>
-                      <strong>💳 Reembolso con tu seguro</strong>
-                      <p style={{ marginTop: '0.5rem', marginBottom: 0, fontSize: '0.9rem', lineHeight: 1.6 }}>
-                        Para videoconsultas tu seguro tramita por reembolso. Adjunta el voucher que te
-                        enviamos por email al solicitar el reembolso a {selectedInsurance || 'tu aseguradora'}{' '}
-                        — incluye el detalle del servicio y el importe.
-                      </p>
-                    </div>
-                  )}
-                </>
-              ) : hasInsurance === true ? (
-                <div className="book-info-box" style={{ marginTop: '1rem', textAlign: 'left' }}>
-                  <strong>Cuando llegues a la clínica</strong>
-                  <p style={{ marginTop: '0.5rem', marginBottom: 0, fontSize: '0.9rem', lineHeight: 1.6 }}>
-                    Entrega tu <strong>tarjeta de asegurado</strong> en recepción, como en cualquier cita concertada. La clínica facturará la consulta a tu aseguradora. Tu pago de hoy cubre solo la <strong>tarifa de prioridad</strong> — no se vuelve a cobrar.
-                  </p>
-                </div>
-              ) : (
-                <>
-                  <div className="book-info-box book-info-box--green" style={{ marginTop: '1rem', textAlign: 'left' }}>
-                    <strong><Icon name="mail" size={16} /> Voucher en camino (en menos de 24 h)</strong>
-                    <p style={{ marginTop: '0.5rem', marginBottom: 0, fontSize: '0.9rem', lineHeight: 1.6 }}>
-                      Te enviaremos un email separado de <strong>SaludOnNet</strong> con el voucher
-                      que cubre el coste del acto médico. Llévalo en el móvil o impreso a la clínica
-                      junto a tu DNI — la clínica cobrará el acto a SaludOnNet con ese voucher.
-                    </p>
-                  </div>
-                  <div className="book-info-box" style={{ marginTop: '1rem', textAlign: 'left' }}>
-                    <strong>Cuando llegues a la clínica</strong>
-                    <p style={{ marginTop: '0.5rem', marginBottom: 0, fontSize: '0.9rem', lineHeight: 1.6 }}>
-                      Presenta tu DNI + el voucher de SaludOnNet. La consulta y la tarifa de prioridad
-                      ya están pagadas — no se vuelve a cobrar nada en recepción.
-                    </p>
-                  </div>
-                </>
-              )}
-
-              <div className="book-confirmation-ref" style={{ marginTop: '1.5rem' }}>
-                {paymentRef}
-              </div>
-
-              {/* Account creation prompt — shown to guests so they can save their booking history */}
-              <div style={{ marginTop: '1.75rem', padding: '1.25rem 1.5rem', background: '#f0f9ff', borderRadius: '10px', border: '1px solid #bae6fd', textAlign: 'center' }}>
-                <p style={{ fontWeight: '700', color: '#0369a1', marginBottom: '0.4rem', fontSize: '0.95rem' }}>💡 Guarda tu historial de citas</p>
-                <p style={{ fontSize: '0.85rem', color: '#6b7280', marginBottom: '1rem' }}>
-                  Crea una cuenta gratuita con este email y accede a todas tus reservas en cualquier momento.
-                </p>
-                <Link
-                  href={`/sign-up?email=${encodeURIComponent(lockInData?.patientEmail || form.email)}`}
-                  className="btn btn-gold"
-                  style={{ display: 'inline-block' }}
-                >
-                  Crear mi cuenta
-                </Link>
-                <p style={{ fontSize: '0.78rem', color: '#9ca3af', marginTop: '0.6rem' }}>¿Ya tienes cuenta? <Link href="/sign-in" style={{ color: '#0369a1' }}>Iniciar sesión</Link></p>
-              </div>
-
-              <div style={{ display: 'flex', gap: '1rem', justifyContent: 'center', flexWrap: 'wrap', marginTop: '1.5rem' }}>
-                {calendarUrl && (
-                  <a href={calendarUrl} target="_blank" rel="noopener noreferrer" className="btn btn-outline btn-lg book-success-calendar-btn">
-                    <Icon name="calendar" size={16} /> Añadir al calendario
-                  </a>
-                )}
-                <Link href="/" className="btn btn-gold btn-lg">
-                  Volver al inicio
-                </Link>
-              </div>
-            </div>
-          </div>
-        </main>
-        <Footer />
-      </>
+      <SuccessStep
+        paymentRef={paymentRef}
+        bookingPersistFailed={bookingPersistFailed}
+        isVideoBooking={isVideoBooking}
+        hasInsurance={hasInsurance}
+        selectedInsurance={selectedInsurance}
+        lockInData={lockInData}
+        form={form}
+        date={date}
+        time={time}
+        providerName={providerName}
+      />
     );
   }
 
