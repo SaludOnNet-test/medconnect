@@ -258,7 +258,7 @@ export function videoBookingPending({
 // 2c. Video booking — Ops alert (SaludOnNet pilot)
 // ─────────────────────────────────────────────
 //
-// Sent to Ops (info@medconnect.es + francisco@saludonnet.com via the
+// Sent to Ops (info@medconnect.es + francisco.pizarro@saludonnet.com via the
 // internal-watcher fan-out) when a video booking is paid. Ops MUST
 // manually book the appointment on SaludOnNet using the patient
 // details below, then send the patient the video link + voucher.

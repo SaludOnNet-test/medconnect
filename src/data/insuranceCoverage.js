@@ -26,14 +26,14 @@
 // Insurers omitted entirely from a specialty's list will show the GREY
 // badge for that specialty.
 const COVERAGE = {
-  cardiologia: ['Sanitas', 'Adeslas', 'DKV', 'AXA', 'Mapfre', 'Asisa', 'Cigna', 'Caser', 'Generali'],
-  ginecologia: ['Sanitas', 'Adeslas', 'DKV', 'AXA', 'Mapfre', 'Asisa', 'Cigna', 'Caser', 'Generali'],
-  'obstetricia-y-ginecologia': ['Sanitas', 'Adeslas', 'DKV', 'AXA', 'Mapfre', 'Asisa', 'Cigna', 'Caser', 'Generali'],
+  cardiologia: ['Sanitas', 'Adeslas', 'DKV', 'AXA', 'Mapfre', 'Asisa', 'Cigna', 'Caser'],
+  ginecologia: ['Sanitas', 'Adeslas', 'DKV', 'AXA', 'Mapfre', 'Asisa', 'Cigna', 'Caser'],
+  'obstetricia-y-ginecologia': ['Sanitas', 'Adeslas', 'DKV', 'AXA', 'Mapfre', 'Asisa', 'Cigna', 'Caser'],
   traumatologia: ['Sanitas', 'Adeslas', 'DKV', 'AXA', 'Mapfre', 'Asisa', 'Cigna', 'Caser'],
   dermatologia: ['Sanitas', 'Adeslas', 'DKV', 'AXA', 'Mapfre', 'Asisa'],
   oftalmologia: ['Sanitas', 'Adeslas', 'DKV', 'AXA', 'Mapfre'],
   pediatria: ['Sanitas', 'Adeslas', 'DKV', 'AXA', 'Mapfre', 'Asisa', 'Cigna', 'Caser'],
-  medicina_general: ['Sanitas', 'Adeslas', 'DKV', 'AXA', 'Mapfre', 'Asisa', 'Cigna', 'Caser', 'Generali', 'Néctar'],
+  medicina_general: ['Sanitas', 'Adeslas', 'DKV', 'AXA', 'Mapfre', 'Asisa', 'Cigna', 'Caser'],
   psicologia: ['Sanitas', 'Adeslas', 'DKV', 'AXA', 'Cigna'],
   psiquiatria: ['Sanitas', 'Adeslas', 'DKV', 'AXA'],
 };

@@ -35,9 +35,11 @@ export const cities = [
   'Bilbao', 'Zaragoza', 'Alicante', 'Palma de Mallorca',
 ];
 
+// 2026-07-08: Néctar and Generali removed — not actually supported
+// (no landing, no insurerData entry, confirmed by business).
 export const insuranceCompanies = [
   'Sanitas', 'Adeslas', 'DKV', 'AXA', 'Mapfre', 'Asisa',
-  'Cigna', 'Generali', 'Caser', 'Néctar', 'Sin seguro - SaludOnNet'
+  'Cigna', 'Caser', 'Sin seguro - SaludOnNet'
 ];
 
 export const providers = [
@@ -75,7 +77,7 @@ export const providers = [
     rating: 4.6,
     reviewCount: 198,
     specialtyIds: [1, 2, 4, 6, 7],
-    acceptedInsurance: ['Sanitas', 'Adeslas', 'AXA', 'Asisa', 'Generali', 'Sin seguro - SaludOnNet'],
+    acceptedInsurance: ['Sanitas', 'Adeslas', 'AXA', 'Asisa', 'Sin seguro - SaludOnNet'],
     image: null,
     allowsFreeCancel: true,
     operatingHours: { monFri: { morning: ['09:00', '13:00'], afternoon: ['16:00', '19:00'] }, saturday: { morning: ['09:00', '12:00'], afternoon: null }, sunday: null },
@@ -101,7 +103,7 @@ export const providers = [
     rating: 4.5,
     reviewCount: 145,
     specialtyIds: [1, 3, 7, 8],
-    acceptedInsurance: ['Adeslas', 'DKV', 'Asisa', 'Néctar', 'Generali', 'Sin seguro - SaludOnNet'],
+    acceptedInsurance: ['Adeslas', 'DKV', 'Asisa', 'Sin seguro - SaludOnNet'],
     image: null,
     allowsFreeCancel: false,
     operatingHours: { monFri: { morning: ['09:00', '13:00'], afternoon: ['16:00', '19:00'] }, saturday: { morning: ['09:00', '12:00'], afternoon: null }, sunday: null },
