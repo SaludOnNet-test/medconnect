@@ -255,7 +255,79 @@ const STATUS_LABEL = {
   pending: 'Pendiente', called: 'Llamado', resolved: 'Resuelto',
 };
 
+function TranscriptModal({ phoneNumber, onClose }) {
+  const [state, setState] = useState({ loading: true, error: null, transcript: [] });
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await adminFetch(`/api/exec/whatsapp-leads?phone=${encodeURIComponent(phoneNumber)}&transcript=1`);
+        const data = await res.json();
+        if (cancelled) return;
+        if (data.error) setState({ loading: false, error: data.error, transcript: [] });
+        else setState({ loading: false, error: null, transcript: data.transcript || [] });
+      } catch (err) {
+        if (!cancelled) setState({ loading: false, error: err.message, transcript: [] });
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [phoneNumber]);
+
+  return (
+    <div
+      onClick={onClose}
+      style={{
+        position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)',
+        display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000,
+      }}
+    >
+      <div
+        onClick={(e) => e.stopPropagation()}
+        style={{
+          background: '#fff', borderRadius: 10, padding: 20, width: '100%', maxWidth: 560,
+          maxHeight: '80vh', overflowY: 'auto', boxShadow: '0 10px 40px rgba(0,0,0,0.2)',
+        }}
+      >
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
+          <h3 style={{ margin: 0, fontSize: 15, color: '#1a3c5e' }}>Conversación con {phoneNumber}</h3>
+          <button
+            onClick={onClose}
+            style={{ border: 'none', background: 'none', fontSize: 18, cursor: 'pointer', color: '#6b7280' }}
+          >
+            ✕
+          </button>
+        </div>
+        {state.loading && <p style={{ fontSize: 13, color: '#9ca3af' }}>Cargando…</p>}
+        {state.error && <p style={{ fontSize: 13, color: '#ef4444' }}>Error: {state.error}</p>}
+        {!state.loading && !state.error && state.transcript.length === 0 && (
+          <p style={{ fontSize: 13, color: '#9ca3af' }}>Sin mensajes registrados.</p>
+        )}
+        {!state.loading && !state.error && state.transcript.length > 0 && (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+            {state.transcript.map((m, i) => (
+              <div key={i} style={{
+                alignSelf: m.role === 'user' ? 'flex-start' : 'flex-end',
+                maxWidth: '80%',
+                background: m.role === 'user' ? '#f3f4f6' : '#eff6ff',
+                borderRadius: 8, padding: '6px 10px',
+              }}>
+                <div style={{ fontSize: 10, color: '#9ca3af', marginBottom: 2 }}>
+                  {m.role === 'user' ? 'Paciente' : 'Asistente'} · {new Date(m.created_at).toLocaleString('es-ES')}
+                </div>
+                <div style={{ fontSize: 13, color: '#1f2937', whiteSpace: 'pre-wrap' }}>{m.content}</div>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
 function WhatsAppLeads({ data, filter, onFilterChange, onStatusChange }) {
+  const [transcriptPhone, setTranscriptPhone] = useState(null);
+
   if (!data) return <div style={{ color: '#9ca3af' }}>Cargando leads WhatsApp…</div>;
 
   const { leads = [], summary = {}, pendingEscalations = [] } = data;
@@ -338,6 +410,15 @@ function WhatsAppLeads({ data, filter, onFilterChange, onStatusChange }) {
                       Búsqueda →
                     </a>
                   )}
+                  <button
+                    onClick={() => setTranscriptPhone(lead.phone_number)}
+                    style={{
+                      fontSize: 11, color: '#6b7280', background: 'none', border: '1px solid #d1d5db',
+                      borderRadius: 4, padding: '2px 6px', cursor: 'pointer',
+                    }}
+                  >
+                    Ver conversación
+                  </button>
                 </td>
               </tr>
             ))}
@@ -383,12 +464,25 @@ function WhatsAppLeads({ data, filter, onFilterChange, onStatusChange }) {
                       <option value="called">Llamado</option>
                       <option value="resolved">Resuelto</option>
                     </select>
+                    <button
+                      onClick={() => setTranscriptPhone(e.phone_number)}
+                      style={{
+                        fontSize: 11, color: '#92400e', background: 'none', border: '1px solid #fde68a',
+                        borderRadius: 4, padding: '2px 6px', cursor: 'pointer', marginLeft: 6,
+                      }}
+                    >
+                      Ver conversación
+                    </button>
                   </td>
                 </tr>
               ))}
             </tbody>
           </table>
         </div>
+      )}
+
+      {transcriptPhone && (
+        <TranscriptModal phoneNumber={transcriptPhone} onClose={() => setTranscriptPhone(null)} />
       )}
     </>
   );

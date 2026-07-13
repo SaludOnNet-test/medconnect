@@ -1823,3 +1823,87 @@ export function internalEventDigest({ kind, label, summary, booking, caseRow, ex
     html,
   };
 }
+
+// ─────────────────────────────────────────────
+// 15. WhatsApp security alert (prompt-injection / manipulation attempt)
+// ─────────────────────────────────────────────
+//
+// Sent to ops the moment the WhatsApp bot's anti-manipulation guardrail
+// fires (SECURITY_FLAG marker). transcriptLines is the last N turns of the
+// conversation (already role + text pairs), rendered readably.
+function escapeHtmlForEmail(value) {
+  return String(value ?? '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
+function renderTranscriptHtml(messages) {
+  if (!messages?.length) {
+    return '<p style="margin:0;font-size:13px;color:#9ca3af;">Sin mensajes registrados.</p>';
+  }
+  const rows = messages.map((m) => {
+    const roleLabel = m.role === 'user' ? '🧑 Paciente' : '🤖 Asistente';
+    const roleColor = m.role === 'user' ? '#1a3c5e' : '#6b7280';
+    return `
+      <tr>
+        <td style="padding:6px 10px;font-size:12px;color:${roleColor};font-weight:700;white-space:nowrap;vertical-align:top;">${roleLabel}</td>
+        <td style="padding:6px 10px;font-size:13px;color:#374151;line-height:1.5;">${escapeHtmlForEmail(m.content).replace(/\n/g, '<br>')}</td>
+      </tr>`;
+  }).join('');
+  return `<table width="100%" cellpadding="0" cellspacing="0" style="border:1px solid #e5e7eb;border-radius:8px;overflow:hidden;">${rows}</table>`;
+}
+
+export function whatsappSecurityAlert({ phoneNumber, reason, excerpt, transcript }) {
+  const html = baseWrapper(`
+    <tr><td style="background:#7f1d1d;padding:24px;text-align:center;">
+      <div style="width:60px;height:60px;background:rgba(255,255,255,0.18);border-radius:50%;margin:0 auto 12px;display:flex;align-items:center;justify-content:center;font-size:28px;">🛡️</div>
+      <h2 style="margin:0;color:#ffffff;font-size:22px;font-weight:800;">Alerta de seguridad — WhatsApp bot</h2>
+      <p style="margin:8px 0 0;color:rgba(255,255,255,0.85);font-size:14px;">Teléfono: <strong>${escapeHtmlForEmail(phoneNumber)}</strong></p>
+    </td></tr>
+    ${bodySection(`
+      <div style="background:#fef2f2;border:1px solid #fecaca;border-radius:8px;padding:14px 16px;margin-bottom:20px;">
+        <p style="margin:0 0 6px;font-size:14px;color:#991b1b;font-weight:700;">Motivo: ${escapeHtmlForEmail(reason || 'sin especificar')}</p>
+        ${excerpt ? `<p style="margin:0;font-size:13px;color:#7f1d1d;line-height:1.5;"><strong>Fragmento:</strong> "${escapeHtmlForEmail(excerpt)}"</p>` : ''}
+      </div>
+      <h3 style="margin:0 0 8px;font-size:13px;color:#1a3c5e;text-transform:uppercase;letter-spacing:0.05em;">Últimos mensajes</h3>
+      ${renderTranscriptHtml(transcript)}
+      <p style="margin:16px 0 0;font-size:12px;color:#9ca3af;text-align:center;">
+        El asistente respondió con el mensaje de rechazo estándar — no se compartió información sensible.
+      </p>
+    `)}
+  `);
+
+  return {
+    subject: `🛡️ Alerta de seguridad WhatsApp — ${phoneNumber}`,
+    html,
+  };
+}
+
+// ─────────────────────────────────────────────
+// 16. WhatsApp stale-conversation digest (opportunistic, no dedicated cron)
+// ─────────────────────────────────────────────
+//
+// Sent when a conversation went cold (30 min – 3 h without a reply) and
+// didn't already produce a lead/escalation email. Gives ops the full
+// transcript so nothing falls through the cracks.
+export function whatsappConversationDigest({ phoneNumber, messageCount, transcript }) {
+  const html = baseWrapper(bodySection(`
+    <h2 style="margin:0 0 8px;font-size:20px;font-weight:800;color:#1a3c5e;">Conversación de WhatsApp sin resolver</h2>
+    <p style="margin:0 0 16px;font-size:14px;color:#6b7280;">
+      Teléfono <strong>${escapeHtmlForEmail(phoneNumber)}</strong> lleva un rato sin actividad
+      (${Number(messageCount) || 0} mensajes) y no generó ni un lead ni una escalada. Resumen completo:
+    </p>
+    ${renderTranscriptHtml(transcript)}
+    <p style="margin:16px 0 0;font-size:12px;color:#9ca3af;text-align:center;">
+      Digest automático — generado de forma oportunista al procesar otro mensaje entrante.
+    </p>
+  `));
+
+  return {
+    subject: `WhatsApp — conversación fría sin lead (${phoneNumber})`,
+    html,
+  };
+}

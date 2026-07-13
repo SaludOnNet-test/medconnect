@@ -60,6 +60,34 @@ export async function getConversationHistory(phoneNumber) {
   }
 }
 
+// Full, unbounded conversation transcript for a phone number — for archive /
+// audit purposes (team notification emails, exec transcript viewer). Unlike
+// getConversationHistory (used to build Claude's context), this has no
+// MAX_HISTORY_TURNS cap and no 12h session window: it returns every message
+// ever exchanged with that number, oldest first.
+export async function getFullConversationTranscript(phoneNumber) {
+  if (!DB_AVAILABLE) return [];
+  try {
+    const pool = await getPool();
+    const result = await pool.request()
+      .input('phone', sql.NVarChar(20), phoneNumber)
+      .query(`
+        SELECT role, content, created_at
+        FROM whatsapp_conversations
+        WHERE phone_number = @phone
+        ORDER BY created_at ASC
+      `);
+    return result.recordset.map((r) => ({
+      role: r.role,
+      content: r.content,
+      created_at: r.created_at,
+    }));
+  } catch (err) {
+    console.error('[whatsapp] getFullConversationTranscript error:', err.message);
+    return [];
+  }
+}
+
 export async function saveMessage(phoneNumber, role, content) {
   if (!DB_AVAILABLE) return;
   try {

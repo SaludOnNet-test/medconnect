@@ -3,10 +3,12 @@ import { getPool, DB_AVAILABLE } from '@/lib/db';
 import sql from 'mssql';
 import { requireExecAuth } from '@/lib/exec/auth';
 import { internalError } from '@/lib/errors';
+import { getFullConversationTranscript } from '@/lib/whatsapp';
 
 export const dynamic = 'force-dynamic';
 
 // GET /api/exec/whatsapp-leads?status=pending&limit=50
+// GET /api/exec/whatsapp-leads?phone=+34600...&transcript=1 — full conversation transcript
 export async function GET(request) {
   const authError = requireExecAuth(request);
   if (authError) return authError;
@@ -16,6 +18,17 @@ export async function GET(request) {
   }
 
   const { searchParams } = new URL(request.url);
+
+  const phone = searchParams.get('phone');
+  if (phone && searchParams.get('transcript') === '1') {
+    try {
+      const transcript = await getFullConversationTranscript(phone);
+      return NextResponse.json({ transcript });
+    } catch (err) {
+      return internalError(err, '[GET /api/exec/whatsapp-leads?transcript=1]');
+    }
+  }
+
   const status = searchParams.get('status') || 'all';
   const limit = Math.min(Number(searchParams.get('limit')) || 50, 200);
 

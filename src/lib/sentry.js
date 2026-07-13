@@ -122,6 +122,71 @@ export async function captureException(error, extra = {}, opts = {}) {
   }
 }
 
+/**
+ * Capture a plain message (no exception object) as a Sentry event.
+ * Fire-and-forget — never throws. Useful for signals that aren't errors in
+ * the JS sense but still warrant ops visibility (e.g. a security flag raised
+ * by the WhatsApp bot's system prompt).
+ *
+ * @param {string} message
+ * @param {object} [extra]   Free-form metadata stitched into event.contexts.extra.
+ * @param {object} [opts]
+ * @param {string} [opts.level]        Sentry level — defaults to 'warning'.
+ * @param {string} [opts.release]      Defaults to VERCEL_GIT_COMMIT_SHA.
+ * @param {string} [opts.environment]  Defaults to VERCEL_ENV / NODE_ENV.
+ */
+export async function captureMessage(message, extra = {}, opts = {}) {
+  const dsn = parseDsn();
+  if (!dsn || !message) return;
+
+  const eventId = uuidNoDashes();
+  const ts = nowSec();
+
+  const envelopeHeader = JSON.stringify({
+    event_id: eventId,
+    sent_at: new Date().toISOString(),
+    dsn: process.env.SENTRY_DSN,
+  });
+
+  const event = {
+    event_id: eventId,
+    timestamp: ts,
+    platform: 'javascript',
+    level: opts.level || 'warning',
+    logger: 'medconnect',
+    message: { formatted: String(message) },
+    release: opts.release || process.env.VERCEL_GIT_COMMIT_SHA || undefined,
+    environment: opts.environment || process.env.VERCEL_ENV || process.env.NODE_ENV || 'production',
+    server_name: process.env.VERCEL_URL || undefined,
+    contexts: {
+      runtime: { name: typeof window === 'undefined' ? 'node' : 'browser' },
+      extra,
+    },
+    tags: {
+      runtime: typeof window === 'undefined' ? 'server' : 'client',
+    },
+  };
+
+  const itemHeader = JSON.stringify({ type: 'event' });
+  const body = `${envelopeHeader}\n${itemHeader}\n${JSON.stringify(event)}`;
+
+  try {
+    await fetch(dsn.envelopeUrl, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/x-sentry-envelope',
+        'X-Sentry-Auth': sentryAuthHeader(dsn.key),
+      },
+      body,
+      keepalive: true,
+    });
+  } catch (e) {
+    if (process.env.NODE_ENV !== 'production') {
+      console.warn('[sentry] captureMessage failed:', e.message);
+    }
+  }
+}
+
 function sentryAuthHeader(key) {
   return [
     'Sentry sentry_version=7',

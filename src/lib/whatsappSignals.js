@@ -3,6 +3,7 @@
 // Claude appends machine-readable markers at the end of its messages:
 //   <!--LEAD:{...}-->
 //   <!--ESCALATION:{...}-->
+//   <!--SECURITY_FLAG:{...}-->
 // We strip them before sending to the user.
 // Extracted from src/app/api/whatsapp/webhook/route.js so it is unit-testable.
 // ---------------------------------------------------------------------------
@@ -10,6 +11,7 @@ export function parseSignals(text, _phoneNumber) {
   let cleanText = text;
   let leadData = null;
   let escalationData = null;
+  let securityFlag = null;
 
   const leadMatch = text.match(/<!--LEAD:(.*?)-->/s);
   if (leadMatch) {
@@ -49,5 +51,19 @@ export function parseSignals(text, _phoneNumber) {
     cleanText = cleanText.replace(/<!--ESCALATION:.*?-->/s, '').trim();
   }
 
-  return { cleanText, leadData, escalationData };
+  const securityMatch = text.match(/<!--SECURITY_FLAG:(.*?)-->/s);
+  if (securityMatch) {
+    try {
+      const raw = JSON.parse(securityMatch[1]);
+      securityFlag = {
+        reason: raw.reason || null,
+        excerpt: raw.excerpt || null,
+      };
+    } catch {
+      // malformed JSON — ignore
+    }
+    cleanText = cleanText.replace(/<!--SECURITY_FLAG:.*?-->/s, '').trim();
+  }
+
+  return { cleanText, leadData, escalationData, securityFlag };
 }
