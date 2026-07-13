@@ -6,7 +6,11 @@
 //                                     { messages: [{ id, from, type, text }] }
 
 const DIALOG360_API_KEY = process.env.WHATSAPP_360DIALOG_API_KEY || '';
-const DIALOG360_URL = 'https://waba.360dialog.io/v1/messages';
+// 360dialog's newer accounts (embedded Meta signup, waba-v2.360dialog.io) use
+// the Cloud-API-compatible v2 endpoint, not the legacy v1 one. Configurable
+// via env in case a given account is provisioned on a different base URL.
+const DIALOG360_BASE_URL = process.env.WHATSAPP_360DIALOG_BASE_URL || 'https://waba-v2.360dialog.io';
+const DIALOG360_URL = `${DIALOG360_BASE_URL}/messages`;
 
 export async function sendTextMessage(to, text) {
   const res = await fetch(DIALOG360_URL, {

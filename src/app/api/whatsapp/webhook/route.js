@@ -96,7 +96,11 @@ export async function POST(request) {
   if (!webhookSecret) {
     return NextResponse.json({ error: 'Webhook not configured' }, { status: 503 });
   }
-  const providedSecret = request.headers.get('x-webhook-secret') || '';
+  // 360dialog's webhook-registration UI only exposes a plain URL field (no
+  // custom headers), so also accept the secret as a query param embedded in
+  // the registered URL. Header takes precedence when both are present.
+  const url = new URL(request.url);
+  const providedSecret = request.headers.get('x-webhook-secret') || url.searchParams.get('secret') || '';
   if (!safeCompare(providedSecret, webhookSecret)) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
