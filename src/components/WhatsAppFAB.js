@@ -25,7 +25,11 @@ import { trackEvent } from '@/lib/analytics';
 // 2026-06-04 v2 — switched from the landline (91 197 70 52) to the
 // dedicated ops mobile so WhatsApp routes to a number that actually
 // receives messages. The header still shows the landline for voice.
-const WA_NUMBER = '34677348588';
+// 2026-07-08 — switched to the 360dialog-provisioned WABA number
+// (US country code — assigned during Meta embedded signup; the +34
+// 672 37 58 46 line never completed porting to the WABA). This is the
+// number the AI bot answers on.
+const WA_NUMBER = '15554262389';
 const DEFAULT_TEXT = 'Hola, necesito ayuda para reservar una cita en Med Connect.';
 
 // Ops attention hours — surfaced to the patient in the greeting modal.
