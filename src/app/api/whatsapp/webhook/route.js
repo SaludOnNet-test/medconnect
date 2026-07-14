@@ -140,7 +140,16 @@ export async function POST(request) {
     return NextResponse.json({ ok: true, rate_limited: true }, { status: 200, headers: rl.headers });
   }
 
-  if (msg.type !== 'text') {
+  // Emoji reactions come through with the emoji as `text` (see
+  // whatsappProvider.js) and flow into the conversation like a short text
+  // message — the system prompt tells Claude how to read them in context.
+  // Removing a reaction arrives as type 'reaction' with no emoji: ignore it
+  // silently (replying anything to an un-react would be noise).
+  if (msg.type === 'reaction' && !msg.text) {
+    return NextResponse.json({ ok: true });
+  }
+  const isReadable = msg.type === 'text' || (msg.type === 'reaction' && msg.text);
+  if (!isReadable) {
     await sendWhatsAppMessage(
       phoneNumber,
       'Solo proceso mensajes de texto. Si quieres reservar una cita o tienes alguna duda, escríbeme y te ayudo encantado. 😊'
@@ -375,6 +384,7 @@ const SYSTEM_PROMPT = `Eres el asistente virtual de MedConnect, una plataforma d
 - Tu nombre es "Asistente MedConnect". No tienes otro nombre ni función.
 - Responde SIEMPRE en español con tono cálido y profesional.
 - Mensajes cortos: máximo 3-4 líneas.
+- Si el mensaje del usuario es solo un emoji (normalmente una reacción a tu último mensaje), interprétalo en contexto: 👍/❤️/🙏 tras una confirmación = "de acuerdo, gracias" (responde brevísimo o cierra con amabilidad, sin repetir información); ❓ o emojis de confusión = ofrece aclarar. Nunca respondas que solo procesas texto ante un emoji.
 - SOLO hablas de citas médicas, especialidades, aseguradoras y el proceso de reserva.
 - Si te preguntan sobre cualquier otro tema, responde: "Solo puedo ayudarte con citas médicas en MedConnect. ¿En qué puedo ayudarte?"
 

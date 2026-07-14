@@ -136,6 +136,40 @@ describe('parseInboundPayload', () => {
     });
   });
 
+  it('carries the emoji as text for reaction messages', () => {
+    const body = {
+      entry: [
+        {
+          changes: [
+            {
+              value: {
+                messages: [
+                  {
+                    id: 'wamid.REACT1',
+                    from: '34612345678',
+                    type: 'reaction',
+                    reaction: { message_id: 'wamid.BOT1', emoji: '👍' },
+                  },
+                ],
+              },
+            },
+          ],
+        },
+      ],
+    };
+    expect(parseInboundPayload(body)).toEqual({
+      messages: [
+        { id: 'wamid.REACT1', from: '34612345678', type: 'reaction', text: '👍' },
+      ],
+    });
+    // Removing a reaction sends type 'reaction' with no emoji — text null
+    expect(parseInboundPayload({
+      messages: [{ id: 'r2', from: '1', type: 'reaction', reaction: { message_id: 'wamid.BOT1' } }],
+    })).toEqual({
+      messages: [{ id: 'r2', from: '1', type: 'reaction', text: null }],
+    });
+  });
+
   it('defaults missing fields to null', () => {
     expect(parseInboundPayload({ messages: [{}] })).toEqual({
       messages: [{ id: null, from: null, type: null, text: null }],

@@ -64,7 +64,14 @@ export function parseInboundPayload(body) {
       id: msg?.id ?? null,
       from: msg?.from ?? null,
       type: msg?.type ?? null,
-      text: msg?.type === 'text' ? (msg?.text?.body ?? null) : null,
+      // Text messages carry their body; emoji reactions (👍 on a bot
+      // message) carry the emoji so the bot can read them in context
+      // instead of replying "solo proceso mensajes de texto".
+      text: msg?.type === 'text'
+        ? (msg?.text?.body ?? null)
+        : msg?.type === 'reaction'
+          ? (msg?.reaction?.emoji ?? null)
+          : null,
     })),
   };
 }
