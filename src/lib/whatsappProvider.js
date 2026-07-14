@@ -34,14 +34,31 @@ export async function sendTextMessage(to, text) {
   return res.json();
 }
 
-// 360dialog inbound payload: { messages: [...], contacts: [...] }
-// Normalised shape: { messages: [{ id, from, type, text }] } where `text` is
-// the string body for text messages and null otherwise.
+// Inbound payload shapes, by account generation:
+//  - v2 / Cloud API (waba-v2, Meta embedded signup — OUR account): messages
+//    are nested under entry[].changes[].value.messages; the same envelope
+//    also carries status events (value.statuses) with no messages at all.
+//  - legacy v1: { messages: [...], contacts: [...] } at the top level.
+// We accept both — the top-level fallback keeps old fixtures/tests and any
+// v1 account working. Normalised shape: { messages: [{ id, from, type,
+// text }] } where `text` is the string body for text messages, else null.
 export function parseInboundPayload(body) {
-  const rawMessages = body?.messages;
-  if (!Array.isArray(rawMessages) || !rawMessages.length) {
-    return { messages: [] };
+  let rawMessages = [];
+
+  if (Array.isArray(body?.entry)) {
+    for (const entry of body.entry) {
+      if (!Array.isArray(entry?.changes)) continue;
+      for (const change of entry.changes) {
+        const msgs = change?.value?.messages;
+        if (Array.isArray(msgs)) rawMessages.push(...msgs);
+      }
+    }
+  } else if (Array.isArray(body?.messages)) {
+    rawMessages = body.messages;
   }
+
+  if (!rawMessages.length) return { messages: [] };
+
   return {
     messages: rawMessages.map((msg) => ({
       id: msg?.id ?? null,

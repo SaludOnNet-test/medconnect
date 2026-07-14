@@ -57,6 +57,85 @@ describe('parseInboundPayload', () => {
     });
   });
 
+  // 360dialog v2 accounts (Meta embedded signup, waba-v2) forward the raw
+  // Cloud API envelope — messages live in entry[].changes[].value.messages.
+  // This is the shape our production account actually sends; the top-level
+  // `messages` shape above is the legacy v1 format.
+  it('parses the Cloud API (v2) envelope with nested messages', () => {
+    const body = {
+      object: 'whatsapp_business_account',
+      entry: [
+        {
+          id: '174390087679667',
+          changes: [
+            {
+              field: 'messages',
+              value: {
+                messaging_product: 'whatsapp',
+                metadata: { display_phone_number: '15554262389', phone_number_id: '999' },
+                contacts: [{ profile: { name: 'Ana' }, wa_id: '34612345678' }],
+                messages: [
+                  {
+                    id: 'wamid.V2MSG',
+                    from: '34612345678',
+                    timestamp: '1719830000',
+                    type: 'text',
+                    text: { body: 'Hola' },
+                  },
+                ],
+              },
+            },
+          ],
+        },
+      ],
+    };
+    expect(parseInboundPayload(body)).toEqual({
+      messages: [
+        { id: 'wamid.V2MSG', from: '34612345678', type: 'text', text: 'Hola' },
+      ],
+    });
+  });
+
+  it('returns empty messages for Cloud API status-only events', () => {
+    const body = {
+      object: 'whatsapp_business_account',
+      entry: [
+        {
+          changes: [
+            {
+              field: 'messages',
+              value: {
+                messaging_product: 'whatsapp',
+                statuses: [{ id: 'wamid.OUT1', status: 'delivered', recipient_id: '34612345678' }],
+              },
+            },
+          ],
+        },
+      ],
+    };
+    expect(parseInboundPayload(body)).toEqual({ messages: [] });
+  });
+
+  it('collects messages across multiple entries/changes', () => {
+    const body = {
+      entry: [
+        { changes: [{ value: { messages: [{ id: 'a', from: '1', type: 'text', text: { body: 'x' } }] } }] },
+        {
+          changes: [
+            { value: { statuses: [{ id: 's' }] } },
+            { value: { messages: [{ id: 'b', from: '2', type: 'image' }] } },
+          ],
+        },
+      ],
+    };
+    expect(parseInboundPayload(body)).toEqual({
+      messages: [
+        { id: 'a', from: '1', type: 'text', text: 'x' },
+        { id: 'b', from: '2', type: 'image', text: null },
+      ],
+    });
+  });
+
   it('defaults missing fields to null', () => {
     expect(parseInboundPayload({ messages: [{}] })).toEqual({
       messages: [{ id: null, from: null, type: null, text: null }],
