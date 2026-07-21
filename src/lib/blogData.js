@@ -187,7 +187,7 @@ export const BLOG_POSTS = [
     `,
   },
   {
-    slug: 'cuando-ir-dermatologo-señales-piel',
+    slug: 'cuando-ir-dermatologo-senales-piel',
     title: 'Cuándo ir al dermatólogo: señales de la piel que no debes ignorar',
     description: 'Desde un lunar que cambia hasta una erupción que no cura. Guía para identificar cuándo una alteración cutánea necesita revisión dermatológica urgente.',
     category: 'especialidad',

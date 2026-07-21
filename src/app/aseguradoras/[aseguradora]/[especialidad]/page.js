@@ -161,7 +161,7 @@ export default async function InsurerSpecialtyPage({ params }) {
               <span aria-hidden="true"> / </span>
               <Link href="/aseguradoras">Aseguradoras</Link>
               <span aria-hidden="true"> / </span>
-              <Link href={`/aseguradoras/${aseguradora}`}>{insurer.name}</Link>
+              <span>{insurer.name}</span>
               <span aria-hidden="true"> / </span>
               <span>{specialty.name}</span>
             </nav>

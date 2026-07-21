@@ -57,12 +57,30 @@ const nextConfig = {
   },
   async redirects() {
     return [
-      // The two B2B pages were merged into a single
-      // /para-clinicas-o-medicos route. Existing inbound links (footer,
-      // nav from the old shipped build, external SEO) keep working —
-      // each anchor points to the right model section.
+      // B2B page merges
       { source: '/para-clinicas', destination: '/para-clinicas-o-medicos#vender-huecos', permanent: true },
       { source: '/derivadores',   destination: '/para-clinicas-o-medicos#derivar-pacientes', permanent: true },
+
+      // Fix 404s found in GSC (detected May–Jul 2026)
+      // Specialty hub pages without city — breadcrumb JSON-LD was pointing here
+      { source: '/especialistas/psicologia',        destination: '/search-v2?specialtySlug=psicologia', permanent: true },
+      { source: '/especialistas/digestivo',         destination: '/search-v2?specialtySlug=digestivo', permanent: true },
+      { source: '/especialistas/urologia',          destination: '/search-v2?specialtySlug=urologia', permanent: true },
+      { source: '/especialistas/otorrinolaringologia', destination: '/search-v2?specialtySlug=otorrinolaringologia', permanent: true },
+      { source: '/especialistas/dermatologia',      destination: '/search-v2?specialtySlug=dermatologia', permanent: true },
+      // Catch-all for any other specialty hub without city
+      { source: '/especialistas/:slug',             destination: '/search-v2?specialtySlug=:slug', permanent: true },
+
+      // Footer key concatenation bug — generated /faqFAQ and /contactoContacto
+      { source: '/faqFAQ',        destination: '/faq', permanent: true },
+      { source: '/contactoContacto', destination: '/contacto', permanent: true },
+
+      // Aseguradoras breadcrumb pointing to non-existent insurer hub
+      { source: '/aseguradoras/Aseguradoras', destination: '/aseguradoras', permanent: true },
+
+      // Blog slug with ñ character (renamed to ASCII-safe slug)
+      { source: '/blog/cuando-ir-dermatologo-se%C3%B1ales-piel', destination: '/blog/cuando-ir-dermatologo-senales-piel', permanent: true },
+      { source: '/blog/cuando-ir-dermatologo-señales-piel',      destination: '/blog/cuando-ir-dermatologo-senales-piel', permanent: true },
     ];
   },
 };

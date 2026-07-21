@@ -55,7 +55,7 @@ export default function Footer() {
             <div className="footer-col-title">{col.title}</div>
             <ul className="footer-col-links">
               {col.links.map(([label, href]) => (
-                <li key={href + label}>
+                <li key={label}>
                   {href.startsWith('mailto:')
                     ? <a href={href}>{label}</a>
                     : <Link href={href}>{label}</Link>}

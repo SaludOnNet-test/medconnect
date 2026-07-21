@@ -299,7 +299,7 @@ export default async function EspecialistasCiudadPage({ params }) {
         itemListElement: [
           { '@type': 'ListItem', position: 1, name: 'Inicio',        item: BASE_URL },
           { '@type': 'ListItem', position: 2, name: 'Especialistas', item: `${BASE_URL}/search-v2` },
-          { '@type': 'ListItem', position: 3, name: specialty.name,  item: `${BASE_URL}/especialistas/${especialidad}` },
+          { '@type': 'ListItem', position: 3, name: specialty.name,  item: `${BASE_URL}/search-v2?specialtySlug=${especialidad}` },
           { '@type': 'ListItem', position: 4, name: city,            item: canonicalUrl },
         ],
       },
