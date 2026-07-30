@@ -109,7 +109,13 @@ export async function POST(request) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
 
-  const phone = url.searchParams.get('phone');
+  // QStash forwards the published JSON body — phone lives there. Fall back to
+  // a query param so the endpoint stays manually testable with curl.
+  let phone = url.searchParams.get('phone');
+  if (!phone) {
+    const body = await request.json().catch(() => null);
+    phone = body?.phone || null;
+  }
   if (!phone) return NextResponse.json({ ok: true });
 
   try {

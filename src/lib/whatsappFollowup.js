@@ -36,19 +36,28 @@ export async function scheduleFollowup(phoneNumber) {
 
   try {
     const site = process.env.NEXT_PUBLIC_SITE_URL || 'https://www.medconnect.es';
-    const destUrl = `${site}/api/whatsapp/followup?secret=${encodeURIComponent(secret)}&phone=${encodeURIComponent(phoneNumber)}`;
-    const publishUrl = `${QSTASH_URL}/v2/publish/${encodeURIComponent(destUrl)}`;
+    // Destination has NO query string — QStash appends the destination raw
+    // after /v2/publish/, so query params there are ambiguous. The phone
+    // travels in the forwarded JSON body and the auth secret in an
+    // `Upstash-Forward-*` header (QStash strips the prefix and delivers it to
+    // the destination as `x-webhook-secret`).
+    const destUrl = `${site}/api/whatsapp/followup`;
+    const publishUrl = `${QSTASH_URL}/v2/publish/${destUrl}`;
 
     const res = await fetchWithTimeout(publishUrl, {
       method: 'POST',
       headers: {
         Authorization: `Bearer ${QSTASH_TOKEN}`,
+        'Content-Type': 'application/json',
         'Upstash-Delay': '2h',
+        'Upstash-Forward-x-webhook-secret': secret,
       },
+      body: JSON.stringify({ phone: phoneNumber }),
       timeoutMs: 3000,
     });
     if (!res.ok) {
-      console.warn('[whatsapp/followup] QStash publish failed:', res.status);
+      const text = await res.text().catch(() => '');
+      console.warn('[whatsapp/followup] QStash publish failed:', res.status, text.slice(0, 200));
     }
   } catch (err) {
     console.error('[whatsapp/followup] scheduleFollowup error:', err.message);
