@@ -18,6 +18,7 @@ import { fetchWithTimeout } from '@/lib/http';
 import { parseInboundPayload } from '@/lib/whatsappProvider';
 import { whatsappSecurityAlert } from '@/lib/emailTemplates';
 import { dispatchStaleConversationDigests } from '@/lib/whatsappDigest';
+import { scheduleFollowup } from '@/lib/whatsappFollowup';
 
 // Last N transcript lines included in the immediate security-alert email —
 // enough context to judge the attempt without dumping the whole history.
@@ -213,6 +214,11 @@ export async function POST(request) {
     try {
       after(() => dispatchStaleConversationDigests().catch((err) => {
         console.error('[whatsapp/webhook] stale digest dispatch failed:', err.message);
+      }));
+      // Schedule a single 2h re-engagement nudge (best-effort, no-op without
+      // QSTASH_TOKEN). Runs after the response is flushed, adds no reply latency.
+      after(() => scheduleFollowup(phoneNumber).catch((err) => {
+        console.error('[whatsapp/webhook] scheduleFollowup failed:', err.message);
       }));
     } catch (err) {
       console.error('[whatsapp/webhook] after() scheduling failed:', err.message);
@@ -440,9 +446,16 @@ Datos a recoger (en orden de prioridad):
 2. Ciudad — para filtrar centros
 3. Modalidad — ¿presencial o videoconsulta?
 4. Aseguradora — para pre-filtrar por cobertura
-5. Nombre del paciente — para el registro del lead
+5. Nombre y email del paciente — para la confirmación y el recordatorio
 6. Fecha/franja horaria preferida
 7. Motivo breve de la consulta
+
+=== PEDIR NOMBRE + EMAIL (una sola pregunta) ===
+Una vez que ya tienes la especialidad y la modalidad (y has enviado el link), pide el nombre y el email JUNTOS en UNA sola pregunta, con una razón honesta. Por ejemplo:
+"¿Me dices tu nombre y un email? Así te envío la confirmación y, si no llegas a reservar hoy, te lo recuerdo por aquí. 😊"
+- Es UNA sola pregunta combinada. No lo pidas en dos mensajes separados ni añadas fricción extra.
+- El email es OPCIONAL: si el paciente no quiere darlo, sigue ayudándole con normalidad sin bloquear ni insistir.
+- Cuando tengas el nombre y/o el email, inclúyelos en el marcador LEAD (campos "name" y "email").
 
 === LINKS A ENVIAR ===
 Cuando tengas la especialidad, incluye SIEMPRE en tu mensaje uno o dos links según este criterio:
@@ -483,7 +496,7 @@ Si el usuario pide explícitamente hablar con una persona:
 
 === FORMATO DE MARCADORES (siempre al final, nunca visibles para el usuario) ===
 Cuando tengas nombre + especialidad como mínimo, añade al final de tu mensaje:
-<!--LEAD:{"name":"Nombre Apellido","insurance":"Axa","specialty":"Cardiología","doctor":"Dr. García","city":"Madrid","modality":"presencial","date":"julio 2026","time":"mañanas","reason":"revisión anual","urgency":"normal"}-->
+<!--LEAD:{"name":"Nombre Apellido","email":"paciente@email.com","insurance":"Axa","specialty":"Cardiología","doctor":"Dr. García","city":"Madrid","modality":"presencial","date":"julio 2026","time":"mañanas","reason":"revisión anual","urgency":"normal"}-->
 
 Para escalado a humano:
 <!--ESCALATION:{"name":"Nombre","time":"L-V 10:00-12:00","phone":"+34612345678","summary":"Resumen breve de la conversación"}-->

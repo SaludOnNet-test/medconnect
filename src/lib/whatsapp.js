@@ -110,13 +110,77 @@ export async function saveMessage(phoneNumber, role, content) {
   }
 }
 
+// Extract the last 9 digits of a phone number (Spanish mobiles are 9 digits),
+// stripping every non-digit first. Returns '' when fewer than 9 digits remain.
+// Used to match a WhatsApp lead (stored with country prefix) against a booking
+// phone that may have been typed in a different format.
+export function last9Digits(phone) {
+  const digits = String(phone ?? '').replace(/\D/g, '');
+  if (digits.length < 9) return '';
+  return digits.slice(-9);
+}
+
 export async function saveLead(data) {
   if (!DB_AVAILABLE) return null;
   try {
     const pool = await getPool();
+
+    // UPSERT: a single lead may be enriched across several bot turns, and each
+    // turn that carries a LEAD marker would otherwise INSERT a duplicate row.
+    // Reuse the most recent still-open ('link_sent') row for this phone from
+    // the last 12h and enrich it in place; only INSERT when none exists.
+    const existing = await pool.request()
+      .input('phone', sql.NVarChar(20), data.phone_number)
+      .query(`
+        SELECT TOP 1 id FROM whatsapp_leads
+        WHERE phone_number = @phone
+          AND status = 'link_sent'
+          AND created_at > DATEADD(hour, -12, SYSDATETIMEOFFSET())
+        ORDER BY created_at DESC
+      `);
+    const existingId = existing.recordset[0]?.id;
+
+    if (existingId) {
+      // COALESCE(@new, column): only overwrite a column when the new marker
+      // actually carries that field — never blank out data captured earlier.
+      await pool.request()
+        .input('id', sql.Int, existingId)
+        .input('name', sql.NVarChar(100), data.patient_name || null)
+        .input('email', sql.NVarChar(255), data.email || null)
+        .input('insurance', sql.NVarChar(100), data.insurance_company || null)
+        .input('specialty', sql.NVarChar(100), data.specialty_requested || null)
+        .input('doctor', sql.NVarChar(100), data.preferred_doctor || null)
+        .input('city', sql.NVarChar(100), data.city || null)
+        .input('modality', sql.NVarChar(20), data.preferred_modality || null)
+        .input('date', sql.NVarChar(50), data.preferred_date || null)
+        .input('time_range', sql.NVarChar(50), data.preferred_time_range || null)
+        .input('reason', sql.NVarChar(500), data.visit_reason || null)
+        .input('link', sql.NVarChar(1000), data.checkout_link || null)
+        .input('urgency', sql.NVarChar(20), data.urgency_level || null)
+        .query(`
+          UPDATE whatsapp_leads
+          SET patient_name         = COALESCE(@name, patient_name),
+              email                = COALESCE(@email, email),
+              insurance_company    = COALESCE(@insurance, insurance_company),
+              specialty_requested  = COALESCE(@specialty, specialty_requested),
+              preferred_doctor     = COALESCE(@doctor, preferred_doctor),
+              city                 = COALESCE(@city, city),
+              preferred_modality   = COALESCE(@modality, preferred_modality),
+              preferred_date       = COALESCE(@date, preferred_date),
+              preferred_time_range = COALESCE(@time_range, preferred_time_range),
+              visit_reason         = COALESCE(@reason, visit_reason),
+              checkout_link        = COALESCE(@link, checkout_link),
+              urgency_level        = COALESCE(@urgency, urgency_level),
+              updated_at           = SYSDATETIMEOFFSET()
+          WHERE id = @id
+        `);
+      return existingId;
+    }
+
     const result = await pool.request()
     .input('phone', sql.NVarChar(20), data.phone_number)
     .input('name', sql.NVarChar(100), data.patient_name || null)
+    .input('email', sql.NVarChar(255), data.email || null)
     .input('insurance', sql.NVarChar(100), data.insurance_company || null)
     .input('specialty', sql.NVarChar(100), data.specialty_requested || null)
     .input('doctor', sql.NVarChar(100), data.preferred_doctor || null)
@@ -129,11 +193,11 @@ export async function saveLead(data) {
     .input('urgency', sql.NVarChar(20), data.urgency_level || 'normal')
     .query(`
       INSERT INTO whatsapp_leads
-        (phone_number, patient_name, insurance_company, specialty_requested,
+        (phone_number, patient_name, email, insurance_company, specialty_requested,
          preferred_doctor, city, preferred_modality, preferred_date,
          preferred_time_range, visit_reason, checkout_link, urgency_level, status)
       VALUES
-        (@phone, @name, @insurance, @specialty,
+        (@phone, @name, @email, @insurance, @specialty,
          @doctor, @city, @modality, @date,
          @time_range, @reason, @link, @urgency, 'link_sent');
       SELECT SCOPE_IDENTITY() AS id;
@@ -147,6 +211,34 @@ export async function saveLead(data) {
       scope: '[whatsapp.saveLead]',
     }).catch(() => {});
     return null;
+  }
+}
+
+// Conversion tracking: when a Stripe payment settles, mark the matching
+// WhatsApp lead as 'paid'. Best-effort — never throws (a failure here must not
+// affect the Stripe webhook result). The booking phone may be in a different
+// format than the stored lead phone, so we match on the last 9 digits.
+export async function markWhatsappLeadPaid(rawPhone) {
+  if (!DB_AVAILABLE) return;
+  const last9 = last9Digits(rawPhone);
+  if (!last9) return;
+  try {
+    const pool = await getPool();
+    await pool.request()
+      .input('last9', sql.NVarChar(9), last9)
+      .query(`
+        UPDATE whatsapp_leads
+        SET status = 'paid', updated_at = SYSDATETIMEOFFSET()
+        WHERE id = (
+          SELECT TOP 1 id FROM whatsapp_leads
+          WHERE status = 'link_sent'
+            AND RIGHT(REPLACE(REPLACE(phone_number, '+', ''), ' ', ''), 9) = @last9
+            AND created_at >= DATEADD(day, -30, SYSDATETIMEOFFSET())
+          ORDER BY created_at DESC
+        )
+      `);
+  } catch (err) {
+    console.error('[whatsapp] markWhatsappLeadPaid error:', err.message);
   }
 }
 

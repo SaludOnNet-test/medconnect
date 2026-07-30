@@ -19,6 +19,7 @@ export function parseSignals(text, _phoneNumber) {
       const raw = JSON.parse(leadMatch[1]);
       leadData = {
         patient_name: raw.name || null,
+        email: raw.email || null,
         insurance_company: raw.insurance || null,
         specialty_requested: raw.specialty || null,
         preferred_doctor: raw.doctor || null,

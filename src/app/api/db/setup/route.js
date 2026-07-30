@@ -802,6 +802,15 @@ export async function GET(request) {
       IF NOT EXISTS (SELECT * FROM sys.columns WHERE Name = 'preferred_modality' AND Object_ID = Object_ID('whatsapp_leads'))
       ALTER TABLE whatsapp_leads ADD preferred_modality NVARCHAR(20) NULL;
     `);
+    // ── Migration: email + updated_at on whatsapp_leads ───────────────
+    await pool.request().query(`
+      IF NOT EXISTS (SELECT * FROM sys.columns WHERE Name = 'email' AND Object_ID = Object_ID('whatsapp_leads'))
+      ALTER TABLE whatsapp_leads ADD email NVARCHAR(255) NULL;
+    `);
+    await pool.request().query(`
+      IF NOT EXISTS (SELECT * FROM sys.columns WHERE Name = 'updated_at' AND Object_ID = Object_ID('whatsapp_leads'))
+      ALTER TABLE whatsapp_leads ADD updated_at DATETIMEOFFSET NULL;
+    `);
 
     await pool.request().query(`
       IF NOT EXISTS (SELECT * FROM sys.tables WHERE name = 'human_escalations')

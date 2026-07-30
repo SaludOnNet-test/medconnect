@@ -30,6 +30,7 @@ import { internalError } from '@/lib/errors';
 import { createCaseForBooking } from '@/lib/opsCases';
 import { notifyInternalWatcher } from '@/lib/internalWatcher';
 import { captureException } from '@/lib/sentry';
+import { markWhatsappLeadPaid } from '@/lib/whatsapp';
 
 // Stripe requires the raw body byte-for-byte to verify the signature, so we
 // must NOT call request.json() before constructEvent(). Forcing dynamic
@@ -118,7 +119,7 @@ async function markBookingPaid(paymentIntent) {
       OUTPUT INSERTED.id, INSERTED.provider_id, INSERTED.provider_name,
              INSERTED.slot_date, INSERTED.slot_time, INSERTED.amount,
              INSERTED.platform_fee, INSERTED.referral_id,
-             INSERTED.patient_name, INSERTED.patient_email
+             INSERTED.patient_name, INSERTED.patient_email, INSERTED.patient_phone
       WHERE (
               (@booking_id IS NOT NULL AND id = @booking_id)
               OR payment_intent_id = @pi
@@ -194,6 +195,15 @@ async function markBookingPaid(paymentIntent) {
       // manually. Log so Sentry captures it.
       console.error('[stripe webhook] ops case creation failed for', booking.id, err?.message);
     }
+  }
+
+  // Conversion tracking: if this booking traces back to a WhatsApp lead
+  // (matched by phone), mark that lead as 'paid'. Best-effort in its own
+  // try/catch — must never throw upward nor affect the webhook result.
+  try {
+    await markWhatsappLeadPaid(booking.patient_phone);
+  } catch (err) {
+    console.error('[stripe webhook] markWhatsappLeadPaid failed for', booking.id, err?.message);
   }
 }
 
