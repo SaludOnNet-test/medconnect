@@ -394,6 +394,15 @@ function BookContent() {
     if (val === true && !selectedInsurance && insuranceCompanies.length > 0) {
       setSelectedInsurance(insuranceCompanies[0]);
     }
+    // 2026-08-06 — Book-step drop-off instrumentation.
+    // Stripe audit revealed 6 sessions reached `book_started` since Jul 1
+    // but ZERO advanced to `wallet_check` (the event PaymentForm emits when
+    // it mounts). We need visibility into the form → payment transition:
+    // this event tells us how many users even engage with the insurance
+    // toggle (which is the gating field before the "Continuar al pago"
+    // button becomes enabled).
+    try { trackEvent('book_insurance_toggled', { has_insurance: val === true }); }
+    catch { /* analytics fire-and-forget */ }
   };
 
   // Referral states. Initial value comes from ?asProfessional=true (the
@@ -498,6 +507,15 @@ function BookContent() {
     e.preventDefault();
     if (submitting) return; // double-submit guard
 
+    // 2026-08-06 — Book-step drop-off instrumentation (Stripe audit).
+    // Fires on EVERY submit attempt, before any validation. Divide the
+    // count of this event by `book_started` in analytics_events to know
+    // what fraction of /book-arrivals ever click the CTA. The 6 sessions
+    // that reached book_started since Jul 1 → 0 wallet_check tells us
+    // less about which stage killed them than a per-branch event does.
+    try { trackEvent('book_form_submit_attempted', {}); }
+    catch { /* analytics fire-and-forget */ }
+
     // Bug 1.2 fix — validate before submitting. HTML5 `required` still fires
     // first because <input required> is on each field, but on mobile the
     // browser-native bubble is tiny and easy to miss → users perceive a
@@ -512,6 +530,15 @@ function BookContent() {
         firstInvalid.focus({ preventScroll: true });
       }
       setFormErrorHint('Por favor completa los campos marcados antes de continuar.');
+      // 2026-08-06 — Which field was invalid? Report the tag+name+id so
+      // the audit can rank the top offenders instead of guessing.
+      try {
+        trackEvent('book_form_validation_failed', {
+          reason: 'html5_required',
+          field_name: firstInvalid?.name || firstInvalid?.id || firstInvalid?.tagName || 'unknown',
+          field_type: firstInvalid?.type || 'unknown',
+        });
+      } catch { /* */ }
       return;
     }
     // Bug 1.3 corollary — even if the form has no `<input required>` missing,
@@ -520,6 +547,8 @@ function BookContent() {
       setFormErrorHint('Indica si tienes seguro médico para continuar.');
       const insuranceEl = document.querySelector('.book-insurance-toggle');
       if (insuranceEl) insuranceEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      try { trackEvent('book_form_validation_failed', { reason: 'insurance_toggle_missing' }); }
+      catch { /* */ }
       return;
     }
     if (hasInsurance === true && !selectedInsurance) {
@@ -529,10 +558,23 @@ function BookContent() {
         sel.scrollIntoView({ behavior: 'smooth', block: 'center' });
         sel.focus({ preventScroll: true });
       }
+      try { trackEvent('book_form_validation_failed', { reason: 'insurer_dropdown_missing' }); }
+      catch { /* */ }
       return;
     }
     setFormErrorHint('');
     setSubmitting(true);
+    // 2026-08-06 — Form passed all validation, about to transition to
+    // payment step (or lock-in redirect). If we see this event but no
+    // subsequent wallet_check, the bug is between form submit + PaymentForm
+    // mount (e.g. reserve endpoint failing, setStep never firing).
+    try {
+      trackEvent('book_form_validation_passed', {
+        has_insurance: hasInsurance === true,
+        is_referral: isReferral === true,
+        total_price: totalPrice,
+      });
+    } catch { /* */ }
     try {
 
     // If it's a professional referral, create referral and redirect to lock-in page

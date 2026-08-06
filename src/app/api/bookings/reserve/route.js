@@ -110,11 +110,16 @@ export async function POST(request) {
       Date.now() + SELF_SERVICE_TOKEN_TTL_DAYS * 24 * 60 * 60 * 1000,
     );
 
-    // Reserve minimal fields. payment_intent_id = id by convention so the
-    // webhook can match either by metadata.bookingId OR by the legacy
-    // `WHERE payment_intent_id = pi_id` lookup (the booking id and the PI
-    // id are the same string in the rest of the codebase — see how
-    // /book/page.js passes `reference` as both).
+    // Reserve minimal fields. `payment_intent_id` stays NULL here — it
+    // used to be seeded with `id` (the mc_* booking id) to give the
+    // webhook a second WHERE-match path, but that pollutes DB queries
+    // that answer "did Stripe actually charge?" (the audit had to filter
+    // on `payment_intent_id LIKE 'pi_%'` to distinguish reserved-only rows
+    // from paid ones). The webhook already matches primarily via
+    // metadata.bookingId (populated by /api/payments) — see
+    // src/app/api/stripe/webhook/route.js:markBookingPaid.  The
+    // `id = @pi` and `payment_intent_id = @pi` OR-clauses in that UPDATE
+    // stay as safety-nets for legacy rows / manual replays.
     await pool.request()
       .input('id', sql.NVarChar(50), id)
       .input('patient_name', sql.NVarChar(255), patientName || null)
@@ -128,7 +133,7 @@ export async function POST(request) {
       .input('status', sql.NVarChar(30), 'pending_payment')
       .input('has_insurance', sql.Bit, hasInsurance ? 1 : 0)
       .input('insurance_company', sql.NVarChar(100), insuranceCompany || null)
-      .input('payment_intent_id', sql.NVarChar(80), id)
+      .input('payment_intent_id', sql.NVarChar(80), null)
       .input('self_service_token', sql.NVarChar(64), selfServiceToken)
       .input('self_service_token_expires_at', sql.DateTimeOffset, selfServiceTokenExpiresAt)
       .query(`
