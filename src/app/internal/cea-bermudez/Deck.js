@@ -391,16 +391,17 @@ function buildSlides({ credentials }) {
           <div className="grid-2">
             <Card label="Tus credenciales" tone="success">
               <ul style={{ listStyle: 'none', paddingLeft: 0 }}>
-                <li><strong>URL:</strong> <a href={`${PROD_BASE}/sign-in`} target="_blank" rel="noopener noreferrer">{`${PROD_BASE}/sign-in`}</a></li>
+                <li><strong>URL:</strong> <a href={`${PROD_BASE}/pro/sign-in`} target="_blank" rel="noopener noreferrer">{`${PROD_BASE}/pro/sign-in`}</a></li>
                 <li style={{ marginTop: 8 }}><strong>Email:</strong> <code>{credentials.email}</code></li>
                 <li><strong>Contraseña:</strong> <code>{credentials.password}</code></li>
               </ul>
             </Card>
             <Card label="Lo que tienes que hacer">
               <ol style={{ paddingLeft: 16 }}>
-                <li>Abre el navegador en <code>{PROD_BASE}/sign-in</code>.</li>
+                <li>Abre el navegador en <code>{PROD_BASE}/pro/sign-in</code> — <strong>ojo, con <code>/pro/</code></strong>. La otra URL (<code>/sign-in</code>) es para pacientes y te va a rechazar.</li>
                 <li>Email y contraseña de arriba.</li>
-                <li>Te lleva directamente a <code>/pro/dashboard</code>.</li>
+                <li>La primera vez te va a pedir un paso rápido de setup: buscar &laquo;Cea Bermúdez&raquo; en el selector de clínica y aceptar. Es de una sola vez.</li>
+                <li>Después ya entras directo a <code>/pro/dashboard</code>.</li>
                 <li>Al final del día: arriba a la derecha, &laquo;Cerrar sesión&raquo;.</li>
               </ol>
             </Card>
