@@ -46,6 +46,33 @@ export const TERMINAL_STATUSES = new Set([
 export async function createCaseForBooking(booking) {
   if (!DB_AVAILABLE) return null;
 
+  // 2026-08-31 — The partner carve-out below must NOT apply to bookings that
+  // still need a SaludOnNet voucher. The voucher is uploaded from the case
+  // detail page (`/admin/ops/[id]`), so skipping the case leaves a paid
+  // sin-seguro booking stuck at `awaiting_voucher` and invisible to Ops —
+  // exactly what happened to mc_b1ebaf544d679be91a334677 (Cea Bermúdez).
+  // `hasInsurance`/`status` may be omitted by the caller; resolve them from
+  // the booking row before deciding, and fail open (create the case) when
+  // they can't be resolved.
+  let hasInsurance = booking.hasInsurance ?? null;
+  let bookingStatus = booking.status ?? null;
+  if (hasInsurance == null || bookingStatus == null) {
+    try {
+      const r = await query(
+        `SELECT TOP 1 has_insurance, status FROM bookings WHERE id = @id`,
+        { id: { type: sql.NVarChar(50), value: booking.id } },
+      );
+      const row = r.recordset[0];
+      if (row) {
+        if (hasInsurance == null && row.has_insurance != null) hasInsurance = !!row.has_insurance;
+        if (bookingStatus == null) bookingStatus = row.status ?? null;
+      }
+    } catch (err) {
+      console.error('[createCaseForBooking] booking lookup failed:', err?.message);
+    }
+  }
+  const needsVoucher = hasInsurance === false || bookingStatus === 'awaiting_voucher';
+
   // 2026-06-12 — Skip ops case creation when the destination clinic is
   // already a partner (`clinics.partnership_status='accepted'`). Partners
   // have a standing agreement; Ops doesn't need to call them per booking.
@@ -53,14 +80,15 @@ export async function createCaseForBooking(booking) {
   // (no partnership_status column) still creates cases for everyone — that
   // matches the legacy behaviour exactly until /api/db/setup runs.
   const clinicId = booking.providerId ?? null;
+  let isPartnerClinic = false;
   if (clinicId != null) {
     try {
       const result = await query(
         `SELECT TOP 1 partnership_status FROM clinics WHERE id = @clinicId`,
         { clinicId: { type: sql.Int, value: Number(clinicId) } },
       );
-      const status = result.recordset[0]?.partnership_status;
-      if (status === 'accepted') return null;
+      isPartnerClinic = result.recordset[0]?.partnership_status === 'accepted';
+      if (isPartnerClinic && !needsVoucher) return null;
     } catch (err) {
       if (!String(err?.message || '').includes('Invalid column name')) {
         // Real DB error — log and continue creating the case (failing
@@ -93,12 +121,25 @@ export async function createCaseForBooking(booking) {
   // working — the column write is wrapped in a fallback INSERT.
   const ctx = booking.referralContext || null;
   const referralId = booking.referralId || null;
-  const initialCallLog = ctx
-    ? `[${new Date().toISOString()}] [sistema] Caso creado por derivación externa de "${ctx.derivadorClinicName || ctx.derivadorEmail || 'una clínica del marketplace'}". ` +
+  const stamp = `[${new Date().toISOString()}] [sistema]`;
+  const notes = [];
+  if (ctx) {
+    notes.push(
+      `${stamp} Caso creado por derivación externa de "${ctx.derivadorClinicName || ctx.derivadorEmail || 'una clínica del marketplace'}". ` +
       `Paciente ya pagó la prioridad. ` +
       `Llama a "${booking.providerName || 'la clínica receptora'}" para confirmar el hueco. ` +
-      `Si no están dados de alta en Medconnect, el botón "✓ Aceptar" envía un email con datos del paciente + enlace de onboarding.`
-    : null;
+      `Si no están dados de alta en Medconnect, el botón "✓ Aceptar" envía un email con datos del paciente + enlace de onboarding.`,
+    );
+  }
+  // Partner clinic + sin seguro: the case exists only so Ops can issue the
+  // SaludOnNet voucher — no confirmation call is needed (standing agreement).
+  if (isPartnerClinic && needsVoucher) {
+    notes.push(
+      `${stamp} "${booking.providerName || 'La clínica'}" es clínica partner: no hace falta llamar para confirmar el hueco. ` +
+      `El trabajo de este caso es comprar el acto médico en SaludOnNet y subir la autorización al paciente.`,
+    );
+  }
+  const initialCallLog = notes.length ? notes.join('\n') : null;
 
   const baseParams = {
     booking_id: { type: sql.NVarChar(50), value: booking.id },

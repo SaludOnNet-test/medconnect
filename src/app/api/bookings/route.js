@@ -542,6 +542,10 @@ export async function POST(request) {
           platformFee: platformFee != null ? Number(platformFee) : null,
           referralId: referralId || null,
           referralContext,
+          // Needed by the partner-clinic carve-out: a booking that still
+          // needs a SON voucher always gets a case, partner or not.
+          hasInsurance: hasInsurance == null ? null : !!hasInsurance,
+          status: finalStatus,
         });
       } catch (caseErr) {
         console.error('[POST /api/bookings] case creation failed', caseErr);

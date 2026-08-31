@@ -118,7 +118,8 @@ async function markBookingPaid(paymentIntent) {
           updated_at = SYSDATETIMEOFFSET()
       OUTPUT INSERTED.id, INSERTED.provider_id, INSERTED.provider_name,
              INSERTED.slot_date, INSERTED.slot_time, INSERTED.amount,
-             INSERTED.platform_fee, INSERTED.referral_id,
+             INSERTED.platform_fee, INSERTED.referral_id, INSERTED.status,
+             INSERTED.has_insurance,
              INSERTED.patient_name, INSERTED.patient_email, INSERTED.patient_phone
       WHERE (
               (@booking_id IS NOT NULL AND id = @booking_id)
@@ -174,6 +175,8 @@ async function markBookingPaid(paymentIntent) {
         amount: booking.amount ?? 0,
         platformFee: booking.platform_fee != null ? Number(booking.platform_fee) : null,
         referralId: booking.referral_id ?? null,
+        hasInsurance: booking.has_insurance == null ? null : !!booking.has_insurance,
+        status: booking.status ?? null,
       });
       notifyInternalWatcher({
         kind: 'sale',

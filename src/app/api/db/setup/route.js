@@ -598,7 +598,10 @@ export async function GET(request) {
     // Two side effects fire off this column:
     //   - opsCases.createCaseForBooking: skips case creation when
     //     partnership_status='accepted' (the clinic is already onboarded,
-    //     no need to call them again per booking).
+    //     no need to call them again per booking) — EXCEPT for bookings
+    //     that still need a SON voucher (sin seguro / awaiting_voucher),
+    //     which always get a case because the voucher is uploaded from
+    //     the case detail page (fix 2026-08-31).
     //   - api/clinics/[id]/available-slots: when partnership_status='rejected',
     //     the earliest sellable date is pushed to TODAY + 30 days so the
     //     clinic stops surfacing near-term slots that we can't fulfil.
