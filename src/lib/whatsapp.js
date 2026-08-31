@@ -120,6 +120,17 @@ export function last9Digits(phone) {
   return digits.slice(-9);
 }
 
+/**
+ * Upserts the lead for this phone number and reports whether the row was
+ * created now.
+ *
+ * Returns `{ id, isNew }` — or `null` when the DB is unavailable / the write
+ * failed. `isNew` is what keeps ops out of a duplicate-email storm: Claude
+ * repeats the LEAD marker on every turn once it knows the specialty, so on
+ * 2026-08-23 a single 5-turn conversation produced 5 identical "nuevo lead"
+ * emails. The row was already deduped here; the notification wasn't. Callers
+ * must notify only when `isNew` (see /api/whatsapp/webhook).
+ */
 export async function saveLead(data) {
   if (!DB_AVAILABLE) return null;
   try {
@@ -174,7 +185,7 @@ export async function saveLead(data) {
               updated_at           = SYSDATETIMEOFFSET()
           WHERE id = @id
         `);
-      return existingId;
+      return { id: existingId, isNew: false };
     }
 
     const result = await pool.request()
@@ -202,7 +213,7 @@ export async function saveLead(data) {
          @time_range, @reason, @link, @urgency, 'link_sent');
       SELECT SCOPE_IDENTITY() AS id;
     `);
-    return result.recordset[0]?.id;
+    return { id: result.recordset[0]?.id ?? null, isNew: true };
   } catch (err) {
     // A failed lead insert must not block sending the booking link to the
     // patient — log + Sentry and let the caller continue.
@@ -291,7 +302,7 @@ const SPECIALTY_SLUGS = {
   andrología: 'andrologia', andrologia: 'andrologia',
 };
 
-function toSpecialtySlug(name) {
+export function toSpecialtySlug(name) {
   if (!name) return '';
   const normalized = name.toLowerCase().trim();
   return SPECIALTY_SLUGS[normalized] || normalized.replace(/\s+/g, '-').replace(/[áéíóú]/g, (c) =>

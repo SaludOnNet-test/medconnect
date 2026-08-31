@@ -22,11 +22,19 @@ const crypto = require('crypto');
 const sql = require('mssql');
 
 // Minimal .env.local loader (this script runs outside Next.js).
+//
+// `\$` must be unescaped to `$`: Next.js and Vite run .env files through
+// dotenv-expand, where a bare `$FOO` is a variable reference, so values that
+// contain a literal dollar sign are stored escaped. A naive reader that keeps
+// the backslash produces a wrong password and an ELOGIN that looks like
+// rotated credentials.
 const envPath = path.join(process.cwd(), '.env.local');
 if (fs.existsSync(envPath)) {
   for (const line of fs.readFileSync(envPath, 'utf8').split(/\r?\n/)) {
     const m = line.match(/^([A-Z0-9_]+)=(.*)$/);
-    if (m && !process.env[m[1]]) process.env[m[1]] = m[2].replace(/^["']|["']$/g, '');
+    if (m && !process.env[m[1]]) {
+      process.env[m[1]] = m[2].replace(/^["']|["']$/g, '').replace(/\\\$/g, '$');
+    }
   }
 }
 
