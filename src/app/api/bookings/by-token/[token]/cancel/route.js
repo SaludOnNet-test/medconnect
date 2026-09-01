@@ -12,6 +12,7 @@ import {
   CANCELLATION_REASON_LABELS,
 } from '@/lib/clinicNotifications';
 import { notifyInternalWatcher } from '@/lib/internalWatcher';
+import { closeCaseForCancelledBooking } from '@/lib/opsCases';
 
 export const dynamic = 'force-dynamic';
 
@@ -175,6 +176,19 @@ export async function POST(request, { params }) {
       console.error('[bookings/cancel] email send failed', e.message);
     }
   }
+
+  // Close the ops case, if this booking had one. Without this the case stays
+  // in "Pendientes" after the patient already cancelled and got his money
+  // back, and an operator re-does work that is done: on 2026-09-01 that meant
+  // calling a patient who had cancelled the evening before, calling a clinic
+  // that had already been notified, and two failed "reembolsar" clicks
+  // against a charge Stripe had already refunded.
+  await closeCaseForCancelledBooking(booking.id, {
+    reason: 'El paciente canceló desde el enlace del email de confirmación',
+    refundId,
+    refundAmount,
+    actor: 'paciente (self-service)',
+  });
 
   // ── Clinic notification: patient self-service cancellation ───────────
   // Fire-and-forget. Resolve the *active* clinic (the one currently

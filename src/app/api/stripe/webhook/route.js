@@ -27,7 +27,7 @@ import { NextResponse } from 'next/server';
 import Stripe from 'stripe';
 import { getPool, sql, DB_AVAILABLE } from '@/lib/db';
 import { internalError } from '@/lib/errors';
-import { createCaseForBooking } from '@/lib/opsCases';
+import { createCaseForBooking, closeCaseForCancelledBooking } from '@/lib/opsCases';
 import { notifyInternalWatcher } from '@/lib/internalWatcher';
 import { captureException } from '@/lib/sentry';
 import { markWhatsappLeadPaid } from '@/lib/whatsapp';
@@ -233,15 +233,27 @@ async function markBookingRefunded(charge) {
   const pool = await getPool();
   const fullyRefunded = charge.amount_refunded >= charge.amount;
   if (fullyRefunded) {
-    await pool.request()
+    const updated = await pool.request()
       .input('pi', sql.NVarChar(80), piId)
       .input('status', sql.NVarChar(30), 'refunded')
       .query(`
         UPDATE bookings
         SET status = @status, updated_at = SYSDATETIMEOFFSET()
+        OUTPUT INSERTED.id
         WHERE (payment_intent_id = @pi OR id = @pi)
           AND status <> 'refunded'
       `);
+    // A full refund means nobody is going to that appointment — close the ops
+    // case too. Covers refunds issued straight from the Stripe dashboard,
+    // which otherwise never reach /admin/ops and leave the case open.
+    const bookingId = updated.recordset[0]?.id;
+    if (bookingId) {
+      await closeCaseForCancelledBooking(bookingId, {
+        reason: `Reembolso total detectado en Stripe (${charge.id})`,
+        refundAmount: (charge.amount_refunded || 0) / 100,
+        actor: 'webhook Stripe',
+      });
+    }
   } else {
     await pool.request()
       .input('pi', sql.NVarChar(80), piId)

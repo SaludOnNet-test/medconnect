@@ -188,6 +188,10 @@ async function issueRefund(c, reason, opts = {}) {
   let refundId = null;
   let refundAmount = targetAmount;
   let stripeError = null;
+  // True when the money was already back before this click — the refund was
+  // issued elsewhere (patient self-service, Stripe dashboard) and we are only
+  // catching the case up. Suppresses a duplicate "reembolso emitido" email.
+  let reconciled = false;
   const stripeKey = process.env.STRIPE_SECRET_KEY;
   const piId = c.payment_intent_id || c.booking_id;
 
@@ -242,6 +246,36 @@ async function issueRefund(c, reason, opts = {}) {
     } catch (err) {
       stripeError = `Stripe: ${err.message || 'error desconocido'}`;
       console.error('[ops/refund] stripe error:', err.message, err);
+
+      // 2026-09-01 — "already been refunded" is NOT a failure: the money is
+      // back with the patient. Booking mc_b1ebaf544d679be91a334677 was
+      // refunded by the patient's own cancellation link the evening before;
+      // the next morning the operator clicked "reembolsar" twice and both
+      // times was told to "reembolsa manualmente en Stripe" — advice that
+      // invites a SECOND refund — while the case stayed open forever.
+      //
+      // Reconcile instead: ask Stripe what is already refunded on this PI
+      // and, when it covers the target, adopt that refund as this case's.
+      // Any other Stripe error keeps failing loudly (the Julia incident:
+      // an invalid PI must never be mistaken for a completed refund).
+      if (/already been refunded|already refunded/i.test(err.message || '')) {
+        try {
+          const stripe = new Stripe(stripeKey, { apiVersion: '2024-04-10' });
+          const existing = await stripe.refunds.list({ payment_intent: piId, limit: 10 });
+          const succeeded = existing.data.filter((r) => r.status === 'succeeded' || r.status === 'pending');
+          const alreadyRefunded = succeeded.reduce((sum, r) => sum + (r.amount || 0), 0) / 100;
+          if (alreadyRefunded + 0.01 >= targetAmount) {
+            refundId = succeeded[0]?.id || null;
+            refundAmount = alreadyRefunded;
+            stripeError = null;
+            reconciled = true;
+          } else {
+            stripeError = `${stripeError} (Stripe solo tiene €${alreadyRefunded} reembolsados de los €${targetAmount} de este caso)`;
+          }
+        } catch (lookupErr) {
+          console.error('[ops/refund] refund reconciliation failed:', lookupErr.message);
+        }
+      }
     }
   }
 
@@ -266,6 +300,7 @@ async function issueRefund(c, reason, opts = {}) {
   // Compose reason with policy context so the call log has full provenance.
   const fullReason = (() => {
     const parts = [reason || 'Reembolso emitido por el operador'];
+    if (reconciled) parts.push('reembolso ya existente en Stripe · caso reconciliado, no se cobró ni devolvió nada de nuevo');
     parts.push(`política: ${policy.refundableAmount}${policyAllowed ? ' (dentro de cutoff)' : ' (fuera de cutoff)'}`);
     if (forced && !policyAllowed) parts.push('ANULACIÓN OPS · refund total forzado fuera de cutoff');
     if (forced && policy.refundableAmount === 'service_only') parts.push('ANULACIÓN OPS · refund total forzado (política decía service_only)');
@@ -278,7 +313,10 @@ async function issueRefund(c, reason, opts = {}) {
     refund_amount: refundAmount,
     refund_reason: fullReason,
   });
-  if (c.patient_email) {
+  // Skip the patient email when we only reconciled: whoever issued the
+  // original refund already told them. A second "reembolso de 44 € emitido"
+  // reads as a second refund.
+  if (c.patient_email && !reconciled) {
     const tpl = patientRefunded({
       patientName: c.patient_name,
       providerName: c.original_clinic_name,
@@ -289,7 +327,7 @@ async function issueRefund(c, reason, opts = {}) {
     });
     await sendEmail({ to: c.patient_email, subject: tpl.subject, html: tpl.html });
   }
-  return { refundId, refundAmount, policy, forced };
+  return { refundId, refundAmount, policy, forced, reconciled };
 }
 
 export async function POST(request, { params }) {
@@ -436,7 +474,8 @@ export async function POST(request, { params }) {
             { status: 502 },
           );
         }
-        const tail = r.forced ? ' (override fuera de cutoff)' : '';
+        const tail = (r.forced ? ' (override fuera de cutoff)' : '')
+          + (r.reconciled ? ' · ya estaba reembolsado en Stripe, caso reconciliado' : '');
         await appendCallLog(
           id,
           `Sin alternativa. Reembolso ${r.refundId || 'manual'} de €${r.refundAmount}${tail}. Motivo: ${reasonRaw}`,
@@ -480,10 +519,11 @@ export async function POST(request, { params }) {
             { status: 502 },
           );
         }
-        const tail = r.forced ? ' (override fuera de cutoff)' : '';
+        const tail = (r.forced ? ' (override fuera de cutoff)' : '')
+          + (r.reconciled ? ' · ya estaba reembolsado en Stripe, caso reconciliado' : '');
         await appendCallLog(
           id,
-          `Reembolso manual ${r.refundId || '(stripe pending)'} de €${r.refundAmount}${tail}. Motivo: ${reasonRaw}`,
+          `Reembolso ${r.reconciled ? 'ya existente' : 'manual'} ${r.refundId || '(stripe pending)'} de €${r.refundAmount}${tail}. Motivo: ${reasonRaw}`,
           session.username,
         );
         notifyClinicOfOpsCancellation(c, {

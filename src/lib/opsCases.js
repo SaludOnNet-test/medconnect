@@ -356,6 +356,59 @@ export async function updateCase(id, fields) {
   await query(`UPDATE operations_cases SET ${sets.join(', ')} WHERE id = @id`, params);
 }
 
+/**
+ * Closes the open ops case for a booking that was cancelled/refunded through
+ * a path outside /admin/ops — the patient's self-service link, or a refund
+ * issued straight from the Stripe dashboard (the `charge.refunded` webhook).
+ *
+ * 2026-09-01 — booking mc_b1ebaf544d679be91a334677: the patient cancelled
+ * himself at 17:23 on 31-ago. The refund went out (44 €), the patient got his
+ * email and Cea was told the slot was free — but case #16 stayed in
+ * `pending_call`, so next morning an operator called the patient, called Cea
+ * again and hit "reembolsar" twice, getting "Charge has already been
+ * refunded" both times. Every cancellation path must close its case.
+ *
+ * Best-effort and idempotent: no case, an already-terminal case, or a DB
+ * failure all no-op. Never throws — callers are in the middle of a refund
+ * flow and must not fail because the bookkeeping did.
+ */
+export async function closeCaseForCancelledBooking(bookingId, {
+  status = CASE_STATUS.REFUNDED,
+  reason,
+  refundId = null,
+  refundAmount = null,
+  actor = 'sistema',
+} = {}) {
+  if (!DB_AVAILABLE || !bookingId) return null;
+  try {
+    const found = await query(
+      `SELECT TOP 1 id, call_log FROM operations_cases
+       WHERE booking_id = @bookingId AND resolved_at IS NULL
+       ORDER BY created_at DESC`,
+      { bookingId: { type: sql.NVarChar(50), value: bookingId } },
+    );
+    const row = found.recordset[0];
+    if (!row) return null;
+
+    const line = `[${new Date().toISOString()}] ${actor}: ${reason || 'Reserva cancelada fuera de /admin/ops'}`
+      + `${refundAmount != null ? ` · reembolso €${refundAmount}` : ''}`
+      + `${refundId ? ` (${refundId})` : ''}`
+      + ' · caso cerrado automáticamente, no hace falta llamar.';
+
+    await updateCase(row.id, {
+      status,
+      refund_id: refundId,
+      refund_amount: refundAmount,
+      refund_reason: reason || null,
+      call_log: row.call_log ? `${row.call_log}\n${line}` : line,
+    });
+    return row.id;
+  } catch (err) {
+    console.error('[closeCaseForCancelledBooking] failed for', bookingId, err?.message);
+    return null;
+  }
+}
+
 export async function appendCallLog(id, entry, author) {
   const c = await getCase(id);
   if (!c) return;
