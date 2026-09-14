@@ -11,7 +11,11 @@ import { getPool, DB_AVAILABLE, sql } from '@/lib/db';
 import InsurerResults from './InsurerResults';
 
 const BASE_URL = process.env.NEXT_PUBLIC_BASE_URL || 'https://www.medconnect.es';
-const MIN_INDEXABLE_CLINICS = 3;
+// 2026-09-14 — Lowered from 3 → 1 to unblock indexation. See the same
+// threshold change comment in
+// src/app/especialistas/[especialidad]/[ciudad]/page.js for the full
+// GSC-audit reasoning.
+const MIN_INDEXABLE_CLINICS = 1;
 
 async function countClinicsForInsurerSpecialty(specialtySlug, insurerDbName) {
   if (!DB_AVAILABLE) return null;

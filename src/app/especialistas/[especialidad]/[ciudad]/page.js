@@ -40,7 +40,20 @@ const BASE_URL = process.env.NEXT_PUBLIC_BASE_URL || 'https://www.medconnect.es'
 //      visible count for /especialistas/gine/madrid was 9 even though
 //      clinic_specialties said 74. Counting bookable clinics matches
 //      what the user (and Google) actually sees.
-const MIN_INDEXABLE_CLINICS = 3;
+//
+// 2026-09-14 — Threshold lowered from 3 → 1 after the Search Console
+// audit revealed 98 pages "Excluded by 'noindex' tag" and another 172
+// "Discovered — currently not indexed". Together those 270 pages are 3×
+// what we DO have indexed (85). The 2026-06 hypothesis was that Google
+// treats <3-clinic pages as thin content; the actual data now suggests
+// the noindex is causing MORE harm than help — we're pre-emptively
+// blocking pages before Google ever has a chance to rank them. A single
+// bookable clinic + the same landing-page template (FAQ, insurers,
+// testimonials, breadcrumbs) is enough content for indexation; Google
+// will just rank it lower if the listing is thin, which is fine. The
+// pages with 3+ clinics were already outperforming the thin ones in the
+// GSC data, so relative ordering is preserved without the hard cutoff.
+const MIN_INDEXABLE_CLINICS = 1;
 
 // 2026-06-18 — Two distinct counts for two distinct purposes:
 //   1. countIndexableClinics — for the noindex threshold. STRICT:
