@@ -160,6 +160,74 @@ export default async function BlogPostPage({ params }) {
               dangerouslySetInnerHTML={{ __html: post.content }}
             />
 
+            {/* 2026-09-14 — SEO #2 audit: every blog post with a
+                relatedSpecialty gets a city-picker widget that links
+                directly to /especialistas/[specialty]/[city] for the 11
+                cities we cover. The 10 pre-existing posts (published
+                before this change) had a sidebar CTA but no in-page
+                links to the landings — this widget adds 11 extra
+                keyword-rich anchors from every post into the specialty
+                landings that need the authority push identified in the
+                Sept-14 GSC audit. When relatedSpecialty is null (generic
+                posts like "espera-media-especialista-espana"), we skip
+                the widget entirely — a generic post shouldn't fake
+                specialty relevance. */}
+            {post.relatedSpecialty && SPECIALTY_MAP[post.relatedSpecialty] && (
+              <section
+                style={{
+                  marginTop: '2.5rem',
+                  padding: '1.5rem 1.75rem',
+                  background: 'var(--bone-100)',
+                  border: '1px solid var(--border)',
+                  borderLeft: '3px solid var(--brass-500)',
+                  borderRadius: '10px',
+                }}
+              >
+                <h2
+                  style={{
+                    fontSize: '1rem',
+                    fontWeight: 800,
+                    color: 'var(--ink-1000)',
+                    marginBottom: '0.4rem',
+                    letterSpacing: '0.02em',
+                    textTransform: 'uppercase',
+                  }}
+                >
+                  Pide cita con {SPECIALTY_MAP[post.relatedSpecialty].plural.toLowerCase()} en tu ciudad
+                </h2>
+                <p style={{ fontSize: '0.9rem', color: 'var(--fg-muted)', marginBottom: '0.9rem' }}>
+                  Cita esta semana con {SPECIALTY_MAP[post.relatedSpecialty].plural.toLowerCase()} privados. La consulta la cubre tu seguro; Med Connect solo cobra la tarifa de prioridad (desde 4 €).
+                </p>
+                <div
+                  style={{
+                    display: 'flex',
+                    flexWrap: 'wrap',
+                    gap: '0.5rem',
+                  }}
+                >
+                  {Object.entries(CITY_MAP).map(([citySlug, cityName]) => (
+                    <Link
+                      key={citySlug}
+                      href={specialtyPageUrl(post.relatedSpecialty, citySlug).replace(BASE_URL, '')}
+                      style={{
+                        display: 'inline-block',
+                        padding: '0.35rem 0.85rem',
+                        background: '#fff',
+                        border: '1px solid var(--border)',
+                        borderRadius: '999px',
+                        fontSize: '0.85rem',
+                        color: '#2563eb',
+                        textDecoration: 'none',
+                        fontWeight: 500,
+                      }}
+                    >
+                      {SPECIALTY_MAP[post.relatedSpecialty].plural} en {cityName}
+                    </Link>
+                  ))}
+                </div>
+              </section>
+            )}
+
             <aside className="blog-post__sidebar">
               <RelatedSpecialtyBox
                 specialtySlug={post.relatedSpecialty}

@@ -424,6 +424,347 @@ export const BLOG_POSTS = [
 </ul>
     `,
   },
+
+  // ── City-specific SEO posts (2026-09-14) ─────────────────────────────────
+  // Each post targets a high-impression query surfaced by the Search Console
+  // audit and includes 2-3 in-article links to the corresponding
+  // /especialistas/<specialty>/<city> landing so authority flows from
+  // ranked posts back to the landings that need to climb positions.
+  {
+    slug: 'otorrino-privado-barcelona-precio-cita',
+    title: 'Otorrino privado en Barcelona: precio, tiempos y cómo pedir cita esta semana',
+    description: 'Cuánto cuesta un otorrino privado en Barcelona, qué aseguradoras lo cubren y cómo conseguir cita en 24-72 horas sin esperar los 60-120 días del CatSalut.',
+    category: 'ciudad',
+    publishedAt: '2026-09-14',
+    readingMinutes: 6,
+    relatedSpecialty: 'otorrinolaringologia',
+    relatedCity: 'barcelona',
+    coverImage: 'https://images.unsplash.com/photo-1631815589968-fdb09a223b1e?w=900&h=500&fit=crop&q=80',
+    coverAlt: 'Otorrinolaringólogo examinando oído de paciente',
+    content: `
+<p>Barcelona concentra decenas de otorrinolaringólogos (ORL) privados de referencia, pero las esperas para conseguir cita en el cuadro médico habitual pueden superar las 4 semanas. Si tienes vértigo persistente, sinusitis crónica, sospecha de apnea del sueño o un dolor de oído que no cede, esta guía te muestra cómo acceder a un ORL privado en Barcelona <strong>esta misma semana</strong>.</p>
+
+<h2>Cuánto cuesta un otorrino privado en Barcelona</h2>
+<p>Los precios de referencia en Barcelona:</p>
+<ul>
+  <li><strong>Primera consulta:</strong> 80-130 € (sin seguro)</li>
+  <li><strong>Audiometría:</strong> 45-80 €</li>
+  <li><strong>Endoscopia nasal:</strong> 60-100 €</li>
+  <li><strong>Consulta con estudio del ronquido:</strong> 120-180 €</li>
+</ul>
+<p>Con seguro médico privado (Sanitas, Adeslas, DKV, Asisa, AXA, Mapfre, Cigna), la consulta y las pruebas están cubiertas. Con <a href="/">Med Connect</a> añades únicamente una <strong>tarifa de prioridad de 4-19 €</strong> por conseguirte hueco esta semana en un centro concertado con tu aseguradora — la consulta la sigue pagando tu seguro exactamente igual.</p>
+
+<h2>Qué aseguradoras tienen la mejor red ORL en Barcelona</h2>
+<p>Sanitas y Adeslas concentran la red concertada más amplia en Barcelona, con acceso a centros como Centro Médico Teknon, Hospital Universitari Dexeus, Clínica Sagrada Família y una decena de gabinetes ORL en el Eixample. DKV, Asisa y AXA también cuentan con red suficiente para conseguir cita en 48-72 horas.</p>
+<p>La Fundació Puigvert, Hospital Clínic y Hospital Vall d'Hebron son los referentes públicos de ORL en Barcelona, pero para consulta ambulatoria privada la referencia son los centros mencionados anteriormente.</p>
+
+<h2>¿Cuándo debo acudir a un otorrino urgente?</h2>
+<p>Estas son las situaciones en las que no debes esperar las semanas del cuadro médico habitual:</p>
+<ul>
+  <li><strong>Pérdida súbita de audición:</strong> requiere valoración urgente en las primeras 72 horas para preservar la función auditiva</li>
+  <li><strong>Vértigo intenso con vómitos:</strong> descartar neuritis vestibular, VPPB (vértigo posicional paroxístico benigno) o enfermedad de Ménière</li>
+  <li><strong>Otalgia intensa persistente:</strong> otitis media o externa que no responde a analgesia habitual</li>
+  <li><strong>Sinusitis con fiebre alta:</strong> puede requerir tratamiento antibiótico específico</li>
+  <li><strong>Voz susurrada o afonía de más de 2 semanas:</strong> evaluación de cuerdas vocales</li>
+</ul>
+<p>Para todas estas situaciones, Med Connect gestiona cita con otorrinolaringólogo en Barcelona en 24-72 horas — <a href="/especialistas/otorrinolaringologia/barcelona">consulta aquí los ORL con hueco esta semana</a>.</p>
+
+<h2>Audiometría en la misma consulta: cuáles centros la ofrecen</h2>
+<p>Uno de los criterios más útiles a la hora de elegir centro ORL en Barcelona es si ofrecen la <strong>audiometría en la misma primera visita</strong>. Ahorra un desplazamiento adicional y permite al especialista ajustar el diagnóstico con datos objetivos desde el primer momento.</p>
+<p>Centros como Centro Médico Teknon, Hospital Universitari Dexeus, Clínica Sant Honorat y una decena de gabinetes ORL del Eixample disponen de cabina audiométrica propia. La audiometría se realiza en 15-20 minutos como parte de la primera visita.</p>
+
+<h2>Estudio del sueño (polisomnografía) por sospecha de apnea</h2>
+<p>Si roncas intensamente, tu pareja describe pausas en tu respiración nocturna, te despiertas con sensación de no haber descansado o tienes somnolencia diurna, el ORL puede ordenar una polisomnografía o poligrafía respiratoria domiciliaria. En Barcelona:</p>
+<ul>
+  <li><strong>Poligrafía domiciliaria:</strong> 150-250 € sin seguro (equipo que te llevas a casa por una noche)</li>
+  <li><strong>Polisomnografía hospitalaria:</strong> 400-700 € sin seguro (una noche en el hospital)</li>
+</ul>
+<p>Ambas están cubiertas por las aseguradoras privadas tras autorización previa del especialista.</p>
+
+<h2>Cómo pedir cita con otorrino privado en Barcelona en 24-72 horas</h2>
+<p>Con Med Connect el proceso es directo: <a href="/especialistas/otorrinolaringologia/barcelona">selecciona el centro ORL en Barcelona con hueco esta semana</a>, elige día y hora, y paga la tarifa de prioridad de 4-19 € según la urgencia. La consulta la factura tu aseguradora exactamente igual que si hubieras llamado al cuadro médico. Recibirás confirmación por email en minutos y el aviso al centro se hace automáticamente.</p>
+    `,
+  },
+  {
+    slug: 'urologo-privado-madrid-cita-urgente',
+    title: 'Urólogo privado en Madrid urgente: coste, cobertura y cita en 24-72 horas',
+    description: 'Guía completa para conseguir cita con urólogo privado en Madrid esta semana: precios, aseguradoras, hospitales de referencia y cómo evitar los 90+ días de espera del SERMAS.',
+    category: 'ciudad',
+    publishedAt: '2026-09-13',
+    readingMinutes: 6,
+    relatedSpecialty: 'urologia',
+    relatedCity: 'madrid',
+    coverImage: 'https://images.unsplash.com/photo-1631217872822-1c2546d6b864?w=900&h=500&fit=crop&q=80',
+    coverAlt: 'Consulta urológica moderna con equipamiento clínico',
+    content: `
+<p>La espera media para una primera consulta de urología en la sanidad pública madrileña supera los 90 días según los últimos datos del SIAP (Sistema de Información de Atención Primaria) para la Comunidad de Madrid. Cuando lo que necesitas es una revisión de próstata, resolver una infección urinaria de repetición o descartar un cálculo renal, esperar tres meses no es una opción.</p>
+
+<h2>Cuánto cuesta un urólogo privado en Madrid</h2>
+<p>Referencias de precio en la privada madrileña (sin seguro):</p>
+<ul>
+  <li><strong>Primera consulta urológica:</strong> 90-140 €</li>
+  <li><strong>Ecografía prostática:</strong> 60-100 €</li>
+  <li><strong>Uroflujometría:</strong> 45-70 €</li>
+  <li><strong>Análisis de PSA:</strong> 25-45 € (por separado)</li>
+  <li><strong>Revisión completa de próstata (consulta + PSA + ecografía):</strong> 180-250 €</li>
+</ul>
+<p>Con seguro privado (Sanitas, Adeslas, DKV, Asisa, AXA, Mapfre, Cigna), la consulta y las pruebas están cubiertas. Con <a href="/">Med Connect</a> solo pagas la <strong>tarifa de prioridad de 4-19 €</strong> por conseguir la cita esta semana en un centro concertado — la consulta la sigue pagando tu aseguradora.</p>
+
+<h2>Qué aseguradoras cubren urología con red amplia en Madrid</h2>
+<p>Sanitas concentra la red urológica más extensa en Madrid, con acceso a Hospital Universitario Sanitas La Moraleja, Hospital Universitario Sanitas La Zarzuela y decena de centros ambulatorios. Adeslas trabaja con HM Hospitales (Sanchinarro, Puerta del Sur, Nuevo Belén), Ruber Internacional y Clínica La Luz. DKV, Asisa, AXA, Mapfre y Cigna también tienen red suficiente para conseguir cita en 48-72 horas.</p>
+<p>Los hospitales universitarios de referencia (Ramón y Cajal, La Paz, 12 de Octubre, Fundación Jiménez Díaz) atienden urología pública y también trabajan con las principales aseguradoras privadas para consulta ambulatoria.</p>
+
+<h2>¿Cuándo debo acudir urgente al urólogo?</h2>
+<p>Estas son las situaciones en las que no debes esperar meses:</p>
+<ul>
+  <li><strong>Sangre en la orina (hematuria):</strong> requiere estudio en las primeras 2 semanas para descartar causas graves</li>
+  <li><strong>Dolor lumbar intenso irradiado a ingle:</strong> sospecha de cólico nefrítico o cálculo renal</li>
+  <li><strong>PSA alterado en analítica:</strong> valoración con urólogo para tacto rectal, ecografía y decisión sobre biopsia</li>
+  <li><strong>Infecciones urinarias de repetición:</strong> más de 3 al año requieren estudio urológico completo</li>
+  <li><strong>Dificultad para orinar de aparición reciente:</strong> descartar hiperplasia prostática, estenosis uretral o retención</li>
+  <li><strong>Disfunción eréctil de aparición brusca:</strong> valoración vasculogénica u hormonal</li>
+</ul>
+<p>Para todas estas situaciones, Med Connect gestiona cita con urólogo privado en Madrid en 24-72 horas — <a href="/especialistas/urologia/madrid">consulta aquí los urólogos con hueco esta semana</a>.</p>
+
+<h2>Revisión de próstata a partir de los 50: qué incluye</h2>
+<p>La revisión urológica preventiva anual a partir de los 50 años (o desde los 45 con antecedentes familiares de cáncer de próstata) incluye habitualmente:</p>
+<ol>
+  <li><strong>Anamnesis dirigida:</strong> síntomas urinarios (frecuencia, urgencia, chorro, nocturia), función sexual, antecedentes familiares</li>
+  <li><strong>Tacto rectal:</strong> evaluación del tamaño y consistencia prostática</li>
+  <li><strong>PSA en sangre:</strong> Antígeno Prostático Específico</li>
+  <li><strong>Ecografía prostática transrectal:</strong> si el urólogo lo considera necesario</li>
+  <li><strong>Uroflujometría:</strong> si hay síntomas obstructivos</li>
+</ol>
+<p>Todo el circuito está cubierto por las aseguradoras privadas. Con Med Connect programas la revisión completa en 24-72 horas.</p>
+
+<h2>Cálculo renal: por qué el urólogo es la respuesta rápida</h2>
+<p>Si has tenido un cólico nefrítico y quieres estudio para prevenir recurrencias, o si te diagnosticaron un cálculo por ecografía y necesitas plan de tratamiento, el urólogo madrileño te ofrece:</p>
+<ul>
+  <li><strong>Análisis metabólico completo:</strong> cristaluria, calcemia, ácido úrico, PTH, etc.</li>
+  <li><strong>Litotricia extracorpórea por ondas de choque (LEOC):</strong> tratamiento no invasivo</li>
+  <li><strong>Ureteroscopia con extracción:</strong> para cálculos más grandes o de localización compleja</li>
+</ul>
+<p>Las aseguradoras cubren estas técnicas tras autorización previa. Med Connect gestiona la consulta especializada esta semana para acelerar el circuito.</p>
+
+<h2>Cómo pedir cita con urólogo privado en Madrid</h2>
+<p>Con Med Connect el proceso es directo: <a href="/especialistas/urologia/madrid">selecciona el urólogo o clínica en Madrid con hueco esta semana</a>, elige día y hora, y paga la tarifa de prioridad. Confirmación por email en minutos, aviso al centro automático, y consulta cubierta por tu seguro exactamente como siempre.</p>
+    `,
+  },
+  {
+    slug: 'cardiologo-privado-sevilla-precio-aseguradoras',
+    title: 'Cardiólogo privado en Sevilla: precio, aseguradoras que cubren y cita esta semana',
+    description: 'Precios de la consulta cardiológica en Sevilla, hospitales concertados con Sanitas, Adeslas, DKV y cómo conseguir cita en 24-72 horas evitando la espera del SAS.',
+    category: 'ciudad',
+    publishedAt: '2026-09-12',
+    readingMinutes: 6,
+    relatedSpecialty: 'cardiologia',
+    relatedCity: 'sevilla',
+    coverImage: 'https://images.unsplash.com/photo-1584982751601-97dcc096659c?w=900&h=500&fit=crop&q=80',
+    coverAlt: 'Cardiólogo revisando electrocardiograma',
+    content: `
+<p>La cardiología en la sanidad pública sevillana tiene esperas de 60 a 120 días para primera consulta ambulatoria según el Servicio Andaluz de Salud (SAS). En una provincia con alta prevalencia de hipertensión, diabetes tipo 2 y factores de riesgo cardiovascular, la demanda de cardiología supera con creces la oferta pública. Esta guía te muestra cómo acceder a un cardiólogo privado en Sevilla <strong>esta misma semana</strong>.</p>
+
+<h2>Cuánto cuesta un cardiólogo privado en Sevilla</h2>
+<p>Referencias sin seguro:</p>
+<ul>
+  <li><strong>Primera consulta cardiológica:</strong> 80-130 €</li>
+  <li><strong>Electrocardiograma (ECG):</strong> incluido o 30-45 € adicionales</li>
+  <li><strong>Ecocardiograma:</strong> 90-150 €</li>
+  <li><strong>Holter de 24 horas:</strong> 120-200 €</li>
+  <li><strong>Prueba de esfuerzo con ergometría:</strong> 150-250 €</li>
+</ul>
+<p>Con seguro (Sanitas, Adeslas, DKV, Asisa, AXA, Mapfre, Cigna), la consulta y las pruebas están cubiertas. Con <a href="/">Med Connect</a> solo pagas la tarifa de prioridad de 4-19 € por conseguir la cita esta semana en un centro concertado con tu aseguradora.</p>
+
+<h2>Qué hospitales cardiológicos privados están concertados con las aseguradoras en Sevilla</h2>
+<p>Los centros de referencia en cardiología privada sevillana son:</p>
+<ul>
+  <li><strong>Hospital Viamed Santa Ángela de la Cruz:</strong> servicio cardiológico completo con unidad de arritmias</li>
+  <li><strong>Hospital Quirónsalud Sagrado Corazón:</strong> cardiología intervencionista y no invasiva</li>
+  <li><strong>Clínica Fremap Sevilla:</strong> consulta ambulatoria y pruebas básicas</li>
+</ul>
+<p>Los hospitales universitarios de referencia (Virgen del Rocío, Virgen Macarena) son referencia pública pero también trabajan con las principales aseguradoras privadas para consulta ambulatoria.</p>
+
+<h2>¿Cuándo debo acudir al cardiólogo urgente?</h2>
+<p>Estas son las situaciones que no admiten espera de meses:</p>
+<ul>
+  <li><strong>Dolor torácico opresivo con esfuerzo:</strong> descartar angina estable o inestable</li>
+  <li><strong>Palpitaciones frecuentes o irregulares:</strong> valoración de arritmias, especialmente fibrilación auricular</li>
+  <li><strong>Disnea de esfuerzo progresiva:</strong> evaluación de insuficiencia cardíaca</li>
+  <li><strong>Síncope o pre-síncope inexplicado:</strong> descartar causa cardíaca (bloqueos, taquicardias, cardiopatía estructural)</li>
+  <li><strong>Hipertensión arterial mal controlada</strong> pese a tratamiento</li>
+  <li><strong>Antecedentes familiares de muerte súbita cardíaca temprana</strong> (<50 años)</li>
+</ul>
+<p>En situaciones agudas — dolor torácico intenso en reposo, disnea súbita, síncope repetido — acude a urgencias hospitalarias directamente. Para el resto de motivos, Med Connect programa cita con cardiólogo en Sevilla en 24-72 horas — <a href="/especialistas/cardiologia/sevilla">consulta aquí los centros con hueco esta semana</a>.</p>
+
+<h2>Electrocardiograma en la primera consulta: sí o no</h2>
+<p>En la mayoría de centros cardiológicos privados sevillanos, el ECG en reposo se realiza y se interpreta en la misma primera visita. Si el cardiólogo detecta indicación específica (dolor torácico atípico, palpitaciones durante el esfuerzo, cribado cardiovascular en deportista, hipertensión mal controlada), puede solicitar pruebas complementarias que se programan para la semana siguiente.</p>
+
+<h2>Ecocardiograma y prueba de esfuerzo: cómo se accede</h2>
+<p>El ecocardiograma habitualmente se programa como segunda visita (48-72 horas después de la consulta) porque requiere sala de ecografía dedicada. Si buscas la consulta con ecocardiograma "todo en uno" en Sevilla, filtra por centros que lo indiquen específicamente (Viamed, Quirónsalud).</p>
+<p>La prueba de esfuerzo (ergometría) requiere autorización previa de la aseguradora, que suele resolverse en 24-48 horas. La realización tiene una espera de 3-7 días en la privada sevillana con Med Connect.</p>
+
+<h2>Cribado cardiovascular preventivo en Sevilla</h2>
+<p>Si no tienes síntomas pero quieres una evaluación completa de tu riesgo cardiovascular por antecedentes familiares, edad o factores de riesgo, la consulta cardiológica preventiva incluye:</p>
+<ol>
+  <li>Historia clínica y familiar detallada</li>
+  <li>Exploración física con auscultación cardíaca y toma de tensión arterial</li>
+  <li>ECG en reposo</li>
+  <li>Análisis de perfil lipídico (colesterol total, LDL, HDL, triglicéridos), glucemia, HbA1c</li>
+  <li>Cálculo del riesgo cardiovascular según escala SCORE2</li>
+  <li>Recomendaciones de estilo de vida y, si procede, tratamiento farmacológico</li>
+</ol>
+<p>Todo cubierto por las aseguradoras privadas tras la consulta inicial.</p>
+
+<h2>Cómo conseguir cita esta semana con cardiólogo en Sevilla</h2>
+<p>Con Med Connect el proceso es rápido: <a href="/especialistas/cardiologia/sevilla">selecciona el cardiólogo o clínica en Sevilla con hueco esta semana</a>, elige día y hora, y paga la tarifa de prioridad. Confirmación por email inmediata y consulta cubierta por tu seguro.</p>
+    `,
+  },
+  {
+    slug: 'psicologo-privado-barcelona-cita-semana',
+    title: 'Psicólogo privado en Barcelona: cómo pedir cita esta semana con tu seguro',
+    description: 'Coste de la sesión de psicología en Barcelona, cuántas sesiones cubre tu seguro y cómo conseguir un psicólogo privado con cita esta semana sin listas de espera.',
+    category: 'ciudad',
+    publishedAt: '2026-09-11',
+    readingMinutes: 6,
+    relatedSpecialty: 'psicologia',
+    relatedCity: 'barcelona',
+    coverImage: 'https://images.unsplash.com/photo-1573497491765-dccce02b29df?w=900&h=500&fit=crop&q=80',
+    coverAlt: 'Sesión de psicología en consulta',
+    content: `
+<p>La psicología clínica en Barcelona ha visto multiplicarse la demanda desde 2020 con el aumento de casos de ansiedad, depresión y burnout post-pandemia. La sanidad pública catalana ofrece un número muy limitado de sesiones y con esperas de 60 a 120 días para primera consulta. Esta guía te explica cómo acceder a un psicólogo privado en Barcelona <strong>esta misma semana</strong>.</p>
+
+<h2>Cuánto cuesta una sesión de psicología privada en Barcelona</h2>
+<p>Rangos habituales sin seguro:</p>
+<ul>
+  <li><strong>Sesión individual estándar (50-60 min):</strong> 50-90 €</li>
+  <li><strong>Primera consulta / valoración inicial:</strong> 60-100 €</li>
+  <li><strong>Terapia de pareja (60-90 min):</strong> 80-140 €</li>
+  <li><strong>Terapia infanto-juvenil (45-60 min):</strong> 55-95 €</li>
+  <li><strong>Evaluación neuropsicológica completa (TDAH, deterioro cognitivo):</strong> 250-500 €</li>
+</ul>
+<p>Con seguro privado, la mayoría de aseguradoras cubren entre 6 y 24 sesiones anuales según la póliza. Con <a href="/">Med Connect</a> añades únicamente la tarifa de prioridad de 4-19 € por conseguir cita esta semana en un centro concertado.</p>
+
+<h2>Cuántas sesiones cubre tu seguro médico en Barcelona</h2>
+<p>Referencias por aseguradora (verificar en tu póliza específica):</p>
+<ul>
+  <li><strong>Sanitas Premium:</strong> hasta 24 sesiones/año</li>
+  <li><strong>Adeslas:</strong> 12-20 sesiones según póliza</li>
+  <li><strong>DKV:</strong> 20 sesiones/año</li>
+  <li><strong>Asisa:</strong> 12 sesiones/año</li>
+  <li><strong>AXA:</strong> 12-20 sesiones/año</li>
+  <li><strong>Mapfre:</strong> 15-20 sesiones/año</li>
+  <li><strong>Cigna Health:</strong> 20-30 sesiones/año</li>
+</ul>
+<p>Estos números pueden variar según el nivel de póliza contratado. Consulta las condiciones específicas de tu contrato.</p>
+
+<h2>¿Cuándo debo consultar con un psicólogo?</h2>
+<p>Motivos frecuentes que llevan a consulta psicológica en Barcelona:</p>
+<ul>
+  <li><strong>Ansiedad generalizada persistente:</strong> preocupación excesiva, tensión muscular, dificultad para concentrarse durante más de 6 meses</li>
+  <li><strong>Depresión leve o moderada:</strong> tristeza, anhedonia (pérdida de disfrute), fatiga, alteraciones del sueño más de 2 semanas</li>
+  <li><strong>Ataques de pánico:</strong> episodios agudos de miedo intenso con síntomas físicos (taquicardia, disnea, sudoración)</li>
+  <li><strong>Estrés postraumático:</strong> tras accidente, violencia, pérdida traumática</li>
+  <li><strong>Problemas de pareja o familia:</strong> comunicación deteriorada, conflictos repetidos, decisiones vitales</li>
+  <li><strong>Duelo complicado</strong> tras pérdida</li>
+  <li><strong>Fobias específicas:</strong> agorafobia, fobia social, fobia a volar, etc.</li>
+  <li><strong>Trastornos de la conducta alimentaria</strong></li>
+</ul>
+<p>Ante ideación suicida activa o riesgo inminente, acude a urgencias hospitalarias directamente. Para el resto, Med Connect programa cita con psicólogo privado en Barcelona en 24-72 horas — <a href="/especialistas/psicologia/barcelona">consulta aquí los psicólogos con hueco esta semana</a>.</p>
+
+<h2>Qué corrientes de psicología encuentro en Barcelona</h2>
+<p>La <strong>terapia cognitivo-conductual (TCC)</strong> es la corriente con mayor evidencia científica para trastornos de ansiedad, depresión leve-moderada y fobias. Suele ser la primera opción en la privada barcelonesa por resultados en 8-16 sesiones para muchos motivos de consulta.</p>
+<p>También encontrarás en Barcelona:</p>
+<ul>
+  <li><strong>EMDR (Desensibilización y Reprocesamiento por Movimientos Oculares):</strong> especialmente indicada para trastorno de estrés postraumático (TEPT), duelos complicados y experiencias traumáticas</li>
+  <li><strong>Terapia sistémica:</strong> para pareja, familia y contextos relacionales</li>
+  <li><strong>Terapia de aceptación y compromiso (ACT):</strong> para depresión, ansiedad, dolor crónico</li>
+  <li><strong>Mindfulness-based therapy:</strong> reducción de estrés basada en atención plena</li>
+  <li><strong>Terapia psicodinámica breve:</strong> para conflictos internos, patrones relacionales</li>
+</ul>
+<p>Med Connect permite filtrar por especialización del psicólogo.</p>
+
+<h2>Sesiones presenciales vs online: ¿qué cubre el seguro?</h2>
+<p>Desde 2020, la mayoría de aseguradoras aceptan la videoconsulta con psicólogo como equivalente a la presencial. Muchos psicólogos barceloneses ofrecen ambas modalidades, con presencial concentrada en las zonas del Eixample, Sant Gervasi, Gràcia y Sarrià. La modalidad online tiene la misma cobertura de sesiones anuales que la presencial.</p>
+
+<h2>Cómo empieza el proceso psicológico: qué esperar de la primera sesión</h2>
+<ol>
+  <li><strong>Motivo de consulta y expectativas:</strong> el psicólogo pregunta qué te ha llevado a buscar ayuda y qué esperas conseguir</li>
+  <li><strong>Historia biográfica breve:</strong> contexto familiar, académico/laboral, relacional, antecedentes médicos y psicológicos relevantes</li>
+  <li><strong>Evaluación de síntomas:</strong> con cuestionarios estandarizados si procede</li>
+  <li><strong>Devolución y propuesta terapéutica:</strong> tipo de terapia recomendado, número aproximado de sesiones, frecuencia (habitualmente semanal al principio)</li>
+</ol>
+
+<h2>Cómo pedir cita esta semana con psicólogo en Barcelona</h2>
+<p>Con Med Connect: <a href="/especialistas/psicologia/barcelona">selecciona el psicólogo con hueco esta semana en Barcelona</a>, elige día, hora y modalidad (presencial u online), y paga la tarifa de prioridad. Confirmación por email inmediata y sesión cubierta por tu seguro.</p>
+    `,
+  },
+  {
+    slug: 'cardiologo-urgencia-barcelona-cita-24h',
+    title: 'Cardiólogo con urgencia en Barcelona: guía paso a paso para cita en 24-72h',
+    description: 'Cuándo la urgencia cardiológica requiere consulta esta semana y no urgencias hospitalarias. Precios, aseguradoras y cómo conseguir cita con cardiólogo privado en Barcelona en 24-72 horas.',
+    category: 'ciudad',
+    publishedAt: '2026-09-10',
+    readingMinutes: 5,
+    relatedSpecialty: 'cardiologia',
+    relatedCity: 'barcelona',
+    coverImage: 'https://images.unsplash.com/photo-1666214280391-8ff5bd3c0bf0?w=900&h=500&fit=crop&q=80',
+    coverAlt: 'Cardiólogo con estetoscopio auscultando paciente',
+    content: `
+<p>No toda urgencia cardiológica requiere ir a urgencias hospitalarias. Palpitaciones sostenidas, presión arterial descontrolada o síntomas nuevos que llevan varios días necesitan valoración por cardiólogo <strong>en pocos días</strong>, no en semanas. Esta guía te explica cuándo y cómo conseguir cita urgente con cardiólogo privado en Barcelona en 24-72 horas.</p>
+
+<h2>Urgencia vital vs urgencia diferida: dónde encajas</h2>
+<p>Ante estos síntomas <strong>acude directamente a urgencias hospitalarias</strong>:</p>
+<ul>
+  <li>Dolor torácico opresivo intenso de aparición súbita, en reposo o con esfuerzo mínimo</li>
+  <li>Disnea súbita e intensa</li>
+  <li>Síncope repetido en pocas horas</li>
+  <li>Palpitaciones muy rápidas sostenidas con mareo o dolor torácico</li>
+  <li>Signos de bajo gasto: piel fría y sudorosa, confusión</li>
+</ul>
+<p>Ante estos síntomas <strong>necesitas cardiólogo esta semana (urgencia diferida)</strong>, no urgencias:</p>
+<ul>
+  <li>Palpitaciones frecuentes sin síntomas acompañantes graves</li>
+  <li>Presión arterial persistentemente elevada (&gt;160/100) pese a tratamiento</li>
+  <li>Disnea de esfuerzo progresiva sin dolor torácico</li>
+  <li>Mareo o pre-síncope de repetición</li>
+  <li>Auscultación anómala (soplo detectado por otro médico)</li>
+  <li>Antecedentes familiares recientes de muerte súbita cardíaca</li>
+  <li>Alteración reciente en ECG hecha por otro motivo</li>
+</ul>
+<p>Para todos los síntomas del segundo grupo, Med Connect programa cita en 24-72 horas con cardiólogo privado en Barcelona — <a href="/especialistas/cardiologia/barcelona">consulta aquí los centros con hueco esta semana</a>.</p>
+
+<h2>Cuánto cuesta una consulta cardiológica urgente en Barcelona</h2>
+<p>Sin seguro, la consulta cardiológica en Barcelona ronda 90-140 €. Se incluye habitualmente el ECG en reposo. Un ecocardiograma añade 100-160 € y un Holter de 24h ronda los 130-200 €. Con seguro médico privado (Sanitas, Adeslas, DKV, Asisa, AXA, Mapfre, Cigna), todo esto está cubierto. Con <a href="/">Med Connect</a> solo pagas la <strong>tarifa de prioridad de 4-19 €</strong> por conseguir cita esta semana en un centro concertado.</p>
+
+<h2>Centros cardiológicos privados de referencia en Barcelona</h2>
+<p>Los centros con mayor capacidad de respuesta rápida en Barcelona:</p>
+<ul>
+  <li><strong>Centro Médico Teknon:</strong> servicio cardiológico completo con unidad de arritmias</li>
+  <li><strong>Hospital Universitari Dexeus:</strong> cardiología intervencionista y no invasiva</li>
+  <li><strong>Clínica Corachán:</strong> consulta cardiológica y ecocardiografía</li>
+  <li><strong>Clínica Sagrada Família:</strong> cardiología ambulatoria</li>
+</ul>
+<p>Los hospitales universitarios (Clínic, Vall d'Hebron, Sant Pau) son referencia pública y también atienden pacientes con seguro privado para consulta ambulatoria.</p>
+
+<h2>Qué pruebas puede pedir el cardiólogo tras la consulta urgente</h2>
+<p>Tras evaluarte, el cardiólogo puede solicitar:</p>
+<ol>
+  <li><strong>Ecocardiograma:</strong> valoración anatómica y funcional del corazón. Programado en 24-72 horas si es urgente.</li>
+  <li><strong>Holter de 24-72 horas:</strong> registro continuo del ritmo cardíaco para detectar arritmias intermitentes</li>
+  <li><strong>MAPA (Monitorización Ambulatoria de Presión Arterial):</strong> registro tensional durante 24 horas para valorar hipertensión enmascarada</li>
+  <li><strong>Prueba de esfuerzo:</strong> valorar respuesta cardiovascular al ejercicio</li>
+  <li><strong>Analítica cardiológica completa:</strong> perfil lipídico, glucemia, HbA1c, función renal, iones, NT-proBNP si sospecha de insuficiencia cardíaca</li>
+</ol>
+<p>Todo cubierto por las aseguradoras privadas tras la primera consulta. Med Connect gestiona el calendario para minimizar el tiempo entre pruebas.</p>
+
+<h2>Palpitaciones: por qué la consulta rápida importa</h2>
+<p>Las palpitaciones son uno de los motivos más frecuentes de consulta cardiológica urgente en Barcelona. Aunque en muchos casos son benignas (por estrés, cafeína, hipertiroidismo leve), en otros esconden arritmias que requieren tratamiento específico: fibrilación auricular (que aumenta el riesgo de ictus si no se anticoagula), taquicardias supraventriculares (susceptibles de ablación) o síndrome de QT largo (riesgo de arritmias ventriculares).</p>
+<p>Descartar estas causas en pocos días es la razón por la que la cita cardiológica no puede esperar meses.</p>
+
+<h2>Cómo pedir cita cardiológica urgente en Barcelona</h2>
+<p>Con Med Connect: <a href="/especialistas/cardiologia/barcelona">selecciona el cardiólogo o clínica en Barcelona con hueco esta semana</a>, elige día y hora, paga la tarifa de prioridad (desde 4 €), y recibe confirmación por email en minutos.</p>
+    `,
+  },
 ];
 
 // ── Accessors ──────────────────────────────────────────────────────────────

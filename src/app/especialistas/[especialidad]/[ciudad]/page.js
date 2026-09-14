@@ -11,6 +11,7 @@ import {
   getAllSpecialtyCityCombinations,
   specialtyPageUrl,
 } from '@/lib/seoData';
+import { getLocalContent } from '@/lib/landingLocalContent';
 import { getPool, DB_AVAILABLE, sql } from '@/lib/db';
 
 const BASE_URL = process.env.NEXT_PUBLIC_BASE_URL || 'https://www.medconnect.es';
@@ -238,6 +239,21 @@ export default async function EspecialistasCiudadPage({ params }) {
   // page size (30). Skeleton count = API response count → 0 shift.
   const expectedClinicCount = await countApiMatchClinics(especialidad, city);
 
+  // 2026-09-14 — Local content injection (SEO #5).
+  // Data-file lookup by (specialty, city). Returns an object with an
+  // intro paragraph pair, a hospital-references list, a price note and a
+  // set of city-specific FAQs — declared for the top 20 combos by GSC
+  // impression volume in src/lib/landingLocalContent.js. When null (any
+  // other combo), the page falls back to the generic template unchanged.
+  // The city FAQs (if present) are prepended to the specialty-generic
+  // FAQs both in the on-page render AND in the FAQPage JSON-LD, so Google
+  // sees city+specialty specific Q&A pairs that don't exist on any other
+  // landing.
+  const localContent = getLocalContent(especialidad, ciudad);
+  const mergedFaqs = localContent?.cityFaqs
+    ? [...localContent.cityFaqs, ...specialty.faqs]
+    : specialty.faqs;
+
   // 2026-06-22 — JSON-LD enriquecido para LLMs.
   // ChatGPT (canal con CVR 50%, único pago confirmado en 8 días) muestra
   // que los LLMs sí refieren MedConnect a usuarios con intent específico.
@@ -301,7 +317,7 @@ export default async function EspecialistasCiudadPage({ params }) {
       },
       {
         '@type': 'FAQPage',
-        mainEntity: specialty.faqs.map(({ q, a }) => ({
+        mainEntity: mergedFaqs.map(({ q, a }) => ({
           '@type': 'Question',
           name: q,
           acceptedAnswer: { '@type': 'Answer', text: a },
@@ -610,6 +626,101 @@ export default async function EspecialistasCiudadPage({ params }) {
         </div>
       </section>
 
+      {/* ── Local content: city-specific intro + hospitals + price note ── */}
+      {/* 2026-09-14 — SEO #5 local-content injection. Renders 2 intro
+          paragraphs (public waiting time in the region + the value prop
+          adapted to the city), the hospitals of reference in that city
+          (for E-A-T signal + entity anchoring), and a local price note.
+          Only renders when getLocalContent(especialidad, ciudad) returns
+          a non-null entry — declared in landingLocalContent.js for the
+          top 20 combos by GSC impression volume. Any other combo just
+          skips this block. */}
+      {localContent && (
+        <section
+          style={{
+            borderTop: '1px solid var(--border)',
+            background: '#fff',
+            padding: '3rem 0',
+          }}
+        >
+          <div className="container" style={{ maxWidth: '820px' }}>
+            <h2
+              style={{
+                fontSize: '1.35rem',
+                fontWeight: '800',
+                color: 'var(--ink-1000)',
+                marginBottom: '1rem',
+              }}
+            >
+              {specialty.name} privada en {city}: cómo funciona la red de Med Connect
+            </h2>
+            {localContent.localIntro.map((paragraph, i) => (
+              <p
+                key={i}
+                style={{
+                  color: 'var(--fg-muted)',
+                  lineHeight: 1.75,
+                  fontSize: '0.98rem',
+                  marginBottom: '1rem',
+                }}
+              >
+                {paragraph}
+              </p>
+            ))}
+
+            {localContent.hospitalReferences?.length > 0 && (
+              <div
+                style={{
+                  background: 'var(--bone-100)',
+                  border: '1px solid var(--border)',
+                  borderLeft: '3px solid var(--brass-500)',
+                  borderRadius: '8px',
+                  padding: '1.1rem 1.35rem',
+                  marginTop: '1.5rem',
+                }}
+              >
+                <p
+                  style={{
+                    fontSize: '0.8rem',
+                    fontWeight: 700,
+                    color: 'var(--ink-1000)',
+                    letterSpacing: '0.05em',
+                    textTransform: 'uppercase',
+                    margin: '0 0 0.5rem',
+                  }}
+                >
+                  Hospitales de referencia en {city}
+                </p>
+                <p
+                  style={{
+                    color: 'var(--fg-muted)',
+                    fontSize: '0.92rem',
+                    lineHeight: 1.65,
+                    margin: 0,
+                  }}
+                >
+                  {localContent.hospitalReferences.join(' · ')}. Med Connect trabaja con clínicas concertadas alrededor de esta red, con hueco disponible esta misma semana en la aseguradora que uses.
+                </p>
+              </div>
+            )}
+
+            {localContent.localPriceNote && (
+              <p
+                style={{
+                  marginTop: '1.5rem',
+                  color: 'var(--fg-muted)',
+                  lineHeight: 1.7,
+                  fontSize: '0.92rem',
+                  fontStyle: 'italic',
+                }}
+              >
+                💶 {localContent.localPriceNote}
+              </p>
+            )}
+          </div>
+        </section>
+      )}
+
       {/* ── FAQ section ──────────────────────────────────────────────── */}
       <section style={{ padding: '3rem 0', borderTop: '1px solid var(--border)' }}>
         <div className="container" style={{ maxWidth: '780px' }}>
@@ -624,7 +735,7 @@ export default async function EspecialistasCiudadPage({ params }) {
             Preguntas frecuentes sobre {specialty.name.toLowerCase()} privada en {city}
           </h2>
           <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
-            {specialty.faqs.map(({ q, a }, i) => (
+            {mergedFaqs.map(({ q, a }, i) => (
               <div
                 key={i}
                 style={{
