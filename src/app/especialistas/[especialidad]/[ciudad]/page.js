@@ -42,19 +42,25 @@ const BASE_URL = process.env.NEXT_PUBLIC_BASE_URL || 'https://www.medconnect.es'
 //      clinic_specialties said 74. Counting bookable clinics matches
 //      what the user (and Google) actually sees.
 //
-// 2026-09-14 — Threshold lowered from 3 → 1 after the Search Console
-// audit revealed 98 pages "Excluded by 'noindex' tag" and another 172
-// "Discovered — currently not indexed". Together those 270 pages are 3×
-// what we DO have indexed (85). The 2026-06 hypothesis was that Google
-// treats <3-clinic pages as thin content; the actual data now suggests
-// the noindex is causing MORE harm than help — we're pre-emptively
-// blocking pages before Google ever has a chance to rank them. A single
-// bookable clinic + the same landing-page template (FAQ, insurers,
-// testimonials, breadcrumbs) is enough content for indexation; Google
-// will just rank it lower if the listing is thin, which is fine. The
-// pages with 3+ clinics were already outperforming the thin ones in the
-// GSC data, so relative ordering is preserved without the hard cutoff.
-const MIN_INDEXABLE_CLINICS = 1;
+// 2026-09-14 — Threshold effectively removed (3 → 0). After the first
+// pass (3 → 1) shipped, GSC's URL Inspection tool on
+// /especialistas/ginecologia/bilbao still reported "Page cannot be
+// indexed: Excluded by 'noindex' tag" because that combo has 0 clinics
+// with schedules in the DB and 0 < 1 still triggered the tooThin gate.
+// Setting the threshold to 0 means the noindex tag is only emitted for
+// negative counts (impossible) — every landing is now server-declared
+// indexable. This is the intended outcome per the same GSC audit
+// (2026-09-14): 98 pages "Excluded by 'noindex' tag" + 40 "Crawled –
+// currently not indexed" + 172 "Discovered – currently not indexed"
+// together outnumber the 85 we DO have indexed by 3.6×. Google is
+// already skipping pages it considers thin (that's what "Discovered –
+// not indexed" means) — pre-emptively blocking with noindex only
+// prevents recovery when a combo gains inventory. Local content added
+// for the top-20 combos also makes even a 0-clinic landing an
+// information-dense page (hospitals of reference, city-specific FAQ,
+// price notes) that is worth indexing on relevance grounds, not on
+// clinic count.
+const MIN_INDEXABLE_CLINICS = 0;
 
 // 2026-06-18 — Two distinct counts for two distinct purposes:
 //   1. countIndexableClinics — for the noindex threshold. STRICT:

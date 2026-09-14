@@ -11,11 +11,13 @@ import { getPool, DB_AVAILABLE, sql } from '@/lib/db';
 import InsurerResults from './InsurerResults';
 
 const BASE_URL = process.env.NEXT_PUBLIC_BASE_URL || 'https://www.medconnect.es';
-// 2026-09-14 — Lowered from 3 → 1 to unblock indexation. See the same
-// threshold change comment in
-// src/app/especialistas/[especialidad]/[ciudad]/page.js for the full
-// GSC-audit reasoning.
-const MIN_INDEXABLE_CLINICS = 1;
+// 2026-09-14 — Lowered from 3 → 0 to remove the gate entirely, matching
+// the same second-pass change in
+// src/app/especialistas/[especialidad]/[ciudad]/page.js. The initial 1
+// still noindex'd the 0-clinic combos (GSC URL Inspection on
+// ginecologia/bilbao surfaced this). See that file for the full
+// audit-based reasoning.
+const MIN_INDEXABLE_CLINICS = 0;
 
 async function countClinicsForInsurerSpecialty(specialtySlug, insurerDbName) {
   if (!DB_AVAILABLE) return null;
