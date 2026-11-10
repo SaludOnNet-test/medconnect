@@ -78,7 +78,12 @@ function SearchV2Content() {
   // server-driven (partner-first → rating DESC → name) inside
   // /api/clinics/search, which is the right default for both the SEO
   // landing pages and the in-app search.
-  const [insuranceFilter, setInsuranceFilter] = useState('');
+  // ?insurance= pre-selects the filter (deep links from the insurer pages).
+  // Only values the dropdown knows are accepted.
+  const insuranceParam = searchParams.get('insurance') || '';
+  const [insuranceFilter, setInsuranceFilter] = useState(
+    insuranceCompanies.includes(insuranceParam) ? insuranceParam : '',
+  );
   const [showMap, setShowMap]                 = useState(false);
   const [filtersOpen, setFiltersOpen]         = useState(false);
   // Tier window filter (multi-select). Empty Set = no filter (show all).

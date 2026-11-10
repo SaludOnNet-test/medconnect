@@ -86,6 +86,13 @@ export default function SearchResults({ specialtySlug, city, expectedClinicCount
   // + insurance. Server-side ordering inside /api/clinics/search
   // (partner-first → rating DESC → name ASC) is the default.
   const [insuranceFilter, setInsuranceFilter] = useState('');
+  // ?insurance= pre-selects the filter (deep links from the insurer pages).
+  // Read on mount from window.location: the landing is statically
+  // generated, and useSearchParams would force a client-side bailout.
+  useEffect(() => {
+    const insuranceParam = new URLSearchParams(window.location.search).get('insurance') || '';
+    if (insuranceCompanies.includes(insuranceParam)) setInsuranceFilter(insuranceParam);
+  }, []);
   // Tier window filter (multi-select). Empty Set = no filter (show all).
   // SEO landings don't currently URL-sync this — they keep the patient
   // on the same page after toggling. Add ?tier= sync later if it becomes

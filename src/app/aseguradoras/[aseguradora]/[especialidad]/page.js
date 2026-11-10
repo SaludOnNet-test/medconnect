@@ -5,10 +5,14 @@ import Footer from '@/components/Footer';
 import Button from '@/components/brand/Button';
 import TrustStrip from '@/components/TrustStrip';
 import PatientTestimonials from '@/components/PatientTestimonials';
-import { SPECIALTY_MAP, CITY_MAP, specialtyPageUrl } from '@/lib/seoData';
+import { SPECIALTY_MAP, CITY_MAP } from '@/lib/seoData';
 import { INSURER_MAP, getAllInsurerSpecialtyCombinations, insurerSpecialtyPageUrl } from '@/lib/insurerData';
 import { getPool, DB_AVAILABLE, sql } from '@/lib/db';
+import { getInsurerSpecialtyData } from '@/lib/insurerPageData';
 import InsurerResults from './InsurerResults';
+import InsurerCtaLink from './InsurerCtaLink';
+import InsurerStickyCta from './InsurerStickyCta';
+import './insurer-page.css';
 
 const BASE_URL = process.env.NEXT_PUBLIC_BASE_URL || 'https://www.medconnect.es';
 // 2026-09-14 — Lowered from 3 → 0 to remove the gate entirely, matching
@@ -78,7 +82,7 @@ export async function generateMetadata({ params }) {
   };
 }
 
-function buildSchema(insurer, specialty, aseguradora, especialidad) {
+function buildSchema(insurer, specialty, aseguradora, especialidad, extraFaqs = []) {
   const url = insurerSpecialtyPageUrl(aseguradora, especialidad);
   return {
     '@context': 'https://schema.org',
@@ -119,6 +123,11 @@ function buildSchema(insurer, specialty, aseguradora, especialidad) {
               text: 'La tarifa de Med Connect es de 4€ si la cita es a más de 30 días, 8€ entre 15 y 30 días, 15€ entre 7 y 14 días, o 19€ si la necesitas en menos de 7 días. La consulta médica la paga tu aseguradora.',
             },
           },
+          ...extraFaqs.map((faq) => ({
+            '@type': 'Question',
+            name: faq.q,
+            acceptedAnswer: { '@type': 'Answer', text: faq.a },
+          })),
         ],
       },
       {
@@ -140,15 +149,40 @@ export default async function InsurerSpecialtyPage({ params }) {
   const specialty = SPECIALTY_MAP[especialidad];
   if (!insurer || !specialty) notFound();
 
-  const schema = buildSchema(insurer, specialty, aseguradora, especialidad);
+  const { cities, consultationPrice } = await getInsurerSpecialtyData(especialidad, insurer.dbName);
+  const specialtyLower = specialty.name.toLowerCase();
+
+  // Booking entry points. All of them keep the specialty AND the insurer
+  // (until 2026-11 the hero CTA sent the patient to a bare /search-v2 and
+  // both filters were lost).
+  const insuranceQuery = `insurance=${encodeURIComponent(insurer.dbName)}`;
+  const searchHref = `/search-v2?specialtySlug=${especialidad}&${insuranceQuery}`;
+  const landingHref = (citySlug) => `/especialistas/${especialidad}/${citySlug}?${insuranceQuery}`;
+  const cityHref = (cityInfo) => (cityInfo.landingSlug
+    ? landingHref(cityInfo.landingSlug)
+    : `/search-v2?specialtySlug=${especialidad}&city=${encodeURIComponent(cityInfo.city)}&${insuranceQuery}`);
+
+  const extraFaqs = [
+    {
+      q: `¿Necesito volante de ${insurer.name} para ir al especialista de ${specialtyLower}?`,
+      a: `Depende de tu póliza: muchas pólizas de ${insurer.name} permiten ir directamente al especialista y otras piden volante del médico de cabecera o autorización previa. Revisa las condiciones de tu póliza o la app de ${insurer.name} antes de la cita; si necesitas volante, tenlo listo para el día de la consulta.`,
+    },
+    {
+      q: '¿Qué pasa si no hay hueco en la clínica que elegí?',
+      a: 'Antes de confirmar tu cita, nuestro equipo de Operaciones llama a la clínica para cerrar el hueco. Si ya no está disponible, te proponemos una alternativa cercana y, si no te encaja, te devolvemos la tarifa de prioridad íntegra.',
+    },
+    ...(consultationPrice ? [{
+      q: `¿Cuánto cuesta la consulta de ${specialtyLower} si mi póliza no la cubre?`,
+      a: `En los centros de nuestro catálogo, una consulta de ${specialtyLower} sin seguro cuesta entre ${consultationPrice.min} y ${consultationPrice.max} € según el centro y la ciudad. En ese caso pagas el precio de la consulta más la tarifa de prioridad, en un único cargo.`,
+    }] : []),
+  ];
+
+  const schema = buildSchema(insurer, specialty, aseguradora, especialidad, extraFaqs);
 
   // Related specialties for internal linking
   const relatedSpecialties = Object.entries(SPECIALTY_MAP)
     .filter(([slug]) => slug !== especialidad)
     .slice(0, 5);
-
-  // Related cities for this specialty (internal links to specialty/city pages)
-  const mainCities = ['madrid', 'barcelona', 'valencia', 'sevilla', 'malaga'];
 
   return (
     <>
@@ -158,7 +192,7 @@ export default async function InsurerSpecialtyPage({ params }) {
       />
       <Header />
 
-      <main>
+      <main className="insurer-page-main">
         {/* Hero */}
         <section className="page-header">
           <div className="container page-header-inner">
@@ -182,7 +216,15 @@ export default async function InsurerSpecialtyPage({ params }) {
               Pagas 4–19€ de tarifa de acceso. La consulta la cubre {insurer.name}.
             </p>
             <div className="page-header-actions">
-              <Button href="/search-v2" variant="primary" size="lg">Buscar cita de {specialty.name}</Button>
+              <InsurerCtaLink
+                href={searchHref}
+                cta="hero"
+                insurer={aseguradora}
+                specialty={especialidad}
+                className="brand-btn brand-btn--primary brand-btn--lg"
+              >
+                Buscar cita de {specialty.name} con {insurer.name}
+              </InsurerCtaLink>
               <Button href="/como-funciona" variant="ghost" size="lg">Cómo funciona</Button>
             </div>
           </div>
@@ -202,6 +244,105 @@ export default async function InsurerSpecialtyPage({ params }) {
           </div>
         </section>
 
+        {/* City selector — the patient picks where they need the appointment
+            and lands on the specialty/city page with the insurer pre-selected. */}
+        <section className="info-section info-section--alt">
+          <div className="container">
+            <h2 className="section-title">¿En qué ciudad necesitas cita de {specialtyLower}?</h2>
+            <p className="insurer-section-lede">
+              Elige tu ciudad y te mostramos los huecos disponibles con {insurer.name} ya seleccionado.
+            </p>
+            <div className="insurer-city-links">
+              {Object.entries(CITY_MAP).map(([citySlug, cityName]) => (
+                <InsurerCtaLink
+                  key={citySlug}
+                  href={landingHref(citySlug)}
+                  cta="city_chip"
+                  insurer={aseguradora}
+                  specialty={especialidad}
+                  className="insurer-city-chip"
+                >
+                  {cityName}
+                </InsurerCtaLink>
+              ))}
+              <InsurerCtaLink
+                href={searchHref}
+                cta="city_chip_other"
+                insurer={aseguradora}
+                specialty={especialidad}
+                className="insurer-city-chip"
+              >
+                Otra ciudad
+              </InsurerCtaLink>
+            </div>
+          </div>
+        </section>
+
+        {/* Server-rendered summary of where the clinics are, so the page has
+            real, page-specific content in its initial HTML. */}
+        {cities.length > 0 && (
+          <section className="info-section">
+            <div className="container">
+              <h2 className="section-title">
+                Dónde hay centros de {specialtyLower} con {insurer.name}
+              </h2>
+              <div className="insurer-city-grid">
+                {cities.map((cityInfo) => (
+                  <article key={cityInfo.city} className="insurer-city-card">
+                    <h3 className="insurer-city-card__title">{cityInfo.city}</h3>
+                    <p className="insurer-city-card__count">
+                      {cityInfo.clinicCount} {cityInfo.clinicCount === 1 ? 'centro' : 'centros'} de {specialtyLower}
+                    </p>
+                    <ul className="insurer-city-card__clinics">
+                      {cityInfo.exampleClinics.map((name) => <li key={name}>{name}</li>)}
+                    </ul>
+                    <InsurerCtaLink
+                      href={cityHref(cityInfo)}
+                      cta="city_card"
+                      insurer={aseguradora}
+                      specialty={especialidad}
+                      className="insurer-city-card__link"
+                    >
+                      Ver huecos en {cityInfo.city}
+                    </InsurerCtaLink>
+                  </article>
+                ))}
+              </div>
+            </div>
+          </section>
+        )}
+
+        {/* How booking works with this insurer */}
+        <section className="info-section info-section--alt">
+          <div className="container">
+            <h2 className="section-title">Cómo pedir cita de {specialtyLower} con tu {insurer.name}</h2>
+            <ol className="insurer-steps">
+              <li>
+                <strong>Elige centro y hueco.</strong> Busca por ciudad y reserva el hueco que te encaje; la tarifa de
+                prioridad va de 4 € a 19 € según lo pronto que necesites la cita.
+              </li>
+              <li>
+                <strong>Confirmamos con la clínica.</strong> Nuestro equipo de Operaciones llama al centro para cerrar
+                el hueco con tu {insurer.name} y te avisa por email.
+              </li>
+              <li>
+                <strong>Acude a la cita con tu tarjeta de {insurer.name} y tu DNI.</strong> Si tu póliza pide volante o
+                autorización previa para {specialtyLower}, llévalo también.
+              </li>
+              <li>
+                <strong>La consulta la paga {insurer.name}.</strong> Tú solo pagas la prioridad, y puedes cancelar gratis
+                hasta 24 horas antes de la cita.
+              </li>
+            </ol>
+            {consultationPrice && (
+              <p className="insurer-price-note">
+                Si tu póliza no cubre la consulta, en los centros de nuestro catálogo una consulta de {specialtyLower} sin
+                seguro cuesta entre {consultationPrice.min} y {consultationPrice.max} €.
+              </p>
+            )}
+          </div>
+        </section>
+
         {/* Clinic listing */}
         <section className="info-section info-section--alt">
           <div className="container">
@@ -209,6 +350,7 @@ export default async function InsurerSpecialtyPage({ params }) {
               Centros de {specialty.name.toLowerCase()} concertados con {insurer.name}
             </h2>
             <InsurerResults
+              insurerSlug={aseguradora}
               specialtySlug={especialidad}
               insurerDbName={insurer.dbName}
               insurerName={insurer.name}
@@ -239,26 +381,13 @@ export default async function InsurerSpecialtyPage({ params }) {
             <p>
               Sí. Puedes cancelar gratis hasta 24 horas antes de la cita y te devolvemos la tarifa íntegra.
             </p>
-          </div>
-        </section>
 
-        {/* Internal links: same specialty, other cities */}
-        <section className="info-section info-section--alt">
-          <div className="container">
-            <h2 className="section-title">
-              {specialty.plural} privados por ciudad
-            </h2>
-            <div className="insurer-city-links">
-              {mainCities.map((citySlug) => (
-                <Link
-                  key={citySlug}
-                  href={specialtyPageUrl(especialidad, citySlug)}
-                  className="insurer-city-chip"
-                >
-                  {CITY_MAP[citySlug]}
-                </Link>
-              ))}
-            </div>
+            {extraFaqs.map((faq) => (
+              <div key={faq.q}>
+                <h3>{faq.q}</h3>
+                <p>{faq.a}</p>
+              </div>
+            ))}
           </div>
         </section>
 
@@ -282,6 +411,12 @@ export default async function InsurerSpecialtyPage({ params }) {
 
         <TrustStrip />
         <PatientTestimonials />
+        <InsurerStickyCta
+          href={searchHref}
+          insurerName={insurer.name}
+          insurerSlug={aseguradora}
+          specialtySlug={especialidad}
+        />
       </main>
 
       <Footer />
