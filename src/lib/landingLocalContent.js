@@ -15,8 +15,8 @@
  * of city+specialty specific FAQs (in ADDITION to the generic ones the
  * specialty already defines in seoData.js).
  *
- * Only 20 combos have local content declared here (the top 20 by GSC
- * impression volume, submitted for re-indexing after this deploy). Any
+ * 30 combos have local content declared here: the top 20 by GSC
+ * impression volume (2026-09-14) plus the next 10 (2026-11-10). Any
  * combo without a declared local entry falls back to the template
  * rendering unchanged.
  *
@@ -492,6 +492,242 @@ export const LANDING_LOCAL_CONTENT = {
       {
         q: '¿Los psicólogos malagueños ofrecen terapia EMDR para trauma?',
         a: 'Sí. Varios centros psicológicos de Málaga cuentan con psicólogos formados en EMDR (Desensibilización y Reprocesamiento por Movimientos Oculares), especialmente indicada para el trastorno de estrés postraumático (TEPT), duelos complicados y experiencias traumáticas.',
+      },
+    ],
+  },
+
+  // ── 2026-11 batch: next 10 combos by GSC impressions (28 days to
+  // 2026-11-08) that had no local content. Prices are the real range of
+  // the SaludOnNet catalogue for that specialty in that city (table
+  // clinic_procedures, queried 2026-11-10), not estimates. Waiting
+  // times are kept qualitative on purpose: no figure without a source.
+
+  'dermatologia/sevilla': {
+    localIntro: [
+      'En la sanidad pública sevillana la primera consulta de dermatología puede tardar semanas, y una mancha que cambia, un acné que no responde o un eccema persistente se quedan sin valorar mientras tanto. Los datos oficiales de listas de espera por comunidad se publican en el sistema SISLE del Ministerio de Sanidad.',
+      'Med Connect te da acceso a dermatólogos privados en Sevilla con hueco esta semana en centros concertados con Sanitas, Adeslas, DKV, Asisa, AXA, Mapfre y Cigna, entre otras. Con seguro, la consulta la cubre tu póliza como siempre; solo pagas la tarifa de prioridad de Med Connect (de €4 a €19 según la urgencia).',
+    ],
+    hospitalReferences: ['Hospital Universitario Virgen del Rocío', 'Hospital Universitario Virgen Macarena', 'Hospital Universitario de Valme'],
+    localPriceNote: 'Sin seguro, en los centros de Sevilla de nuestro catálogo una consulta de dermatología cuesta entre 33 y 64 €, y la crioterapia para eliminar verrugas y pequeñas lesiones entre 60 y 87 €. Con seguro, no pagas la consulta: solo la tarifa de prioridad de Med Connect.',
+    cityFaqs: [
+      {
+        q: '¿Puedo revisarme un lunar con un dermatólogo en Sevilla esta semana?',
+        a: 'Sí. La revisión de lunares es uno de los motivos de consulta más habituales en dermatología. Con Med Connect reservas cita esta semana en un centro de Sevilla concertado con tu aseguradora; si el dermatólogo lo considera necesario, te indicará dermatoscopia o extirpación.',
+      },
+      {
+        q: '¿Cuánto cuesta quitar una verruga en Sevilla sin seguro?',
+        a: 'En los centros de Sevilla de nuestro catálogo, la crioterapia para verrugas y pequeñas lesiones cuesta entre 60 y 87 €. Si tienes seguro, consulta primero con el dermatólogo: muchas pólizas cubren este tratamiento.',
+      },
+      {
+        q: '¿Qué aseguradoras puedo usar para el dermatólogo en Sevilla?',
+        a: 'Los centros de dermatología de Sevilla de la red de Med Connect trabajan con las principales aseguradoras (Sanitas, Adeslas, DKV, Asisa, AXA, Mapfre, Cigna, Caser, Generali, entre otras). En el listado de esta página filtras directamente por la tuya.',
+      },
+    ],
+  },
+
+  'cardiologia/madrid': {
+    localIntro: [
+      'La primera consulta de cardiología en la sanidad pública madrileña puede demorarse semanas, también para pruebas como el ecocardiograma o el Holter. Palpitaciones, una tensión arterial mal controlada o un chequeo antes de empezar a hacer deporte acaban esperando más de lo razonable.',
+      'Con Med Connect reservas cardiólogo privado en Madrid con cita esta semana en centros concertados con Sanitas, Adeslas, DKV, Asisa, AXA, Mapfre y Cigna. La consulta la paga tu seguro; tú solo pagas la tarifa de prioridad (de €4 a €19 según la urgencia). Ante dolor torácico intenso o dificultad para respirar, acude siempre a urgencias.',
+    ],
+    hospitalReferences: ['Hospital General Universitario Gregorio Marañón', 'Hospital Clínico San Carlos', 'Hospital Universitario 12 de Octubre', 'Hospital Universitario La Paz'],
+    localPriceNote: 'Sin seguro, en los centros de Madrid de nuestro catálogo la consulta de cardiología va de 26 a 87 €; con electrocardiograma, de 37 a 91 €; con electrocardiograma y ecocardiograma, de 92 a 308 €; y con Holter, de 83 a 221 €. Con seguro, no pagas la consulta.',
+    cityFaqs: [
+      {
+        q: '¿Puedo hacerme un electrocardiograma en la misma cita en Madrid?',
+        a: 'Sí. Muchos centros de Madrid de nuestra red ofrecen la consulta de cardiología con electrocardiograma en la misma visita. Sin seguro, ese paquete cuesta entre 37 y 91 € según el centro.',
+      },
+      {
+        q: '¿Necesito un chequeo cardiológico antes de empezar a hacer deporte?',
+        a: 'Es recomendable si tienes antecedentes familiares de enfermedad cardiaca, factores de riesgo (tensión alta, colesterol, diabetes, tabaco) o vas a empezar un deporte de alta intensidad. El cardiólogo valorará si hace falta electrocardiograma, ecocardiograma o prueba de esfuerzo.',
+      },
+      {
+        q: '¿Cubre mi seguro el Holter en Madrid?',
+        a: 'Las principales aseguradoras cubren el Holter cuando lo prescribe el cardiólogo, a veces con autorización previa. Sin seguro, la consulta con Holter en los centros de Madrid de nuestro catálogo cuesta entre 83 y 221 €.',
+      },
+    ],
+  },
+
+  'ginecologia/murcia': {
+    localIntro: [
+      'En la Región de Murcia, conseguir una primera consulta de ginecología en la sanidad pública puede llevar semanas, y la revisión anual, una ecografía o el control de un embarazo no siempre pueden esperar ese tiempo.',
+      'Med Connect te da acceso a ginecólogos privados en Murcia con hueco esta semana en centros concertados con las principales aseguradoras. Con seguro, la consulta la cubre tu póliza; tú solo pagas la tarifa de prioridad de Med Connect (de €4 a €19 según la urgencia).',
+    ],
+    hospitalReferences: ['Hospital Clínico Universitario Virgen de la Arrixaca', 'Hospital General Universitario Reina Sofía', 'Hospital General Universitario Morales Meseguer'],
+    localPriceNote: 'Sin seguro, en los centros de Murcia de nuestro catálogo una consulta de ginecología cuesta entre 38 y 138 €, la revisión ginecológica anual entre 89 y 148 €, y la revisión de embarazo con ecografía obstétrica entre 83 y 143 €. Con seguro, no pagas la consulta.',
+    cityFaqs: [
+      {
+        q: '¿Qué incluye la revisión ginecológica anual en Murcia?',
+        a: 'Suele incluir exploración, citología cuando corresponde según la edad y ecografía ginecológica. A partir de los 40 años muchos centros añaden ecografía mamaria. En Murcia, sin seguro, la revisión anual cuesta entre 89 y 148 € en los centros de nuestro catálogo.',
+      },
+      {
+        q: '¿Puedo hacer el seguimiento del embarazo con un ginecólogo privado en Murcia?',
+        a: 'Sí. Varios centros de Murcia de nuestra red ofrecen revisión de embarazo con ecografía obstétrica. Con seguro, el seguimiento suele estar cubierto por la póliza; sin seguro, cada revisión cuesta entre 83 y 143 €.',
+      },
+      {
+        q: '¿Puedo elegir ginecóloga mujer en Murcia?',
+        a: 'Depende del centro y de su cuadro de profesionales. Al reservar puedes indicarlo en las observaciones y Operaciones lo tiene en cuenta al confirmar el hueco con la clínica.',
+      },
+    ],
+  },
+
+  'traumatologia/madrid': {
+    localIntro: [
+      'Una primera consulta de traumatología en la sanidad pública madrileña puede tardar semanas, y un dolor de rodilla, una lumbalgia que no cede o una lesión deportiva empeoran mientras se espera el diagnóstico.',
+      'Con Med Connect reservas traumatólogo privado en Madrid con cita esta semana en centros concertados con Sanitas, Adeslas, DKV, Asisa, AXA, Mapfre y Cigna. La consulta la cubre tu seguro; solo pagas la tarifa de prioridad (de €4 a €19 según la urgencia).',
+    ],
+    hospitalReferences: ['Hospital Universitario La Paz', 'Hospital Universitario Ramón y Cajal', 'Hospital Universitario 12 de Octubre', 'Fundación Jiménez Díaz'],
+    localPriceNote: 'Sin seguro, en los centros de Madrid de nuestro catálogo la consulta de traumatología cuesta entre 32 y 87 €, y la consulta con infiltración articular entre 35 y 112 €. Con seguro, no pagas la consulta.',
+    cityFaqs: [
+      {
+        q: '¿Pueden infiltrarme en la primera consulta de traumatología en Madrid?',
+        a: 'Si el traumatólogo lo considera indicado, sí: varios centros de Madrid de nuestra red ofrecen la consulta con infiltración articular en la misma visita. Sin seguro, cuesta entre 35 y 112 € según el centro.',
+      },
+      {
+        q: '¿Necesito una resonancia antes de ir al traumatólogo?',
+        a: 'No. Lo habitual es que el traumatólogo te explore primero y, si hace falta, pida la prueba de imagen (radiografía, ecografía o resonancia). Con seguro, la aseguradora autoriza la prueba con el volante del especialista.',
+      },
+      {
+        q: '¿Atienden lesiones deportivas los traumatólogos de la red en Madrid?',
+        a: 'Sí. Esguinces, lesiones de menisco, tendinitis o roturas fibrilares son motivos de consulta frecuentes en traumatología. Reserva con Med Connect y te verán esta semana en un centro concertado con tu seguro.',
+      },
+    ],
+  },
+
+  'ginecologia/barcelona': {
+    localIntro: [
+      'En Barcelona, la primera consulta de ginecología en la sanidad pública puede alargarse semanas, y la revisión anual o una consulta por dolor o sangrado irregular no siempre pueden esperar.',
+      'Med Connect te da acceso a ginecólogos privados en Barcelona con hueco esta semana en centros concertados con Sanitas, Adeslas, DKV, Asisa, AXA, Mapfre y Cigna. Con seguro, la consulta la cubre tu póliza; tú solo pagas la tarifa de prioridad de Med Connect (de €4 a €19 según la urgencia).',
+    ],
+    hospitalReferences: ['Hospital Universitari Vall d\'Hebron', 'Hospital Clínic de Barcelona', 'Hospital de la Santa Creu i Sant Pau', 'Hospital del Mar'],
+    localPriceNote: 'Sin seguro, en los centros de Barcelona de nuestro catálogo una consulta de ginecología cuesta entre 33 y 102 €, la revisión ginecológica anual entre 68 y 201 €, y la revisión de embarazo con ecografía obstétrica entre 64 y 140 €. Con seguro, no pagas la consulta.',
+    cityFaqs: [
+      {
+        q: '¿Cuánto cuesta una revisión ginecológica en Barcelona sin seguro?',
+        a: 'En los centros de Barcelona de nuestro catálogo, la revisión ginecológica anual cuesta entre 68 y 201 €; con ecografía mamaria, entre 107 y 257 €. Con seguro, la revisión suele estar cubierta y solo pagas la tarifa de prioridad de Med Connect.',
+      },
+      {
+        q: '¿Hay ginecólogos privados en Barcelona para seguimiento del embarazo?',
+        a: 'Sí. Es uno de los servicios más habituales en los centros de Barcelona de nuestra red. Sin seguro, la revisión de embarazo con ecografía obstétrica cuesta entre 64 y 140 €.',
+      },
+      {
+        q: '¿Puedo pedir cita con ginecólogo en Barcelona para esta misma semana?',
+        a: 'Sí. Med Connect te muestra los centros de Barcelona con hueco en los próximos días y concertados con tu aseguradora. Eliges el hueco, pagas la prioridad y Operaciones lo confirma con la clínica.',
+      },
+    ],
+  },
+
+  'urologia/granada': {
+    localIntro: [
+      'En Granada, la primera consulta de urología en la sanidad pública puede tardar semanas, y molestias al orinar, cálculos renales recurrentes o la revisión de próstata a partir de los 50 años se quedan esperando.',
+      'Con Med Connect reservas urólogo privado en Granada con cita esta semana en centros concertados con las principales aseguradoras. La consulta la cubre tu seguro; solo pagas la tarifa de prioridad (de €4 a €19 según la urgencia).',
+    ],
+    hospitalReferences: ['Hospital Universitario Virgen de las Nieves', 'Hospital Universitario Clínico San Cecilio'],
+    localPriceNote: 'Sin seguro, en los centros de Granada de nuestro catálogo la consulta de urología cuesta entre 43 y 50 €, y la revisión urológica con ecografía unos 104 €. Con seguro, no pagas la consulta.',
+    cityFaqs: [
+      {
+        q: '¿Qué incluye una revisión urológica en Granada?',
+        a: 'En los centros de Granada de nuestro catálogo, la revisión urológica incluye consulta y ecografía urológica, y cuesta unos 104 € sin seguro. El urólogo puede pedir además un análisis de PSA si lo considera necesario.',
+      },
+      {
+        q: '¿A partir de qué edad conviene revisar la próstata?',
+        a: 'Se suele recomendar a partir de los 50 años, o antes si hay antecedentes familiares de cáncer de próstata o síntomas urinarios. El urólogo te indicará la periodicidad adecuada.',
+      },
+      {
+        q: '¿Puedo usar mi seguro para el urólogo en Granada?',
+        a: 'Sí. Los centros de urología de Granada de la red de Med Connect trabajan con las principales aseguradoras. Con seguro, la consulta la factura el centro a tu póliza y tú solo pagas la tarifa de prioridad.',
+      },
+    ],
+  },
+
+  'endocrinologia/sevilla': {
+    localIntro: [
+      'En Sevilla, la primera consulta de endocrinología en la sanidad pública puede demorarse semanas, y un tiroides alterado en un análisis, una diabetes que cuesta controlar o un problema de peso necesitan valoración antes.',
+      'Med Connect te da acceso a endocrinólogos privados en Sevilla con hueco esta semana en centros concertados con las principales aseguradoras. Con seguro, la consulta la cubre tu póliza; tú solo pagas la tarifa de prioridad de Med Connect (de €4 a €19 según la urgencia).',
+    ],
+    hospitalReferences: ['Hospital Universitario Virgen del Rocío', 'Hospital Universitario Virgen Macarena', 'Hospital Universitario de Valme'],
+    localPriceNote: 'Sin seguro, en los centros de Sevilla de nuestro catálogo la consulta de endocrinología y nutrición cuesta entre 37 y 82 €. Con seguro, no pagas la consulta.',
+    cityFaqs: [
+      {
+        q: '¿Trata el endocrinólogo los problemas de tiroides en Sevilla?',
+        a: 'Sí. El hipotiroidismo, el hipertiroidismo y los nódulos tiroideos son de los motivos de consulta más frecuentes en endocrinología. Lleva tus últimos análisis a la cita para que el especialista pueda valorarlos.',
+      },
+      {
+        q: '¿El endocrinólogo hace planes de alimentación?',
+        a: 'La especialidad es endocrinología y nutrición: el endocrinólogo valora el problema de fondo (diabetes, tiroides, obesidad, colesterol) y puede pautar dieta y tratamiento. En Sevilla, sin seguro, la consulta cuesta entre 37 y 82 € en los centros de nuestro catálogo.',
+      },
+      {
+        q: '¿Puedo ir al endocrinólogo con mi seguro sin volante?',
+        a: 'Depende de tu póliza: muchas aseguradoras permiten acceso directo al especialista y otras piden volante del médico de cabecera. Med Connect te muestra centros concertados con tu aseguradora; si tu póliza pide volante, tenlo listo antes de la cita.',
+      },
+    ],
+  },
+
+  'digestivo/malaga': {
+    localIntro: [
+      'En Málaga, la primera consulta con el especialista de aparato digestivo en la sanidad pública puede tardar semanas, y un reflujo persistente, molestias abdominales o cambios en el ritmo intestinal necesitan valoración antes.',
+      'Con Med Connect reservas especialista en digestivo en Málaga con cita esta semana en centros concertados con las principales aseguradoras. La consulta la cubre tu seguro; solo pagas la tarifa de prioridad (de €4 a €19 según la urgencia).',
+    ],
+    hospitalReferences: ['Hospital Regional Universitario de Málaga', 'Hospital Clínico Universitario Virgen de la Victoria'],
+    localPriceNote: 'Sin seguro, en los centros de Málaga de nuestro catálogo la consulta de aparato digestivo cuesta entre 48 y 90 €. Con seguro, no pagas la consulta.',
+    cityFaqs: [
+      {
+        q: '¿Cuándo debo ir al especialista de digestivo?',
+        a: 'Si tienes reflujo o acidez frecuentes, dolor abdominal recurrente, cambios en el ritmo intestinal que duran semanas o antecedentes familiares de cáncer de colon. Si hay sangrado digestivo o dolor intenso, acude a urgencias.',
+      },
+      {
+        q: '¿Puedo pedir una colonoscopia con seguro en Málaga?',
+        a: 'Sí, cuando la indica el especialista. El digestólogo emite el volante y la aseguradora la autoriza según las condiciones de tu póliza.',
+      },
+      {
+        q: '¿Cuánto cuesta la consulta de digestivo en Málaga sin seguro?',
+        a: 'En los centros de Málaga de nuestro catálogo, entre 48 y 90 €. Con seguro, la consulta la cubre la póliza y solo pagas la tarifa de prioridad de Med Connect.',
+      },
+    ],
+  },
+
+  'otorrinolaringologia/madrid': {
+    localIntro: [
+      'La primera consulta de otorrinolaringología en la sanidad pública madrileña puede tardar semanas, y una otitis de repetición, una pérdida de audición o una sinusitis que no mejora se alargan mientras tanto.',
+      'Con Med Connect reservas otorrino privado en Madrid con cita esta semana en centros concertados con Sanitas, Adeslas, DKV, Asisa, AXA, Mapfre y Cigna. La consulta la cubre tu seguro; solo pagas la tarifa de prioridad (de €4 a €19 según la urgencia).',
+    ],
+    hospitalReferences: ['Hospital Universitario La Paz', 'Hospital Universitario Ramón y Cajal', 'Hospital General Universitario Gregorio Marañón', 'Hospital Clínico San Carlos'],
+    localPriceNote: 'Sin seguro, en los centros de Madrid de nuestro catálogo la consulta de otorrinolaringología cuesta entre 33 y 79 €; con audiometría, entre 47 y 123 €; y con rinofibrolaringoscopia, entre 73 y 213 €. Con seguro, no pagas la consulta.',
+    cityFaqs: [
+      {
+        q: '¿Puedo hacerme una audiometría en la misma cita con el otorrino en Madrid?',
+        a: 'Sí. Muchos centros de Madrid de nuestra red ofrecen la consulta con audiometría en la misma visita. Sin seguro cuesta entre 47 y 123 €; con seguro, suele estar cubierta.',
+      },
+      {
+        q: '¿Qué es la rinofibrolaringoscopia?',
+        a: 'Es una exploración con un endoscopio fino y flexible que permite al otorrino ver las fosas nasales, la faringe y la laringe. Se hace en consulta y dura unos minutos. En Madrid, sin seguro, la consulta con esta prueba cuesta entre 73 y 213 € en los centros de nuestro catálogo.',
+      },
+      {
+        q: '¿Atiende el otorrino a niños en Madrid?',
+        a: 'Sí, la mayoría de los otorrinos atienden a niños por otitis de repetición, vegetaciones o amígdalas. Al reservar, indica la edad del paciente en las observaciones.',
+      },
+    ],
+  },
+
+  'digestivo/murcia': {
+    localIntro: [
+      'En la Región de Murcia, la primera consulta de aparato digestivo en la sanidad pública puede alargarse semanas, y problemas como el reflujo, el colon irritable o un dolor abdominal persistente necesitan valoración antes.',
+      'Med Connect te da acceso a especialistas en digestivo en Murcia con hueco esta semana en centros concertados con las principales aseguradoras. Con seguro, la consulta la cubre tu póliza; tú solo pagas la tarifa de prioridad de Med Connect (de €4 a €19 según la urgencia).',
+    ],
+    hospitalReferences: ['Hospital Clínico Universitario Virgen de la Arrixaca', 'Hospital General Universitario Reina Sofía', 'Hospital General Universitario Morales Meseguer'],
+    localPriceNote: 'Sin seguro, en los centros de Murcia de nuestro catálogo la consulta de aparato digestivo cuesta entre 40 y 64 €. Con seguro, no pagas la consulta.',
+    cityFaqs: [
+      {
+        q: '¿Trata el especialista de digestivo el colon irritable?',
+        a: 'Sí. El síndrome de colon irritable es uno de los motivos de consulta más frecuentes. El especialista descarta otras causas y pauta dieta y tratamiento según los síntomas.',
+      },
+      {
+        q: '¿Necesito volante para ir al digestivo con mi seguro en Murcia?',
+        a: 'Depende de tu póliza. Muchas aseguradoras permiten acceso directo al especialista; si la tuya pide volante, consíguelo del médico de cabecera antes de la cita.',
+      },
+      {
+        q: '¿Cuánto cuesta el especialista de digestivo en Murcia sin seguro?',
+        a: 'En los centros de Murcia de nuestro catálogo, la consulta de aparato digestivo cuesta entre 40 y 64 €.',
       },
     ],
   },

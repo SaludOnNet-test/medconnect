@@ -94,7 +94,7 @@ function buildSlides({ credentials }) {
           <SlideHeader
             eyebrow="Slide 2 · Para Arita"
             title="Qué es Medconnect y por qué Cea Bermúdez está dentro"
-            lede="Medconnect es un marketplace de citas prioritarias. El paciente paga una tarifa (desde 4,99 €) por conseguir cita rápida en una clínica que ya está concertada con su seguro. La consulta sigue cubierta por el seguro; lo que cobramos es la prioridad."
+            lede="Medconnect es un marketplace de citas prioritarias. El paciente paga una tarifa (desde 4 €) por conseguir cita rápida en una clínica que ya está concertada con su seguro. La consulta sigue cubierta por el seguro; lo que cobramos es la prioridad."
           />
           <div className="diagram-flow">
             <Stage
@@ -219,9 +219,9 @@ function buildSlides({ credentials }) {
               </li>
             </ul>
             <p style={{ margin: '10px 0 0', fontSize: 13, opacity: 0.85 }}>
-              <strong>Ejemplo:</strong> si la prioridad cuesta 9,99 €, Cea gana 5,00 € por atender o 5 € por derivar
-              (en la primera semana). En tarifas sin-seguro la prioridad va de 49 € a 169 €, así que el 50 % de aceptar
-              escala bastante.
+              <strong>Ejemplo:</strong> si el paciente paga 16 € de prioridad (tramo más cercano, ya con el descuento de
+              clínica partner de Cea), Cea gana 8 € por atender. Por derivar a otra clínica, 5 € fijos si la cita es en
+              las primeras 2 semanas. La prioridad va de 4 € a 19 € según los días que faltan para la cita.
             </p>
           </Card>
 
