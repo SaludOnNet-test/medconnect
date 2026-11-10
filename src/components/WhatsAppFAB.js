@@ -1,6 +1,7 @@
 'use client';
 
 import { usePathname } from 'next/navigation';
+import { INSURER_MAP } from '@/lib/insurerData';
 import { trackEvent } from '@/lib/analytics';
 
 /**
@@ -61,6 +62,14 @@ export default function WhatsAppFAB() {
       const specialty = decodeURIComponent(m[1]).replace(/-/g, ' ');
       const city = decodeURIComponent(m[2]).replace(/-/g, ' ');
       prefill = `Hola, quiero ayuda para reservar una cita de ${specialty} en ${city}.`;
+    }
+  }
+  if (pathname.startsWith('/aseguradoras/')) {
+    const m = pathname.match(/^\/aseguradoras\/([^/]+)\/([^/]+)/);
+    if (m) {
+      const insurer = INSURER_MAP[m[1]]?.name || decodeURIComponent(m[1]);
+      const specialty = decodeURIComponent(m[2]).replace(/-/g, ' ');
+      prefill = `Hola, tengo ${insurer} y necesito una cita de ${specialty}.`;
     }
   }
 
