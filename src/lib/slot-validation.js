@@ -46,6 +46,17 @@ export const SLOT_RULES = {
   AFTERNOON_START: '14:00',
   AFTERNOON_END: '19:00',
   SLOT_INTERVAL_MINUTES: 15,
+  // Windows for clinics WITHOUT a real schedule (rule 'fallback', ~89% of
+  // the catalogue in 2026-11). The generic 08:00-13:00 / 14:00-19:00
+  // windows above sold an 08:45 Friday slot at Ceorl, which opens at
+  // 10:00 and closes Friday afternoons (Ops incident 2026-11-20). These
+  // narrower windows sit inside the opening hours of almost every
+  // Spanish private clinic; Friday afternoons are never offered.
+  FALLBACK_MORNING_START: '10:00',
+  FALLBACK_MORNING_END: '13:00',
+  FALLBACK_AFTERNOON_START: '16:00',
+  FALLBACK_AFTERNOON_END: '19:00',
+  FALLBACK_NO_FRIDAY_AFTERNOON: true,
 };
 
 // ----- helpers ----------------------------------------------------------------
@@ -284,9 +295,14 @@ function pickSlotsForTier(clinicId, schedules, tier, earliestSellable, hasDoctor
       if (hasDoctoralia) {
         time = pickTimeFromSchedules(clinicId, tier.tier, i, schedules, dbDay, period);
       } else {
-        const winStart = timeToMinutes(period === 'morning' ? SLOT_RULES.MORNING_START : SLOT_RULES.AFTERNOON_START);
-        const winEnd   = timeToMinutes(period === 'morning' ? SLOT_RULES.MORNING_END   : SLOT_RULES.AFTERNOON_END);
-        time = pickTimeInWindow(clinicId, tier.tier, i, winStart, winEnd);
+        const isFridayAfternoon = period === 'afternoon' && day.getDay() === 5;
+        if (isFridayAfternoon && SLOT_RULES.FALLBACK_NO_FRIDAY_AFTERNOON) {
+          time = null;
+        } else {
+          const winStart = timeToMinutes(period === 'morning' ? SLOT_RULES.FALLBACK_MORNING_START : SLOT_RULES.FALLBACK_AFTERNOON_START);
+          const winEnd   = timeToMinutes(period === 'morning' ? SLOT_RULES.FALLBACK_MORNING_END   : SLOT_RULES.FALLBACK_AFTERNOON_END);
+          time = pickTimeInWindow(clinicId, tier.tier, i, winStart, winEnd);
+        }
       }
 
       if (!time) continue;
